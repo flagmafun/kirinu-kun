@@ -1858,13 +1858,6 @@ def step4():
     render_stepbar(4)
     render_video_banner()
 
-    # YouTube OAuth コールバック後のメッセージ表示
-    if st.session_state.pop("_oauth_success", False):
-        st.success("✅ YouTubeチャンネルを接続しました！")
-    _err = st.session_state.pop("_oauth_error", None)
-    if _err:
-        st.error(f"YouTube認証エラー: {_err}")
-
     st.markdown("""
     <div style="padding:28px 40px 0;margin-left:-40px;margin-right:-40px;">
       <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
@@ -1873,222 +1866,17 @@ def step4():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── 認証状態チェック ──
-    secret_ok  = (CREDS_DIR / "client_secret.json").exists()
-    multi_mode = _is_multi_user_mode()
-
-    if multi_mode:
-        # ─── マルチユーザーモード: ユーザーごと YouTube 接続 ───────────
-        yt_token   = s.get("yt_token")
-        ch_name    = s.get("yt_channel_name", "")
-        ch_thumb   = s.get("yt_channel_thumbnail", "")
-        token_ok   = False
-
-        if not secret_ok:
-            # client_secret.json が Secrets に未設定（管理者向けエラー）
-            st.error(
-                "⚙️ YouTube API の設定が完了していません。"
-                "管理者に連絡してください。"
-            )
-        else:
-            # ── 接続状態カード ──────────────────────────────────
-            if yt_token:
-                from core.uploader import check_token_valid
-                if check_token_valid(yt_token):
-                    token_ok = True
-                    # チャンネル情報カード
-                    thumb_html = (
-                        f'<img src="{ch_thumb}" width="36" height="36" '
-                        f'style="border-radius:50%;object-fit:cover;margin-right:10px;vertical-align:middle;">'
-                        if ch_thumb else
-                        '<span style="font-size:28px;margin-right:10px;">📺</span>'
-                    )
-                    ch_display = ch_name if ch_name else "YouTubeチャンネル"
-                    st.markdown(
-                        f'<div style="display:flex;align-items:center;background:#f0fdf4;'
-                        f'border:1px solid #86efac;border-radius:12px;padding:14px 18px;margin-bottom:12px;">'
-                        f'{thumb_html}'
-                        f'<div>'
-                        f'<div style="font-weight:700;color:#166534;font-size:14px;">✅ 接続中</div>'
-                        f'<div style="color:#15803d;font-size:13px;">{ch_display}</div>'
-                        f'</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.warning("⚠️ 認証トークンが期限切れです。再接続してください。")
-
-            # ── 接続 / 再接続ボタン ─────────────────────────────
-            if not token_ok:
-                st.markdown(
-                    '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">'
-                    '📺 自分の YouTube チャンネルを接続して動画を自動アップロードしましょう</div>',
-                    unsafe_allow_html=True,
-                )
-
-            col_conn, col_disc = st.columns([3, 1])
-            with col_conn:
-                # ── 認証URL生成済みなら「クリックして認証」リンクを表示 ──
-                _pending_url = s.get("_yt_oauth_url")
-                if _pending_url:
-                    import html as _html
-                    import streamlit.components.v1 as _comp
-                    _escaped_url = _html.escape(_pending_url, quote=True)
-                    _comp.html(f"""
-<a id="yt-oauth-btn" href="{_escaped_url}" data-url="{_escaped_url}"
-   onclick="
-     var url=this.getAttribute('data-url');
-     try{{
-       var a=window.top.document.createElement('a');
-       a.href=url; a.target='_self';
-       window.top.document.body.appendChild(a);
-       a.click();
-       setTimeout(function(){{try{{window.top.document.body.removeChild(a);}}catch(e){{}}}},500);
-     }}catch(e){{
-       window.open(url,'_blank');
-     }}
-     return false;"
-   style="display:block;background:#7c3aed;color:#fff;
-          padding:14px;border-radius:8px;font-weight:700;
-          text-decoration:none;text-align:center;font-size:15px;
-          cursor:pointer;font-family:sans-serif;box-sizing:border-box;width:100%;">
-  &#9654;&#65039; クリックして Google 認証を完了する
-</a>
-""", height=60)
-                    if st.button("↩ キャンセル", use_container_width=True, key="_yt_cancel"):
-                        s.pop("_yt_oauth_url", None)
-                        st.rerun()
-                else:
-                    # ── 通常: 接続ボタン → URL生成 → リンク表示へ ──
-                    btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
-                    if st.button(btn_lbl,
-                                 type="secondary" if token_ok else "primary",
-                                 use_container_width=True):
-                        try:
-                            from core.uploader import get_auth_url as _gau
-                            _user_id = s.get("user_id", "anon")
-                            _state   = _make_oauth_state(_user_id)
-                            _auth_url, _ = _gau(_get_app_url(), state=_state)
-                            s["_yt_oauth_url"] = _auth_url
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"認証URL生成エラー: {e}")
-            with col_disc:
-                if token_ok and st.button("🗑 接続解除", use_container_width=True):
-                    if s.get("user_id"):
-                        from core.db import delete_youtube_token
-                        delete_youtube_token(s["user_id"])
-                    s.pop("yt_token", None)
-                    s.pop("yt_channel_name", None)
-                    s.pop("yt_channel_id", None)
-                    s.pop("yt_channel_thumbnail", None)
-                    st.rerun()
-
-    else:
-        # ─── シングルユーザーモード: ファイルベース（既存） ────────────
-        from core.uploader import check_auth as _check_auth
-        token_file = (CREDS_DIR / "token.json").exists()
-        token_ok   = _check_auth()
-        scope_warn = token_file and not token_ok
-
-        with st.expander("🔑 YouTube 認証", expanded=not (secret_ok and token_ok)):
-            c1, c2 = st.columns(2)
-            c1.metric("client_secret.json", "✅ 設定済み" if secret_ok else "❌ 未設定")
-            _tok_label = "✅ 取得済み" if token_ok else ("⚠️ 再認証が必要" if scope_warn else "❌ 未取得")
-            c2.metric("認証トークン", _tok_label)
-            if scope_warn:
-                st.warning("⚠️ 認証スコープが不足しています。「YouTubeにログイン」から再認証してください。")
-
-            if not secret_ok:
-                st.markdown("""
-<div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:12px 0;">
-<div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:8px;">📋 Google Cloud Console で取得した情報を入力してください</div>
-<div style="font-size:12px;color:#78716c;">
-  <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank"
-     style="color:#1d4ed8;font-weight:600;">① YouTube Data API v3 を有効化</a>
-  　→
-  <a href="https://console.cloud.google.com/apis/credentials/oauthclient" target="_blank"
-     style="color:#1d4ed8;font-weight:600;">② OAuth クライアントID（デスクトップアプリ）を作成</a>
-  　→　③ 下欄に貼り付け
-</div>
-</div>
-""", unsafe_allow_html=True)
-                inp_id  = st.text_input("クライアント ID", key="oauth_client_id",
-                                        placeholder="xxxxxxxxxx-xxxx.apps.googleusercontent.com")
-                inp_sec = st.text_input("クライアント シークレット", type="password",
-                                        key="oauth_client_secret", placeholder="GOCSPX-...")
-                if st.button("💾 保存して認証へ進む", type="primary",
-                             disabled=not (inp_id.strip() and inp_sec.strip())):
-                    _secret_data = {
-                        "installed": {
-                            "client_id":     inp_id.strip(),
-                            "client_secret": inp_sec.strip(),
-                            "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
-                            "token_uri":     "https://oauth2.googleapis.com/token",
-                            "auth_provider_x509_cert_url":
-                                "https://www.googleapis.com/oauth2/v1/certs",
-                            "redirect_uris": ["http://localhost"],
-                        }
-                    }
-                    CREDS_DIR.mkdir(exist_ok=True)
-                    (CREDS_DIR / "client_secret.json").write_text(
-                        json.dumps(_secret_data, indent=2), encoding="utf-8"
-                    )
-                    st.success("✅ 保存しました")
-                    st.rerun()
-                st.markdown('<div style="text-align:center;color:#9ca3af;font-size:12px;margin:8px 0;">または</div>',
-                            unsafe_allow_html=True)
-                uf = st.file_uploader("client_secret.json をアップロード", type="json",
-                                      label_visibility="collapsed")
-                if uf:
-                    CREDS_DIR.mkdir(exist_ok=True)
-                    (CREDS_DIR / "client_secret.json").write_bytes(uf.read())
-                    st.success("✅ 保存しました")
-                    st.rerun()
-
-            if secret_ok and not token_ok:
-                btn_label = "🔑 YouTubeに再ログイン（ブラウザが開きます）" if scope_warn else "🔑 YouTubeにログイン（ブラウザが開きます）"
-                if st.button(btn_label, type="primary"):
-                    if scope_warn:
-                        (CREDS_DIR / "token.json").unlink(missing_ok=True)
-                    with st.spinner("認証中..."):
-                        try:
-                            from core.uploader import get_youtube_service
-                            get_youtube_service()
-                            st.success("✅ 認証完了！")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"認証エラー: {e}")
-
-            if token_ok:
-                if st.button("🔄 トークンをリセット"):
-                    (CREDS_DIR / "token.json").unlink(missing_ok=True)
-                    st.rerun()
-
     # ── 実行サマリー ──
-    st.markdown("")
     enabled_clips = [c for c in s.clips if c.get("enabled", True)]
     sched = s.schedule
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("処理本数",   f"{len(enabled_clips)} 本")
-    col2.metric("元動画",     (s.video_info or {}).get("title", "—")[:20])
-    try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
-        last_dt = base_dt + timedelta(hours=(len(enabled_clips)-1) * int(sched["interval_hours"]))
-        col3.metric("初回投稿", base_dt.strftime("%m/%d %H:%M"))
-        col4.metric("最終投稿", last_dt.strftime("%m/%d %H:%M"))
-    except Exception:
-        pass
+    col1, col2 = st.columns(2)
+    col1.metric("作成本数", f"{len(enabled_clips)} 本")
+    col2.metric("元動画",   (s.video_info or {}).get("title", "—")[:30])
 
     st.markdown("")
 
     # ── 実行ボタン ──
-    all_ready = secret_ok and token_ok and len(enabled_clips) > 0
-    if not all_ready:
-        st.warning("YouTube認証を完了してから実行してください")
-
     col_back, col_run = st.columns([1, 3])
     with col_back:
         if st.button("← 戻る", key="back4", disabled=s.running):
@@ -2096,9 +1884,9 @@ def step4():
             st.rerun()
     with col_run:
         if st.button(
-            f"▶️  {len(enabled_clips)} 本のShortsを作成・予約投稿",
+            f"📥  {len(enabled_clips)} 本のShortsを作成してダウンロード",
             type="primary", use_container_width=True,
-            disabled=(not all_ready or s.running),
+            disabled=(len(enabled_clips) == 0 or s.running),
         ):
             s.running = True
             _run_pipeline(enabled_clips, sched)
@@ -2108,72 +1896,59 @@ def step4():
     if s.results:
         st.markdown("")
         st.markdown("### 📊 処理結果")
-        ok_count = sum(1 for r in s.results if r.get("video_id"))
+        ok_count = sum(1 for r in s.results if r.get("ok"))
         st.metric("成功", f"{ok_count} / {len(s.results)} 本")
+
         for r in s.results:
-            icon = "✅" if r.get("video_id") else "❌"
-            link = (
-                f"[youtube.com/shorts/{r['video_id']}]"
-                f"(https://youtube.com/shorts/{r['video_id']})"
-                if r.get("video_id") else "—"
-            )
+            icon = "✅" if r.get("ok") else "❌"
             st.markdown(
-                f"{icon} **{r['num']}本目** `{r['publish_jst']} JST`"
-                f" — {r['title'][:40]}　{link}"
+                f"{icon} **{r['num']}本目** — {r['title'][:40]}"
+                + (f"　`{r.get('error','')}`" if not r.get("ok") else "")
+            )
+
+        # ── ZIP ダウンロードボタン ──
+        if s.get("zip_data") and ok_count > 0:
+            st.markdown("")
+            st.markdown(
+                '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;'
+                'padding:16px 20px;margin-bottom:16px;">'
+                '<div style="font-weight:700;color:#166534;font-size:14px;margin-bottom:6px;">'
+                '📥 ダウンロード後、YouTube Studio で手動アップロードしてください</div>'
+                '<div style="font-size:12px;color:#15803d;">'
+                'studio.youtube.com → 作成 → 動画をアップロード</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            st.download_button(
+                label=f"📦 shorts_{ok_count}本.zip をダウンロード",
+                data=s["zip_data"],
+                file_name="shorts.zip",
+                mime="application/zip",
+                use_container_width=True,
+                type="primary",
             )
 
         if st.button("🔁 最初からやり直す"):
-            for k in ["step","video_info","clips","results","running"]:
-                del st.session_state[k]
+            for k in ["step", "video_info", "clips", "results", "running", "zip_data"]:
+                st.session_state.pop(k, None)
             st.rerun()
 
 
 # ── パイプライン実行 ──────────────────────────────────────
 def _run_pipeline(clips: list, sched: dict):
+    import io, zipfile
     from core.downloader import download_video
     from core.processor  import create_shorts
-    from core.uploader   import upload_shorts
 
     video_info = s.video_info
-    interval_h = int(sched["interval_hours"])
-    category   = sched.get("category_id", "22")
-
-    try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
-    except Exception:
-        st.error("スケジュール日時が正しくありません")
-        return
-
-    # ── マルチユーザー: YouTube トークン取得＆リフレッシュ ──
-    _yt_token  = None
-    _user_id   = None
-    if _is_multi_user_mode():
-        _user_id  = s.get("user_id")
-        _yt_token = s.get("yt_token")
-        if not _yt_token:
-            st.error("YouTubeチャンネルが接続されていません。認証セクションで接続してください。")
-            return
-        # 事前にトークンをリフレッシュ（1時間の有効期限対策）
-        try:
-            from core.uploader import refresh_token_if_needed
-            from core.db import save_youtube_token
-            _yt_token = refresh_token_if_needed(_yt_token)
-            s["yt_token"] = _yt_token
-            if _user_id:
-                save_youtube_token(_user_id, _yt_token)
-        except Exception as _e:
-            st.error(f"YouTubeトークンのリフレッシュに失敗しました。再接続してください。({_e})")
-            return
-
-    results = []
+    results    = []
+    zip_buffer = io.BytesIO()
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
-        # ① 元動画を1回だけダウンロード
+        # ① 元動画をダウンロード
         st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
         try:
             raw_path = download_video(video_info["url"], OUTPUT_DIR / "raw")
@@ -2183,97 +1958,78 @@ def _run_pipeline(clips: list, sched: dict):
             status.update(label="ダウンロード失敗", state="error")
             return
 
-        # ② 各クリップを処理
-        for i, clip in enumerate(clips):
-            pct  = (i + 1) / len(clips)
-            title = clip["title"] or f"Shorts {clip['index']}"
-            hashtags = clip.get("hashtags", "#Shorts")
-            description = (clip.get("description","").strip() + "\n\n" + hashtags).strip()
-            tags = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
+        # ② 各クリップを変換してZIPに追加
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, clip in enumerate(clips):
+                pct   = (i + 1) / len(clips)
+                title = clip["title"] or f"Shorts {clip['index']}"
+                prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
 
-            jst_dt = base_dt + timedelta(hours=i * interval_h)
-            utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
+                try:
+                    _rand    = st.session_state.get("rand_mode", False)
+                    _designs = st.session_state.get("clip_designs", {})
+                    _cidx    = clip.get("index", i)
+                    if _rand and _cidx in _designs:
+                        _d           = _designs[_cidx]
+                        _theme_key   = _d["theme"]
+                        _size_key    = _d["size"]
+                        _pattern_key = _d["pattern"]
+                    else:
+                        _theme_key   = st.session_state.get("title_theme",   "purple")
+                        _size_key    = st.session_state.get("title_size",    "medium")
+                        _pattern_key = st.session_state.get("title_pattern", "none")
 
-            prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
+                    _bottom_img  = clip.get("bottom_image")
+                    _bottom_path = Path(_bottom_img) if _bottom_img else None
 
-            try:
-                # デザイン設定を取得（クリップごとランダムモード対応）
-                _rand = st.session_state.get("rand_mode", False)
-                _designs = st.session_state.get("clip_designs", {})
-                _cidx = clip.get("index", i)
-                if _rand and _cidx in _designs:
-                    _d = _designs[_cidx]
-                    _theme_key   = _d["theme"]
-                    _size_key    = _d["size"]
-                    _pattern_key = _d["pattern"]
-                else:
-                    _theme_key   = st.session_state.get("title_theme",   "purple")
-                    _size_key    = st.session_state.get("title_size",    "medium")
-                    _pattern_key = st.session_state.get("title_pattern", "none")
+                    st.write(f"✂️ **{i+1}本目: 変換中** "
+                             f"({int(clip['start'])}s → {int(clip['end'])}s)")
+                    shorts_path = OUTPUT_DIR / "shorts" / f"short_{clip['index']:02d}.mp4"
+                    create_shorts(
+                        raw_path, shorts_path,
+                        max_duration=int(clip["end"] - clip["start"]),
+                        start_sec=int(clip["start"]),
+                        title=title,
+                        theme_key=_theme_key,
+                        size_key=_size_key,
+                        pattern_key=_pattern_key,
+                        themes=TITLE_THEMES,
+                        sizes=TITLE_SIZES,
+                        bottom_image_path=_bottom_path,
+                        catchphrase=clip.get("catchphrase", ""),
+                    )
 
-                _bottom_img = clip.get("bottom_image")
-                _bottom_path = Path(_bottom_img) if _bottom_img else None
+                    # ZIPに追加（ファイル名: 01_タイトル.mp4）
+                    safe_title = "".join(
+                        c for c in title if c.isalnum() or c in " _-"
+                    )[:40].strip()
+                    zip_name = f"{i+1:02d}_{safe_title}.mp4"
+                    zf.write(shorts_path, arcname=zip_name)
 
-                # 変換
-                st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
-                         f"({int(clip['start'])}s → {int(clip['end'])}s)")
-                shorts_path = OUTPUT_DIR / "shorts" / f"short_{clip['index']:02d}.mp4"
-                create_shorts(
-                    raw_path, shorts_path,
-                    max_duration=int(clip["end"] - clip["start"]),
-                    start_sec=int(clip["start"]),
-                    title=title,
-                    theme_key=_theme_key,
-                    size_key=_size_key,
-                    pattern_key=_pattern_key,
-                    themes=TITLE_THEMES,
-                    sizes=TITLE_SIZES,
-                    bottom_image_path=_bottom_path,
-                    catchphrase=clip.get("catchphrase", ""),
-                )
+                    results.append({"num": i+1, "title": title, "ok": True})
+                    st.write(f"✅ **完了**: `{zip_name}`")
 
-                # アップロード
-                st.write(f"☁️ **{i+1}本目: アップロード中** "
-                         f"— 予約: `{jst_dt.strftime('%Y/%m/%d %H:%M')} JST`")
-                video_id = upload_shorts(
-                    shorts_path, title, description, tags, utc_dt, category,
-                    playlist_id=sched.get("playlist_id"),
-                    made_for_kids=bool(sched.get("made_for_kids", False)),
-                    age_restricted=bool(sched.get("age_restricted", False)),
-                    token_json=_yt_token,  # マルチユーザー: per-user token
-                )
-
-                results.append({
-                    "num": i+1, "title": title, "video_id": video_id,
-                    "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"), "status": "✅"
-                })
-                st.write(
-                    f"✅ **完了** → "
-                    f"[youtube.com/shorts/{video_id}](https://youtube.com/shorts/{video_id})"
-                )
-
-            except Exception as e:
-                results.append({
-                    "num": i+1, "title": title, "video_id": None,
-                    "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"), "status": f"❌ {e}"
-                })
-                st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+                except Exception as e:
+                    results.append({"num": i+1, "title": title, "ok": False, "error": str(e)})
+                    st.write(f"❌ **エラー [{i+1}本目]**: {e}")
 
         prog.progress(1.0, text="全処理完了！")
-        ok = sum(1 for r in results if r["video_id"])
+        ok = sum(1 for r in results if r["ok"])
         status.update(
-            label=f"🎉 完了！{ok}/{len(results)} 本の予約投稿が完了しました",
+            label=f"🎉 完了！{ok}/{len(results)} 本の動画を作成しました",
             state="complete",
         )
 
-        # マルチユーザー: 使用量を更新
-        if _is_multi_user_mode() and _user_id and ok > 0:
+        # 使用量を更新
+        if _is_multi_user_mode() and ok > 0:
             try:
                 from core.db import increment_clips_used
-                increment_clips_used(_user_id, ok)
+                increment_clips_used(s.get("user_id"), ok)
             except Exception:
                 pass
 
+    zip_buffer.seek(0)
+    s["zip_data"] = zip_buffer.read()
     s.results = results
 
 
