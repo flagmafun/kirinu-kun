@@ -3,20 +3,34 @@ import subprocess
 import json
 from pathlib import Path
 
+_CREDS_DIR = Path(__file__).parent.parent / "credentials"
+_COOKIES_PATH = _CREDS_DIR / "cookies.txt"
 
-# クラウド環境でのyt-dlp共通オプション（403対策・JS runtime指定）
-_YTDLP_BASE = [
-    "--no-playlist",
-    # ios/android クライアントは n-challenge 不要（JS runtime なしのクラウド環境向け）
-    "--extractor-args", "youtube:player_client=ios,web_creator,default",
-    "--no-check-certificates",
-]
+
+def _get_ytdlp_base() -> list[str]:
+    """
+    yt-dlp 共通オプションを返す。
+    cookies.txt が存在すればそれを使用（最も信頼性が高い）。
+    なければクライアント指定で対処。
+    """
+    opts = [
+        "--no-playlist",
+        "--no-check-certificates",
+    ]
+    if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
+        opts += ["--cookies", str(_COOKIES_PATH)]
+    else:
+        # cookies なし: web_safari が PO Token 不要で比較的安定
+        opts += [
+            "--extractor-args", "youtube:player_client=web_safari,ios,web_creator",
+        ]
+    return opts
 
 
 def get_video_info(url: str) -> dict:
     """動画のメタ情報を取得"""
     result = subprocess.run(
-        ["yt-dlp", "--dump-json"] + _YTDLP_BASE + [url],
+        ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
         capture_output=True, text=True, check=True
     )
     return json.loads(result.stdout)
@@ -26,9 +40,11 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     """YouTube動画をmp4でダウンロードして返す"""
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    base = _get_ytdlp_base()
+
     # video_id取得
     id_result = subprocess.run(
-        ["yt-dlp", "--print", "id"] + _YTDLP_BASE + [url],
+        ["yt-dlp", "--print", "id"] + base + [url],
         capture_output=True, text=True, check=True
     )
     video_id = id_result.stdout.strip()
@@ -39,7 +55,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
         "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         "--merge-output-format", "mp4",
         "-o", output_template,
-    ] + _YTDLP_BASE + [url]
+    ] + base + [url]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")

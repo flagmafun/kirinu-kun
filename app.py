@@ -62,6 +62,17 @@ def _restore_credentials():
             except Exception:
                 tk_path.write_text(raw)
 
+    # cookies.txt — YouTube ダウンロード用（Netscape 形式）
+    ck_path = CREDS_DIR / "cookies.txt"
+    raw_ck = None
+    try:
+        raw_ck = st.secrets["youtube"]["cookies"]
+    except Exception:
+        raw_ck = os.environ.get("YOUTUBE_COOKIES")
+    if raw_ck:
+        raw_ck = raw_ck.strip()
+        ck_path.write_text(raw_ck, encoding="utf-8")
+
 _restore_credentials()
 
 

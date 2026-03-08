@@ -8,7 +8,7 @@ import subprocess
 import json
 import re
 from pathlib import Path
-from core.downloader import _YTDLP_BASE
+from core.downloader import _get_ytdlp_base
 
 
 # ──────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ from core.downloader import _YTDLP_BASE
 def get_video_info(url: str) -> dict:
     """yt-dlp で動画メタ情報を取得"""
     result = subprocess.run(
-        ["yt-dlp", "--dump-json"] + _YTDLP_BASE + [url],
+        ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
         capture_output=True, text=True, check=True,
     )
     info = json.loads(result.stdout)
@@ -61,7 +61,7 @@ def get_transcript(url: str, work_dir: Path) -> list:
             "--sub-langs", lang,
             "--sub-format", "json3",
             "-o", str(work_dir / "%(id)s"),
-        ] + _YTDLP_BASE + [url]
+        ] + _get_ytdlp_base() + [url]
         subprocess.run(cmd, capture_output=True, text=True)
 
         for f in work_dir.glob(f"*.{lang}.json3"):
