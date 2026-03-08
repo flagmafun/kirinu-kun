@@ -7,8 +7,18 @@ from pathlib import Path
 
 def _clean_url(url: str) -> str:
     """URLから markdown 記法などの余分な文字を取り除く"""
-    m = re.search(r'https?://[^\s`*_\'"]+', url)
-    return m.group(0) if m else url.strip().strip("_").strip("*").strip("`")
+    url = url.strip()
+    # 先頭の markdown 記号を除去（__url__ や _url_）
+    url = re.sub(r'^[_*`"\']+', '', url)
+    # URL を抽出（_ は URL 内で許可、ただし末尾の __ は markdown の終端なので除去）
+    m = re.match(r'(https?://[^\s\'"<>`]+)', url)
+    if not m:
+        return url
+    candidate = m.group(1)
+    # 末尾の __ (markdown closing bold) だけを除去
+    if candidate.endswith('__'):
+        candidate = candidate[:-2]
+    return candidate
 
 _CREDS_DIR = Path(__file__).parent.parent / "credentials"
 _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
