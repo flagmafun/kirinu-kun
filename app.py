@@ -138,6 +138,16 @@ def _handle_oauth_callback() -> bool:
             save_youtube_token(user_id, token_json_str)
             st.session_state["user_id"]  = user_id
             st.session_state["yt_token"] = token_data
+            # user_email を Supabase から復元
+            try:
+                from core.auth import get_supabase_admin
+                u = get_supabase_admin().auth.admin.get_user_by_id(user_id)
+                if u and u.user:
+                    st.session_state["user_email"] = u.user.email
+            except Exception:
+                pass
+            # OAuth完了後は step4 に戻す
+            st.session_state["step"] = 4
         else:
             # シングルユーザーモード: 旧来の token.json に書き戻す
             st.session_state["yt_token"] = token_data
