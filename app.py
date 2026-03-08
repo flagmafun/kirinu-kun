@@ -81,6 +81,16 @@ def _get_app_url() -> str:
         return os.environ.get("APP_URL", "http://localhost:8501")
 
 
+def _is_admin() -> bool:
+    """現在のログインユーザーが管理者かチェック"""
+    try:
+        admin_emails = [e.strip() for e in st.secrets["admin"]["emails"].split(",")]
+    except Exception:
+        env_val = os.environ.get("ADMIN_EMAILS", "")
+        admin_emails = [e.strip() for e in env_val.split(",") if e.strip()]
+    return bool(s.get("user_email")) and s.get("user_email") in admin_emails
+
+
 def _make_oauth_state(user_id: str) -> str:
     """OAuth state にユーザーIDとタイムスタンプを埋め込む（Base64 JSON）"""
     data = {"uid": user_id, "ts": int(time.time())}
@@ -620,17 +630,29 @@ def render_logo():
     </div>
     """, unsafe_allow_html=True)
 
-    # ログアウトボタン（マルチユーザーモード時）
+    # ログアウト / 管理パネルボタン（マルチユーザーモード時）
     if _is_multi_user_mode() and st.session_state.get("user_id"):
-        cols = st.columns([10, 1])
-        with cols[1]:
-            if st.button("ログアウト", key="_logout_btn",
-                         help="ログアウトします"):
-                from core.auth import sign_out
-                sign_out()
-                for k in list(st.session_state.keys()):
-                    del st.session_state[k]
-                st.rerun()
+        btn_cols = st.columns([8, 1, 1]) if _is_admin() else st.columns([10, 1])
+        if _is_admin():
+            with btn_cols[1]:
+                if st.button("⚙️ 管理", key="_admin_btn", help="管理パネルを開く"):
+                    st.query_params["page"] = "admin"
+                    st.rerun()
+            with btn_cols[2]:
+                if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
+                    from core.auth import sign_out
+                    sign_out()
+                    for k in list(st.session_state.keys()):
+                        del st.session_state[k]
+                    st.rerun()
+        else:
+            with btn_cols[1]:
+                if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
+                    from core.auth import sign_out
+                    sign_out()
+                    for k in list(st.session_state.keys()):
+                        del st.session_state[k]
+                    st.rerun()
 
 
 # ── ステップバー ──────────────────────────────────────────
@@ -670,6 +692,100 @@ def render_stepbar(current: int):
         f'<div class="step-area"><div class="stepbar">{"".join(parts)}</div></div>',
         unsafe_allow_html=True,
     )
+
+
+# ── 管理者パネル ───────────────────────────────────────────
+def render_admin_panel():
+    """管理者用ダッシュボード"""
+    render_logo()
+
+    # ← 管理パネルから戻るボタン
+    if st.button("← アプリに戻る", key="_admin_back"):
+        st.query_params.clear()
+        st.rerun()
+
+    st.markdown(
+        '<div style="font-size:22px;font-weight:800;color:#1e293b;margin:16px 0 24px;">⚙️ 管理パネル</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.spinner("データを読み込み中..."):
+        try:
+            from core.db import get_all_users_with_stats, update_user_plan
+            users = get_all_users_with_stats()
+        except Exception as e:
+            st.error(f"データ取得エラー: {e}")
+            return
+
+    if not users:
+        st.info("まだユーザーがいません")
+        return
+
+    # ── サマリー metrics ──
+    total      = len(users)
+    paid       = sum(1 for u in users if u["plan"] != "free")
+    yt_ok      = sum(1 for u in users if u["youtube_connected"])
+    clips_total = sum(u["clips_used"] for u in users)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("総ユーザー数",   f"{total} 人")
+    c2.metric("有料プラン",     f"{paid} 人")
+    c3.metric("YT接続済み",     f"{yt_ok} 人")
+    c4.metric("今月の総クリップ", f"{clips_total} 本")
+
+    st.divider()
+
+    # ── ユーザー一覧テーブル ──
+    st.markdown("### 👥 ユーザー一覧")
+
+    _PLAN_LABELS = {
+        "free":     "🆓 無料",
+        "lite":     "💡 ライト",
+        "standard": "⭐ スタンダード",
+        "pro":      "🚀 プロ",
+    }
+
+    # ヘッダー行
+    hcols = st.columns([3, 1.5, 1, 1, 1, 1.5, 1.5])
+    for col, label in zip(hcols, ["メール", "プラン", "今月使用", "上限", "YT接続", "登録日", "最終ログイン"]):
+        col.markdown(f"**{label}**")
+    st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
+
+    for user in users:
+        row = st.columns([3, 1.5, 1, 1, 1, 1.5, 1.5])
+        row[0].write(user["email"])
+        row[1].write(_PLAN_LABELS.get(user["plan"], user["plan"]))
+        row[2].write(str(user["clips_used"]))
+        row[3].write(str(user["clips_limit"]))
+        row[4].write("✅" if user["youtube_connected"] else "❌")
+        row[5].write(user["created_at"])
+        row[6].write(user["last_sign_in"])
+
+    st.divider()
+
+    # ── プラン変更 ──
+    st.markdown("### ✏️ プラン変更")
+
+    _PLAN_OPTIONS = ["free", "lite", "standard", "pro"]
+    _PLAN_LIMITS  = {"free": 10, "lite": 30, "standard": 100, "pro": 9999}
+
+    emails = [u["email"] for u in users]
+    selected_email = st.selectbox("対象ユーザーを選択", emails, key="_admin_user_sel")
+    selected_user  = next((u for u in users if u["email"] == selected_email), None)
+
+    if selected_user:
+        col_plan, col_btn = st.columns([3, 1])
+        new_plan = col_plan.selectbox(
+            "新しいプラン",
+            _PLAN_OPTIONS,
+            index=_PLAN_OPTIONS.index(selected_user.get("plan", "free")),
+            format_func=lambda x: _PLAN_LABELS.get(x, x),
+            key="_admin_plan_sel",
+        )
+        if col_btn.button("💾 変更", type="primary", key="_admin_plan_save"):
+            update_user_plan(selected_user["id"], new_plan, _PLAN_LIMITS[new_plan])
+            st.success(f"✅ {selected_email} → {_PLAN_LABELS[new_plan]} に変更しました")
+            st.rerun()
 
 
 # ── ログイン / 会員登録ページ ─────────────────────────────
@@ -748,6 +864,13 @@ def render_login_page():
                 from core.auth import sign_up, sign_in
                 res = sign_up(email_s.strip(), pass_s1)
                 if res.user:
+                    # ウェルカムメール送信（失敗しても登録は続行）
+                    try:
+                        from core.mailer import send_welcome_email
+                        send_welcome_email(email_s.strip())
+                    except Exception:
+                        pass
+
                     # 確認メール不要設定の場合はそのままログイン
                     try:
                         login_res = sign_in(email_s.strip(), pass_s1)
@@ -2040,6 +2163,14 @@ if _is_multi_user_mode():
     if not s.get("user_id"):
         render_login_page()
         st.stop()
+
+# ── 管理者パネル ──
+if st.query_params.get("page") == "admin":
+    if _is_admin():
+        render_admin_panel()
+    else:
+        st.error("⛔ 管理者のみアクセスできます")
+    st.stop()
 
 STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
 STEPS[s.step]()

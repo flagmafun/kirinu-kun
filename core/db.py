@@ -2,6 +2,7 @@
 Supabase DB 操作
 - YouTube トークン（ユーザーごと）
 - サブスクリプション / 使用量管理
+- 管理者用ユーザー一覧・プラン変更
 
 NOTE: get_supabase_admin() を使用することで RLS をバイパスし、
       サーバーサイドから安全に操作する。
@@ -126,3 +127,64 @@ def get_plan_label(plan: str) -> str:
         "standard":   "⭐ スタンダードプラン（月100本）",
         "pro":        "🚀 プロプラン（月無制限）",
     }.get(plan, f"プラン: {plan}")
+
+
+# ─────────────────────────────────────────────
+# 管理者用
+# ─────────────────────────────────────────────
+
+def get_all_users_with_stats() -> list:
+    """
+    全ユーザーの統計情報を取得（管理者専用）。
+    auth.users + subscriptions + youtube_tokens を結合して返す。
+    """
+    from core.auth import get_supabase_admin
+    sb = get_supabase_admin()
+
+    # サブスクリプション一覧
+    subs_res = sb.table("subscriptions").select("*").execute()
+    subs_by_uid = {row["user_id"]: row for row in (subs_res.data or [])}
+
+    # YouTube 接続済み UID セット
+    tokens_res = sb.table("youtube_tokens").select("user_id").execute()
+    token_uids = {row["user_id"] for row in (tokens_res.data or [])}
+
+    # Auth ユーザー一覧（service_role 必須）
+    auth_res = sb.auth.admin.list_users()
+    # supabase-py v2 はリスト直接 or .users 属性のどちらかを返す
+    auth_users = auth_res if isinstance(auth_res, list) else getattr(auth_res, "users", [])
+
+    result = []
+    for user in auth_users:
+        uid          = getattr(user, "id", None) or user.get("id", "")
+        email        = getattr(user, "email", None) or user.get("email", "—")
+        created_at   = getattr(user, "created_at", None) or user.get("created_at", "")
+        last_sign_in = getattr(user, "last_sign_in_at", None) or user.get("last_sign_in_at", "")
+        confirmed    = getattr(user, "email_confirmed_at", None) or user.get("email_confirmed_at")
+
+        sub = subs_by_uid.get(uid, {})
+        result.append({
+            "id":               uid,
+            "email":            email or "—",
+            "created_at":       str(created_at)[:10]   if created_at   else "—",
+            "last_sign_in":     str(last_sign_in)[:10] if last_sign_in else "—",
+            "email_confirmed":  bool(confirmed),
+            "plan":             sub.get("plan", "free"),
+            "clips_limit":      sub.get("clips_limit", 10),
+            "clips_used":       sub.get("clips_used_this_month", 0),
+            "youtube_connected": uid in token_uids,
+        })
+
+    # 登録日降順
+    result.sort(key=lambda u: u["created_at"], reverse=True)
+    return result
+
+
+def update_user_plan(user_id: str, plan: str, clips_limit: int):
+    """ユーザーのプランを変更（管理者専用）"""
+    from core.auth import get_supabase_admin
+    sb = get_supabase_admin()
+    sb.table("subscriptions").upsert(
+        {"user_id": user_id, "plan": plan, "clips_limit": clips_limit},
+        on_conflict="user_id",
+    ).execute()
