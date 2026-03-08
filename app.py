@@ -29,19 +29,18 @@ def _restore_credentials():
     """
     CREDS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # client_secret.json
+    # client_secret.json — Secrets が設定されていれば常に上書き（更新反映のため）
     cs_path = CREDS_DIR / "client_secret.json"
-    if not cs_path.exists():
-        raw = None
+    raw = None
+    try:
+        raw = st.secrets["youtube"]["client_secret_json"]
+    except Exception:
+        raw = os.environ.get("YOUTUBE_CLIENT_SECRET")
+    if raw:
         try:
-            raw = st.secrets["youtube"]["client_secret_json"]
+            cs_path.write_bytes(base64.b64decode(raw))
         except Exception:
-            raw = os.environ.get("YOUTUBE_CLIENT_SECRET")
-        if raw:
-            try:
-                cs_path.write_bytes(base64.b64decode(raw))
-            except Exception:
-                cs_path.write_text(raw)
+            cs_path.write_text(raw)
 
     # token.json
     tk_path = CREDS_DIR / "token.json"
