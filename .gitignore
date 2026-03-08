@@ -29,3 +29,5 @@ env/
 output/images/*.png
 output/images/*.jpg
 .claude/
+.streamlit/secrets.deploy.txt
+.streamlit/secrets_template.txt
