@@ -37,10 +37,16 @@ def _restore_credentials():
     except Exception:
         raw = os.environ.get("YOUTUBE_CLIENT_SECRET")
     if raw:
-        try:
-            cs_path.write_bytes(base64.b64decode(raw))
-        except Exception:
-            cs_path.write_text(raw)
+        raw = raw.strip()
+        if raw.startswith("{"):
+            # 生のJSON文字列
+            cs_path.write_text(raw, encoding="utf-8")
+        else:
+            # Base64エンコード済み
+            try:
+                cs_path.write_bytes(base64.b64decode(raw))
+            except Exception:
+                cs_path.write_text(raw, encoding="utf-8")
 
     # token.json
     tk_path = CREDS_DIR / "token.json"
