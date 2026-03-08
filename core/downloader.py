@@ -4,10 +4,24 @@ import json
 from pathlib import Path
 
 
+# クラウド環境でのyt-dlp共通オプション（403対策・JS runtime指定）
+_YTDLP_BASE = [
+    "--no-playlist",
+    "--extractor-args", "youtube:player_client=web_creator,mweb,default",
+    "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "--no-check-certificates",
+]
+
+# Node.js が使える場合は JS runtime に指定
+import shutil as _shutil
+if _shutil.which("node"):
+    _YTDLP_BASE += ["--js-runtimes", "node"]
+
+
 def get_video_info(url: str) -> dict:
     """動画のメタ情報を取得"""
     result = subprocess.run(
-        ["yt-dlp", "--dump-json", "--no-playlist", url],
+        ["yt-dlp", "--dump-json"] + _YTDLP_BASE + [url],
         capture_output=True, text=True, check=True
     )
     return json.loads(result.stdout)
@@ -19,7 +33,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
     # video_id取得
     id_result = subprocess.run(
-        ["yt-dlp", "--print", "id", "--no-playlist", url],
+        ["yt-dlp", "--print", "id"] + _YTDLP_BASE + [url],
         capture_output=True, text=True, check=True
     )
     video_id = id_result.stdout.strip()
@@ -29,10 +43,8 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
         "yt-dlp",
         "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         "--merge-output-format", "mp4",
-        "--no-playlist",
         "-o", output_template,
-        url,
-    ]
+    ] + _YTDLP_BASE + [url]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
