@@ -209,7 +209,11 @@ section[data-testid="stSidebar"] { display:none; }
   background:linear-gradient(135deg,#fff4ed,#ffe4d4);
   border-radius:14px; flex-shrink:0;
 }
-.brand-text { display:flex; flex-direction:column; gap:3px; }
+.brand-text { display:flex; flex-direction:column; gap:2px; }
+.brand-catchcopy {
+  font-size:10.5px; color:#f97316; font-weight:700;
+  letter-spacing:.06em; text-transform:none;
+}
 .brand-name {
   font-size:24px; font-weight:900; letter-spacing:-.02em; line-height:1.1;
   background:linear-gradient(135deg,#ea580c 0%,#dc2626 50%,#b91c1c 100%);
@@ -458,6 +462,7 @@ def render_logo():
     <div class="app-header">
       {logo_html}
       <div class="brand-text">
+        <div class="brand-catchcopy">動画の"おいしい瞬間"を切り抜くヒーロー</div>
         <div class="brand-name">切り抜きくん</div>
         <div class="brand-tagline">YouTube Shorts 自動作成ツール</div>
       </div>
