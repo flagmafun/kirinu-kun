@@ -1,7 +1,14 @@
 """YouTube動画ダウンローダー (yt-dlp)"""
 import subprocess
 import json
+import re
 from pathlib import Path
+
+
+def _clean_url(url: str) -> str:
+    """URLから markdown 記法などの余分な文字を取り除く"""
+    m = re.search(r'https?://[^\s`*_\'"]+', url)
+    return m.group(0) if m else url.strip().strip("_").strip("*").strip("`")
 
 _CREDS_DIR = Path(__file__).parent.parent / "credentials"
 _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
@@ -26,6 +33,7 @@ def _get_ytdlp_base() -> list[str]:
 
 def get_video_info(url: str) -> dict:
     """動画のメタ情報を取得"""
+    url = _clean_url(url)
     result = subprocess.run(
         ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
         capture_output=True, text=True, check=True
@@ -35,6 +43,7 @@ def get_video_info(url: str) -> dict:
 
 def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     """YouTube動画をmp4でダウンロードして返す"""
+    url = _clean_url(url)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base = _get_ytdlp_base()

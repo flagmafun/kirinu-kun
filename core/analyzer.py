@@ -8,7 +8,7 @@ import subprocess
 import json
 import re
 from pathlib import Path
-from core.downloader import _get_ytdlp_base
+from core.downloader import _get_ytdlp_base, _clean_url
 
 
 # ──────────────────────────────────────────────────────────
@@ -17,6 +17,7 @@ from core.downloader import _get_ytdlp_base
 
 def get_video_info(url: str) -> dict:
     """yt-dlp で動画メタ情報を取得"""
+    url = _clean_url(url)
     result = subprocess.run(
         ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
         capture_output=True, text=True, check=True,
