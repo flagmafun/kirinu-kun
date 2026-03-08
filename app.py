@@ -163,6 +163,69 @@ def _handle_oauth_callback() -> bool:
     return True
 
 
+def _handle_supabase_confirmation():
+    """
+    Supabase メール確認リンクからのアクセストークンを処理してログインを確立する。
+    URL fragment (#access_token=...) は JS で ?sb_access_token= に変換済み。
+    """
+    token         = st.query_params.get("sb_access_token", "")
+    refresh_token = st.query_params.get("sb_refresh_token", "")
+
+    if not token:
+        st.query_params.clear()
+        return
+
+    try:
+        from core.auth import get_supabase
+        sb = get_supabase()
+
+        # set_session でセッションを確立（両トークン使用）
+        user = None
+        try:
+            session_resp = sb.auth.set_session(token, refresh_token)
+            if session_resp and session_resp.user:
+                user = session_resp.user
+        except Exception:
+            pass
+
+        # フォールバック: アクセストークンだけで検証
+        if not user:
+            try:
+                user_resp = sb.auth.get_user(token)
+                if user_resp:
+                    user = user_resp.user
+            except Exception:
+                pass
+
+        if user:
+            st.session_state["user_id"]    = user.id
+            st.session_state["user_email"] = user.email
+            # 保存済み YouTube トークンがあれば復元
+            try:
+                from core.db import get_youtube_token
+                from core.uploader import get_channel_info
+                yt = get_youtube_token(user.id)
+                if yt:
+                    st.session_state["yt_token"] = yt
+                    ch = get_channel_info(yt)
+                    if ch:
+                        st.session_state["yt_channel_name"]      = ch["title"]
+                        st.session_state["yt_channel_id"]        = ch["id"]
+                        st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+            except Exception:
+                pass
+            st.query_params.clear()
+            st.session_state["_email_confirmed"] = True
+            st.rerun()
+        else:
+            st.query_params.clear()
+            st.warning("⚠️ メール認証リンクが無効か期限切れです。再度ログインしてください。")
+
+    except Exception as e:
+        st.query_params.clear()
+        st.error(f"認証エラー: {e}")
+
+
 def _redirect_to_url(url: str):
     """JavaScript でトップレベルウィンドウを指定 URL にリダイレクト"""
     import streamlit.components.v1 as _components
@@ -791,6 +854,37 @@ def render_admin_panel():
 # ── ログイン / 会員登録ページ ─────────────────────────────
 def render_login_page():
     """マルチユーザーモード時のログイン・会員登録画面"""
+
+    # ── Supabase メール確認: #access_token fragment を ?sb_access_token= に変換 ──
+    # allow-same-origin iframe から window.top.document に <a> を注入してナビゲート
+    import streamlit.components.v1 as _comp
+    _comp.html("""
+<script>
+(function() {
+  try {
+    var hash = window.top.location.hash;
+    if (!hash || hash.indexOf('access_token') === -1) return;
+    var params = new URLSearchParams(hash.substring(1));
+    var token   = params.get('access_token');
+    var refresh = params.get('refresh_token') || '';
+    var type    = params.get('type') || 'signup';
+    if (!token) return;
+    var loc = window.top.location;
+    var url = loc.origin + loc.pathname
+            + '?sb_access_token='   + encodeURIComponent(token)
+            + '&sb_refresh_token='  + encodeURIComponent(refresh)
+            + '&sb_type='           + encodeURIComponent(type);
+    // <a> を parent document に注入して click → top-level ナビゲーション
+    var a = window.top.document.createElement('a');
+    a.href = url;
+    window.top.document.body.appendChild(a);
+    a.click();
+    window.top.document.body.removeChild(a);
+  } catch(e) { console.warn('sb-fragment-redirect:', e); }
+})();
+</script>
+""", height=0)
+
     render_logo()
 
     # ※ OAuth メッセージは step4 で表示（ここでは不要）
@@ -1836,14 +1930,30 @@ def step4():
                 # ── 認証URL生成済みなら「クリックして認証」リンクを表示 ──
                 _pending_url = s.get("_yt_oauth_url")
                 if _pending_url:
-                    st.markdown(
-                        f'<a href="{_pending_url}" target="_top" '
-                        f'style="display:block;background:#7c3aed;color:#fff;'
-                        f'padding:14px;border-radius:8px;font-weight:700;'
-                        f'text-decoration:none;text-align:center;font-size:15px;">'
-                        f'▶️ クリックして Google 認証を完了する</a>',
-                        unsafe_allow_html=True,
-                    )
+                    import html as _html
+                    import streamlit.components.v1 as _comp
+                    _escaped_url = _html.escape(_pending_url, quote=True)
+                    _comp.html(f"""
+<a id="yt-oauth-btn" href="{_escaped_url}" data-url="{_escaped_url}"
+   onclick="
+     var url=this.getAttribute('data-url');
+     try{{
+       var a=window.top.document.createElement('a');
+       a.href=url; a.target='_self';
+       window.top.document.body.appendChild(a);
+       a.click();
+       setTimeout(function(){{try{{window.top.document.body.removeChild(a);}}catch(e){{}}}},500);
+     }}catch(e){{
+       window.open(url,'_blank');
+     }}
+     return false;"
+   style="display:block;background:#7c3aed;color:#fff;
+          padding:14px;border-radius:8px;font-weight:700;
+          text-decoration:none;text-align:center;font-size:15px;
+          cursor:pointer;font-family:sans-serif;box-sizing:border-box;width:100%;">
+  &#9654;&#65039; クリックして Google 認証を完了する
+</a>
+""", height=60)
                     if st.button("↩ キャンセル", use_container_width=True, key="_yt_cancel"):
                         s.pop("_yt_oauth_url", None)
                         st.rerun()
@@ -2175,6 +2285,10 @@ def _run_pipeline(clips: list, sched: dict):
 if "code" in st.query_params:
     _handle_oauth_callback()
 
+# ── Supabase メール確認トークン処理 ──
+if "sb_access_token" in st.query_params:
+    _handle_supabase_confirmation()
+
 # ── マルチユーザー: ログインチェック ──
 if _is_multi_user_mode():
     if not s.get("user_id"):
@@ -2185,9 +2299,15 @@ if _is_multi_user_mode():
 if st.query_params.get("page") == "admin":
     if _is_admin():
         render_admin_panel()
+        st.stop()
     else:
-        st.error("⛔ 管理者のみアクセスできます")
-    st.stop()
+        # 非管理者はメインページへリダイレクト
+        st.query_params.clear()
+        st.rerun()
+
+# ── メール認証完了メッセージ ──
+if st.session_state.pop("_email_confirmed", False):
+    st.success("✅ メールアドレスを確認しました。ようこそ切り抜きくんへ！")
 
 STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
 STEPS[s.step]()
