@@ -2,6 +2,9 @@
 Supabase DB 操作
 - YouTube トークン（ユーザーごと）
 - サブスクリプション / 使用量管理
+
+NOTE: get_supabase_admin() を使用することで RLS をバイパスし、
+      サーバーサイドから安全に操作する。
 """
 import json
 
@@ -13,8 +16,8 @@ import json
 def get_youtube_token(user_id: str) -> dict | None:
     """ユーザーの YouTube トークンを取得。なければ None を返す"""
     try:
-        from core.auth import get_supabase
-        sb = get_supabase()
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
         res = (
             sb.table("youtube_tokens")
             .select("token_json")
@@ -34,7 +37,7 @@ def save_youtube_token(user_id: str, token):
     token は Credentials オブジェクト、JSON 文字列、または辞書を受け付ける。
     """
     try:
-        from core.auth import get_supabase
+        from core.auth import get_supabase_admin
         if hasattr(token, "to_json"):
             token_str = token.to_json()
         elif isinstance(token, dict):
@@ -42,7 +45,7 @@ def save_youtube_token(user_id: str, token):
         else:
             token_str = str(token)
 
-        sb = get_supabase()
+        sb = get_supabase_admin()
         sb.table("youtube_tokens").upsert(
             {"user_id": user_id, "token_json": token_str},
             on_conflict="user_id",
@@ -54,8 +57,8 @@ def save_youtube_token(user_id: str, token):
 def delete_youtube_token(user_id: str):
     """YouTube トークンを削除"""
     try:
-        from core.auth import get_supabase
-        sb = get_supabase()
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
         sb.table("youtube_tokens").delete().eq("user_id", user_id).execute()
     except Exception:
         pass
@@ -78,8 +81,8 @@ _FREE_PLAN = {
 def get_subscription(user_id: str) -> dict:
     """ユーザーのサブスク情報を取得。なければ無料プランのデフォルトを返す"""
     try:
-        from core.auth import get_supabase
-        sb = get_supabase()
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
         res = (
             sb.table("subscriptions")
             .select("*")
@@ -104,10 +107,10 @@ def get_clips_remaining(user_id: str) -> int:
 def increment_clips_used(user_id: str, count: int = 1):
     """今月の使用クリップ数を加算"""
     try:
-        from core.auth import get_supabase
+        from core.auth import get_supabase_admin
         sub = get_subscription(user_id)
         new_count = (sub.get("clips_used_this_month") or 0) + count
-        sb = get_supabase()
+        sb = get_supabase_admin()
         sb.table("subscriptions").update(
             {"clips_used_this_month": new_count}
         ).eq("user_id", user_id).execute()

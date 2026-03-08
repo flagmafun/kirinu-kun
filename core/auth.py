@@ -23,13 +23,25 @@ def _get_supabase_config() -> tuple[str, str] | None:
     return None
 
 
+def _get_service_role_key() -> str | None:
+    """service_role_key を取得。未設定なら None を返す"""
+    try:
+        import streamlit as st
+        key = st.secrets["supabase"].get("service_role_key", "")
+        if key:
+            return key
+    except Exception:
+        pass
+    return os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "") or None
+
+
 def is_supabase_configured() -> bool:
     """Supabase が設定されているか確認（マルチユーザーモード判定に使用）"""
     return _get_supabase_config() is not None
 
 
 def get_supabase():
-    """Supabase クライアントを返す"""
+    """Supabase クライアントを返す（anon key 使用 / auth 操作用）"""
     from supabase import create_client
     cfg = _get_supabase_config()
     if not cfg:
@@ -38,6 +50,27 @@ def get_supabase():
             "Streamlit Secrets に [supabase] url と anon_key を設定してください。"
         )
     return create_client(cfg[0], cfg[1])
+
+
+def get_supabase_admin():
+    """
+    サービスロールキーを使った Supabase クライアントを返す。
+    RLS をバイパスするため、サーバーサイドの DB 操作（トークン保存・使用量更新等）に使用。
+    service_role_key 未設定の場合は anon クライアントで代用（RLS エラーの可能性あり）。
+    """
+    from supabase import create_client
+    cfg = _get_supabase_config()
+    if not cfg:
+        raise RuntimeError(
+            "Supabase が設定されていません。"
+            "Streamlit Secrets に [supabase] url と anon_key を設定してください。"
+        )
+    url = cfg[0]
+    service_key = _get_service_role_key()
+    if service_key:
+        return create_client(url, service_key)
+    # Fallback: anon key（RLS 設定によっては失敗する場合あり）
+    return create_client(url, cfg[1])
 
 
 def sign_up(email: str, password: str):
