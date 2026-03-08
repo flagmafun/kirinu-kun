@@ -564,14 +564,7 @@ if _nav_param:
     st.rerun()
 
 # ── YouTube OAuth コールバック処理 ──
-if "code" in st.query_params:
-    _handle_oauth_callback()
-
-# ── マルチユーザー: ログインチェック ──
-if _is_multi_user_mode():
-    if not s.get("user_id"):
-        render_login_page()
-        st.stop()
+# ※ ログインチェック・render_login_page は全関数定義後（ファイル末尾）に実行
 
 
 # ── ブランドヘッダー ──────────────────────────────────────
@@ -2025,8 +2018,19 @@ def _run_pipeline(clips: list, sched: dict):
 
 
 # ══════════════════════════════════════════════════════════
-# ルーティング
+# ルーティング（全関数定義後に実行）
 # ══════════════════════════════════════════════════════════
+
+# ── YouTube OAuth コールバック処理 ──
+if "code" in st.query_params:
+    _handle_oauth_callback()
+
+# ── マルチユーザー: ログインチェック ──
+if _is_multi_user_mode():
+    if not s.get("user_id"):
+        render_login_page()
+        st.stop()
+
 STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
 STEPS[s.step]()
 
