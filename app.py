@@ -1833,18 +1833,35 @@ def step4():
 
             col_conn, col_disc = st.columns([3, 1])
             with col_conn:
-                btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
-                if st.button(btn_lbl,
-                             type="secondary" if token_ok else "primary",
-                             use_container_width=True):
-                    try:
-                        from core.uploader import get_auth_url as _gau
-                        _user_id = s.get("user_id", "anon")
-                        _state   = _make_oauth_state(_user_id)
-                        _auth_url, _ = _gau(_get_app_url(), state=_state)
-                        _redirect_to_url(_auth_url)
-                    except Exception as e:
-                        st.error(f"認証URL生成エラー: {e}")
+                # ── 認証URL生成済みなら「クリックして認証」リンクを表示 ──
+                _pending_url = s.get("_yt_oauth_url")
+                if _pending_url:
+                    st.markdown(
+                        f'<a href="{_pending_url}" target="_top" '
+                        f'style="display:block;background:#7c3aed;color:#fff;'
+                        f'padding:14px;border-radius:8px;font-weight:700;'
+                        f'text-decoration:none;text-align:center;font-size:15px;">'
+                        f'▶️ クリックして Google 認証を完了する</a>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("↩ キャンセル", use_container_width=True, key="_yt_cancel"):
+                        s.pop("_yt_oauth_url", None)
+                        st.rerun()
+                else:
+                    # ── 通常: 接続ボタン → URL生成 → リンク表示へ ──
+                    btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
+                    if st.button(btn_lbl,
+                                 type="secondary" if token_ok else "primary",
+                                 use_container_width=True):
+                        try:
+                            from core.uploader import get_auth_url as _gau
+                            _user_id = s.get("user_id", "anon")
+                            _state   = _make_oauth_state(_user_id)
+                            _auth_url, _ = _gau(_get_app_url(), state=_state)
+                            s["_yt_oauth_url"] = _auth_url
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"認証URL生成エラー: {e}")
             with col_disc:
                 if token_ok and st.button("🗑 接続解除", use_container_width=True):
                     if s.get("user_id"):
