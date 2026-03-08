@@ -130,6 +130,17 @@ def _handle_oauth_callback() -> bool:
             CREDS_DIR.mkdir(exist_ok=True)
             token_path.write_text(token_json_str)
 
+        # チャンネル情報を取得して session_state に保存
+        try:
+            from core.uploader import get_channel_info
+            ch = get_channel_info(token_data)
+            if ch:
+                st.session_state["yt_channel_name"]      = ch["title"]
+                st.session_state["yt_channel_id"]        = ch["id"]
+                st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+        except Exception:
+            pass
+
         st.query_params.clear()
         st.session_state["_oauth_success"] = True
         st.rerun()
@@ -666,11 +677,7 @@ def render_login_page():
     """マルチユーザーモード時のログイン・会員登録画面"""
     render_logo()
 
-    # OAuth 成功 / エラーメッセージ
-    if st.session_state.pop("_oauth_success", False):
-        st.success("✅ YouTubeアカウントを接続しました！ログインしてください。")
-    if err := st.session_state.pop("_oauth_error", None):
-        st.error(f"YouTube認証エラー: {err}")
+    # ※ OAuth メッセージは step4 で表示（ここでは不要）
 
     st.markdown("""
     <div style="max-width:440px;margin:40px auto;padding:0 20px;">
@@ -706,6 +713,16 @@ def render_login_page():
                         yt = get_youtube_token(user.id)
                         if yt:
                             st.session_state["yt_token"] = yt
+                            # チャンネル情報も復元
+                            try:
+                                from core.uploader import get_channel_info
+                                ch = get_channel_info(yt)
+                                if ch:
+                                    st.session_state["yt_channel_name"]      = ch["title"]
+                                    st.session_state["yt_channel_id"]        = ch["id"]
+                                    st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+                            except Exception:
+                                pass
                     except Exception:
                         pass
                     st.rerun()
@@ -1624,6 +1641,13 @@ def step4():
     render_stepbar(4)
     render_video_banner()
 
+    # YouTube OAuth コールバック後のメッセージ表示
+    if st.session_state.pop("_oauth_success", False):
+        st.success("✅ YouTubeチャンネルを接続しました！")
+    _err = st.session_state.pop("_oauth_error", None)
+    if _err:
+        st.error(f"YouTube認証エラー: {_err}")
+
     st.markdown("""
     <div style="padding:28px 40px 0;margin-left:-40px;margin-right:-40px;">
       <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
@@ -1638,90 +1662,76 @@ def step4():
 
     if multi_mode:
         # ─── マルチユーザーモード: ユーザーごと YouTube 接続 ───────────
-        yt_token = s.get("yt_token")
-        token_ok = bool(yt_token)
+        yt_token   = s.get("yt_token")
+        ch_name    = s.get("yt_channel_name", "")
+        ch_thumb   = s.get("yt_channel_thumbnail", "")
+        token_ok   = False
 
-        with st.expander("🔑 YouTube チャンネル接続", expanded=not token_ok):
-            if token_ok:
-                st.success("✅ YouTubeチャンネルが接続されています")
+        if not secret_ok:
+            # client_secret.json が Secrets に未設定（管理者向けエラー）
+            st.error(
+                "⚙️ YouTube API の設定が完了していません。"
+                "管理者に連絡してください。"
+            )
+        else:
+            # ── 接続状態カード ──────────────────────────────────
+            if yt_token:
                 from core.uploader import check_token_valid
-                if not check_token_valid(yt_token):
-                    st.warning("⚠️ トークンが期限切れです。再接続してください。")
-                    token_ok = False
-
-            if not secret_ok:
-                st.markdown("""
-<div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:12px 0;">
-<b style="color:#92400e;">📋 管理者設定: Google Cloud OAuth クライアント（Webアプリケーション型）が必要です</b><br>
-<span style="font-size:12px;color:#78716c;">
-① <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" style="color:#1d4ed8;">YouTube Data API v3 を有効化</a>
-→ ② <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#1d4ed8;">OAuth クライアントID（<b>ウェブアプリケーション</b>型）を作成</a>
-→ ③ 承認済みリダイレクト URI に <code>{app_url}</code> を追加
-→ ④ 下欄にID・シークレットを入力
-</span>
-</div>
-""".format(app_url=_get_app_url()), unsafe_allow_html=True)
-                inp_id  = st.text_input("クライアント ID", key="oauth_client_id_m",
-                                        placeholder="xxxxxxxxxx.apps.googleusercontent.com")
-                inp_sec = st.text_input("クライアント シークレット", type="password",
-                                        key="oauth_client_secret_m", placeholder="GOCSPX-...")
-                if st.button("💾 保存", type="primary",
-                             disabled=not (inp_id.strip() and inp_sec.strip())):
-                    _secret_data = {
-                        "web": {
-                            "client_id":     inp_id.strip(),
-                            "client_secret": inp_sec.strip(),
-                            "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
-                            "token_uri":     "https://oauth2.googleapis.com/token",
-                            "auth_provider_x509_cert_url":
-                                "https://www.googleapis.com/oauth2/v1/certs",
-                            "redirect_uris": [_get_app_url()],
-                        }
-                    }
-                    CREDS_DIR.mkdir(exist_ok=True)
-                    (CREDS_DIR / "client_secret.json").write_text(
-                        json.dumps(_secret_data, indent=2), encoding="utf-8"
+                if check_token_valid(yt_token):
+                    token_ok = True
+                    # チャンネル情報カード
+                    thumb_html = (
+                        f'<img src="{ch_thumb}" width="36" height="36" '
+                        f'style="border-radius:50%;object-fit:cover;margin-right:10px;vertical-align:middle;">'
+                        if ch_thumb else
+                        '<span style="font-size:28px;margin-right:10px;">📺</span>'
                     )
-                    st.success("✅ 保存しました")
-                    st.rerun()
-                st.markdown("または")
-                uf = st.file_uploader("client_secret.json をアップロード", type="json",
-                                      label_visibility="collapsed")
-                if uf:
-                    CREDS_DIR.mkdir(exist_ok=True)
-                    (CREDS_DIR / "client_secret.json").write_bytes(uf.read())
-                    st.success("✅ 保存しました")
-                    st.rerun()
+                    ch_display = ch_name if ch_name else "YouTubeチャンネル"
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;background:#f0fdf4;'
+                        f'border:1px solid #86efac;border-radius:12px;padding:14px 18px;margin-bottom:12px;">'
+                        f'{thumb_html}'
+                        f'<div>'
+                        f'<div style="font-weight:700;color:#166534;font-size:14px;">✅ 接続中</div>'
+                        f'<div style="color:#15803d;font-size:13px;">{ch_display}</div>'
+                        f'</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.warning("⚠️ 認証トークンが期限切れです。再接続してください。")
 
-            if secret_ok:
-                col_conn, col_disc = st.columns([3, 1])
-                with col_conn:
-                    btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
-                    if st.button(btn_lbl, type="primary" if not token_ok else "secondary",
-                                 use_container_width=True):
-                        try:
-                            _user_id  = s.get("user_id", "anon")
-                            _state    = _make_oauth_state(_user_id)
-                            _auth_url, _ = __import__("core.uploader",
-                                fromlist=["get_auth_url"]).get_auth_url(_get_app_url())
-                            # state を使った URL に変換
-                            from core.uploader import get_auth_url as _gau
-                            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-                            _parsed = urlparse(_auth_url)
-                            _qs = parse_qs(_parsed.query)
-                            _qs["state"] = [_state]
-                            _new_query = urlencode({k: v[0] for k, v in _qs.items()})
-                            _auth_url_with_state = urlunparse(_parsed._replace(query=_new_query))
-                            _redirect_to_url(_auth_url_with_state)
-                        except Exception as e:
-                            st.error(f"認証URL生成エラー: {e}")
-                with col_disc:
-                    if token_ok and st.button("🗑 接続解除", use_container_width=True):
-                        if _is_multi_user_mode() and s.get("user_id"):
-                            from core.db import delete_youtube_token
-                            delete_youtube_token(s["user_id"])
-                        s.pop("yt_token", None)
-                        st.rerun()
+            # ── 接続 / 再接続ボタン ─────────────────────────────
+            if not token_ok:
+                st.markdown(
+                    '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">'
+                    '📺 自分の YouTube チャンネルを接続して動画を自動アップロードしましょう</div>',
+                    unsafe_allow_html=True,
+                )
+
+            col_conn, col_disc = st.columns([3, 1])
+            with col_conn:
+                btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
+                if st.button(btn_lbl,
+                             type="secondary" if token_ok else "primary",
+                             use_container_width=True):
+                    try:
+                        from core.uploader import get_auth_url as _gau
+                        _user_id = s.get("user_id", "anon")
+                        _state   = _make_oauth_state(_user_id)
+                        _auth_url, _ = _gau(_get_app_url(), state=_state)
+                        _redirect_to_url(_auth_url)
+                    except Exception as e:
+                        st.error(f"認証URL生成エラー: {e}")
+            with col_disc:
+                if token_ok and st.button("🗑 接続解除", use_container_width=True):
+                    if s.get("user_id"):
+                        from core.db import delete_youtube_token
+                        delete_youtube_token(s["user_id"])
+                    s.pop("yt_token", None)
+                    s.pop("yt_channel_name", None)
+                    s.pop("yt_channel_id", None)
+                    s.pop("yt_channel_thumbnail", None)
+                    st.rerun()
 
     else:
         # ─── シングルユーザーモード: ファイルベース（既存） ────────────

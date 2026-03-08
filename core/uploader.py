@@ -81,15 +81,16 @@ def check_auth() -> bool:
 # マルチユーザー Web OAuth
 # ─────────────────────────────────────────────
 
-def get_auth_url(redirect_uri: str) -> tuple[str, str]:
+def get_auth_url(redirect_uri: str, state: str = None) -> tuple[str, str]:
     """
     Web OAuth 認証 URL を生成。
+    state を指定するとその値を OAuth state パラメータとして使用する。
     Returns: (auth_url, state)
     """
     if not CLIENT_SECRET_PATH.exists():
         raise FileNotFoundError(
             "credentials/client_secret.json が見つかりません。"
-            "ステップ4の認証設定から client_secret.json をアップロードしてください。"
+            "Streamlit Secrets の [youtube] client_secret_json を設定してください。"
         )
     # web / installed どちらの形式も Flow が読み込める
     flow = Flow.from_client_secrets_file(
@@ -97,12 +98,36 @@ def get_auth_url(redirect_uri: str) -> tuple[str, str]:
         scopes=SCOPES,
         redirect_uri=redirect_uri,
     )
-    auth_url, state = flow.authorization_url(
+    kwargs: dict = dict(
         access_type="offline",
         include_granted_scopes="true",
         prompt="consent",
     )
-    return auth_url, state
+    if state:
+        kwargs["state"] = state
+    auth_url, returned_state = flow.authorization_url(**kwargs)
+    return auth_url, returned_state
+
+
+def get_channel_info(token_json: dict) -> dict | None:
+    """
+    接続中の YouTube チャンネル情報を取得。
+    Returns: {"id": ..., "title": ..., "thumbnail": ...} or None
+    """
+    try:
+        service, _ = get_youtube_service_from_token(token_json)
+        res = service.channels().list(part="snippet", mine=True).execute()
+        items = res.get("items", [])
+        if items:
+            snippet = items[0].get("snippet", {})
+            return {
+                "id":        items[0]["id"],
+                "title":     snippet.get("title", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+            }
+    except Exception:
+        pass
+    return None
 
 
 def exchange_code(code: str, redirect_uri: str) -> str:
