@@ -96,21 +96,23 @@ def _is_admin() -> bool:
     return bool(s.get("user_email")) and s.get("user_email") in admin_emails
 
 
-def _make_oauth_state(user_id: str) -> str:
-    """OAuth state にユーザーIDとタイムスタンプを埋め込む（Base64 JSON）"""
+def _make_oauth_state(user_id: str, code_verifier: str = None) -> str:
+    """OAuth state にユーザーID・タイムスタンプ（・code_verifier）を埋め込む（Base64 JSON）"""
     data = {"uid": user_id, "ts": int(time.time())}
+    if code_verifier:
+        data["cv"] = code_verifier
     return base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
 
 
-def _parse_oauth_state(state: str) -> str | None:
-    """OAuth state を解析してユーザーID を返す。10分超またはエラーなら None"""
+def _parse_oauth_state(state: str) -> tuple[str | None, str | None]:
+    """OAuth state を解析して (user_id, code_verifier) を返す。10分超またはエラーなら (None, None)"""
     try:
         data = json.loads(base64.urlsafe_b64decode(state.encode()))
         if time.time() - data.get("ts", 0) > 600:
-            return None
-        return data.get("uid")
+            return None, None
+        return data.get("uid"), data.get("cv")
     except Exception:
-        return None
+        return None, None
 
 
 def _handle_oauth_callback() -> bool:
@@ -126,13 +128,13 @@ def _handle_oauth_callback() -> bool:
     state = params.get("state", "")
     redirect_uri = _get_app_url()
 
+    # state からユーザーIDと PKCE code_verifier を事前に取得
+    user_id, code_verifier = _parse_oauth_state(state)
+
     try:
         from core.uploader import exchange_code
-        token_json_str = exchange_code(code, redirect_uri)
+        token_json_str = exchange_code(code, redirect_uri, code_verifier=code_verifier)
         token_data = json.loads(token_json_str)
-
-        # state からユーザーIDを復元
-        user_id = _parse_oauth_state(state)
         if user_id and _is_multi_user_mode():
             from core.db import save_youtube_token
             save_youtube_token(user_id, token_json_str)
@@ -1979,10 +1981,12 @@ def step4():
                                  type="secondary" if token_ok else "primary",
                                  use_container_width=True):
                         try:
+                            import secrets as _sec
                             from core.uploader import get_auth_url as _gau
-                            _user_id = s.get("user_id", "anon")
-                            _state   = _make_oauth_state(_user_id)
-                            _auth_url, _ = _gau(_get_app_url(), state=_state)
+                            _user_id      = s.get("user_id", "anon")
+                            _code_verifier = _sec.token_urlsafe(96)  # PKCE code_verifier
+                            _state        = _make_oauth_state(_user_id, _code_verifier)
+                            _auth_url, _  = _gau(_get_app_url(), state=_state, code_verifier=_code_verifier)
                             s["_yt_oauth_url"] = _auth_url
                             st.rerun()
                         except Exception as e:

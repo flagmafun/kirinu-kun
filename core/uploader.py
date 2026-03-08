@@ -81,12 +81,13 @@ def check_auth() -> bool:
 # マルチユーザー Web OAuth
 # ─────────────────────────────────────────────
 
-def get_auth_url(redirect_uri: str, state: str = None) -> tuple[str, str]:
+def get_auth_url(redirect_uri: str, state: str = None, code_verifier: str = None) -> tuple[str, str]:
     """
     Web OAuth 認証 URL を生成。
-    state を指定するとその値を OAuth state パラメータとして使用する。
+    code_verifier を指定すると PKCE (S256) を使用する。
     Returns: (auth_url, state)
     """
+    import hashlib
     if not CLIENT_SECRET_PATH.exists():
         raise FileNotFoundError(
             "credentials/client_secret.json が見つかりません。"
@@ -105,6 +106,13 @@ def get_auth_url(redirect_uri: str, state: str = None) -> tuple[str, str]:
     )
     if state:
         kwargs["state"] = state
+    if code_verifier:
+        # PKCE S256: code_challenge = BASE64URL(SHA256(code_verifier))
+        import base64 as _b64
+        digest = hashlib.sha256(code_verifier.encode()).digest()
+        code_challenge = _b64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+        kwargs["code_challenge"] = code_challenge
+        kwargs["code_challenge_method"] = "S256"
     auth_url, returned_state = flow.authorization_url(**kwargs)
     return auth_url, returned_state
 
@@ -130,9 +138,10 @@ def get_channel_info(token_json: dict) -> dict | None:
     return None
 
 
-def exchange_code(code: str, redirect_uri: str) -> str:
+def exchange_code(code: str, redirect_uri: str, code_verifier: str = None) -> str:
     """
     認証コードをトークンに交換。
+    code_verifier を渡すと PKCE トークン交換を行う。
     Returns: token_json 文字列
     """
     if not CLIENT_SECRET_PATH.exists():
@@ -142,7 +151,10 @@ def exchange_code(code: str, redirect_uri: str) -> str:
         scopes=SCOPES,
         redirect_uri=redirect_uri,
     )
-    flow.fetch_token(code=code)
+    fetch_kwargs: dict = {"code": code}
+    if code_verifier:
+        fetch_kwargs["code_verifier"] = code_verifier
+    flow.fetch_token(**fetch_kwargs)
     return flow.credentials.to_json()
 
 
