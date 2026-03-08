@@ -1,10 +1,11 @@
-"""YouTube Data API v3 — 予約投稿アップローダー"""
+"""YouTube Data API v3 — 予約投稿アップローダー（マルチユーザー対応）"""
+import json
 from pathlib import Path
 from datetime import datetime, timezone
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -18,8 +19,12 @@ TOKEN_PATH = _BASE / "credentials" / "token.json"
 CLIENT_SECRET_PATH = _BASE / "credentials" / "client_secret.json"
 
 
+# ─────────────────────────────────────────────
+# シングルユーザー（ファイルベース）— 後方互換
+# ─────────────────────────────────────────────
+
 def get_youtube_service():
-    """認証済み YouTube サービスを返す（初回はブラウザ認証）"""
+    """認証済み YouTube サービスを返す（シングルユーザー・ファイルベース）"""
     creds = None
 
     if TOKEN_PATH.exists():
@@ -33,7 +38,6 @@ def get_youtube_service():
             try:
                 creds.refresh(Request())
             except Exception:
-                # スコープ変更などでリフレッシュ失敗 → 旧トークンを削除して再認証
                 try:
                     TOKEN_PATH.unlink()
                 except Exception:
@@ -57,6 +61,110 @@ def get_youtube_service():
     return build("youtube", "v3", credentials=creds)
 
 
+def check_auth() -> bool:
+    """シングルユーザー認証確認（スコープ検証込み）"""
+    if not TOKEN_PATH.exists():
+        return False
+    try:
+        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+        stored = set(creds.scopes or [])
+        if stored:
+            required = set(SCOPES)
+            if not required.issubset(stored):
+                return False
+        return creds.valid or bool(creds.refresh_token)
+    except Exception:
+        return False
+
+
+# ─────────────────────────────────────────────
+# マルチユーザー Web OAuth
+# ─────────────────────────────────────────────
+
+def get_auth_url(redirect_uri: str) -> tuple[str, str]:
+    """
+    Web OAuth 認証 URL を生成。
+    Returns: (auth_url, state)
+    """
+    if not CLIENT_SECRET_PATH.exists():
+        raise FileNotFoundError(
+            "credentials/client_secret.json が見つかりません。"
+            "ステップ4の認証設定から client_secret.json をアップロードしてください。"
+        )
+    # web / installed どちらの形式も Flow が読み込める
+    flow = Flow.from_client_secrets_file(
+        str(CLIENT_SECRET_PATH),
+        scopes=SCOPES,
+        redirect_uri=redirect_uri,
+    )
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+    )
+    return auth_url, state
+
+
+def exchange_code(code: str, redirect_uri: str) -> str:
+    """
+    認証コードをトークンに交換。
+    Returns: token_json 文字列
+    """
+    if not CLIENT_SECRET_PATH.exists():
+        raise FileNotFoundError("credentials/client_secret.json が見つかりません。")
+    flow = Flow.from_client_secrets_file(
+        str(CLIENT_SECRET_PATH),
+        scopes=SCOPES,
+        redirect_uri=redirect_uri,
+    )
+    flow.fetch_token(code=code)
+    return flow.credentials.to_json()
+
+
+def get_youtube_service_from_token(token_json: dict):
+    """
+    トークン辞書から YouTube サービスを構築（マルチユーザー用）。
+    Returns: (youtube_service, updated_token_dict)
+    """
+    creds = Credentials.from_authorized_user_info(token_json, SCOPES)
+    if creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            raise RuntimeError(
+                f"YouTube認証トークンのリフレッシュに失敗しました。再接続してください。({e})"
+            ) from e
+    if not creds.valid:
+        raise RuntimeError("YouTube認証が無効です。再接続してください。")
+    service = build("youtube", "v3", credentials=creds)
+    return service, json.loads(creds.to_json())
+
+
+def refresh_token_if_needed(token_json: dict) -> dict:
+    """
+    必要であればトークンをリフレッシュして返す。
+    変更なければ同じ dict を返す。
+    """
+    creds = Credentials.from_authorized_user_info(token_json, SCOPES)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        return json.loads(creds.to_json())
+    return token_json
+
+
+def check_token_valid(token_json: dict) -> bool:
+    """トークンが有効か確認（リフレッシュは行わない）"""
+    try:
+        creds = Credentials.from_authorized_user_info(token_json, SCOPES)
+        return creds.valid or bool(creds.refresh_token)
+    except Exception:
+        return False
+
+
+# ─────────────────────────────────────────────
+# アップロード
+# ─────────────────────────────────────────────
+
 def upload_shorts(
     video_path: Path,
     title: str,
@@ -67,17 +175,20 @@ def upload_shorts(
     playlist_id: str = None,
     made_for_kids: bool = False,
     age_restricted: bool = False,
+    token_json: dict = None,   # マルチユーザー用（指定時は file-based auth をスキップ）
 ) -> str:
     """
     Shorts をアップロードして予約投稿に設定する。
+
+    token_json が指定された場合はそのトークンを使用（マルチユーザー対応）。
     publishAt は UTC datetime で渡すこと。
 
-    playlist_id   : 追加先の再生リスト ID（任意）
-    made_for_kids : True = 子ども向けコンテンツ
-    age_restricted: True = 年齢制限（18歳以上）
-    Returns: YouTube video_id
+    Returns: YouTube video_id (str)
     """
-    youtube = get_youtube_service()
+    if token_json:
+        youtube, _ = get_youtube_service_from_token(token_json)
+    else:
+        youtube = get_youtube_service()
 
     # publishAt は ISO 8601 / UTC
     if publish_at.tzinfo is None:
@@ -100,7 +211,6 @@ def upload_shorts(
         },
     }
 
-    # 年齢制限
     parts = "snippet,status"
     if age_restricted:
         body["contentRating"] = {"ytRating": "ytAgeRestricted"}
@@ -141,23 +251,6 @@ def upload_shorts(
                 },
             ).execute()
         except Exception:
-            pass  # プレイリスト追加失敗は無視（アップロード自体は成功）
+            pass
 
     return video_id
-
-
-def check_auth() -> bool:
-    """認証済みかつ必要スコープを持つか確認（API 呼び出しなし）"""
-    if not TOKEN_PATH.exists():
-        return False
-    try:
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
-        # 保存済みスコープが SCOPES をすべて含むか検証
-        stored = set(creds.scopes or [])
-        if stored:  # スコープ情報が保存されている場合のみチェック
-            required = set(SCOPES)
-            if not required.issubset(stored):
-                return False  # スコープ不足 → 再認証が必要
-        return creds.valid or bool(creds.refresh_token)
-    except Exception:
-        return False

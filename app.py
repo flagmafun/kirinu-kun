@@ -7,6 +7,8 @@ import os
 import sys
 import base64
 import random
+import json
+import time
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -56,6 +58,99 @@ def _restore_credentials():
                 tk_path.write_text(raw)
 
 _restore_credentials()
+
+
+# ══════════════════════════════════════════════════════════
+# マルチユーザー認証ヘルパー
+# ══════════════════════════════════════════════════════════
+
+def _is_multi_user_mode() -> bool:
+    """Supabase が設定されていればマルチユーザーモード"""
+    try:
+        from core.auth import is_supabase_configured
+        return is_supabase_configured()
+    except Exception:
+        return False
+
+
+def _get_app_url() -> str:
+    """リダイレクト URI 用アプリ URL を取得"""
+    try:
+        return st.secrets["app"]["url"]
+    except Exception:
+        return os.environ.get("APP_URL", "http://localhost:8501")
+
+
+def _make_oauth_state(user_id: str) -> str:
+    """OAuth state にユーザーIDとタイムスタンプを埋め込む（Base64 JSON）"""
+    data = {"uid": user_id, "ts": int(time.time())}
+    return base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+
+
+def _parse_oauth_state(state: str) -> str | None:
+    """OAuth state を解析してユーザーID を返す。10分超またはエラーなら None"""
+    try:
+        data = json.loads(base64.urlsafe_b64decode(state.encode()))
+        if time.time() - data.get("ts", 0) > 600:
+            return None
+        return data.get("uid")
+    except Exception:
+        return None
+
+
+def _handle_oauth_callback() -> bool:
+    """
+    URL に ?code=xxx&state=yyy が含まれていれば YouTube OAuth コールバックを処理。
+    処理した場合は True を返す。
+    """
+    params = st.query_params
+    code = params.get("code")
+    if not code:
+        return False
+
+    state = params.get("state", "")
+    redirect_uri = _get_app_url()
+
+    try:
+        from core.uploader import exchange_code
+        token_json_str = exchange_code(code, redirect_uri)
+        token_data = json.loads(token_json_str)
+
+        # state からユーザーIDを復元
+        user_id = _parse_oauth_state(state)
+        if user_id and _is_multi_user_mode():
+            from core.db import save_youtube_token
+            save_youtube_token(user_id, token_json_str)
+            st.session_state["user_id"]  = user_id
+            st.session_state["yt_token"] = token_data
+        else:
+            # シングルユーザーモード: 旧来の token.json に書き戻す
+            st.session_state["yt_token"] = token_data
+            token_path = CREDS_DIR / "token.json"
+            CREDS_DIR.mkdir(exist_ok=True)
+            token_path.write_text(token_json_str)
+
+        st.query_params.clear()
+        st.session_state["_oauth_success"] = True
+        st.rerun()
+
+    except Exception as e:
+        st.query_params.clear()
+        st.session_state["_oauth_error"] = str(e)
+        st.rerun()
+
+    return True
+
+
+def _redirect_to_url(url: str):
+    """JavaScript でトップレベルウィンドウを指定 URL にリダイレクト"""
+    import streamlit.components.v1 as _components
+    # XSS 対策: url はサーバー生成値のみ渡す
+    _components.html(
+        f'<script>window.top.location.href = {json.dumps(url)};</script>',
+        height=0,
+    )
+
 
 # ── タイトルデザインテーマ ──────────────────────────────────
 TITLE_THEMES = {
@@ -224,11 +319,24 @@ section[data-testid="stSidebar"] { display:none; }
   font-size:11.5px; color:#94a3b8; font-weight:500; letter-spacing:.04em;
 }
 .header-divider { flex:1; }
+.header-user {
+  display:flex; align-items:center; gap:8px; margin-right:8px;
+}
+.header-user-email {
+  font-size:11.5px; color:#64748b; font-weight:500;
+  background:#f1f5f9; padding:3px 10px; border-radius:20px;
+  border:1px solid #e2e8f0; white-space:nowrap;
+}
 .header-badge {
   background:linear-gradient(135deg,#fef3c7,#fed7aa);
   color:#92400e; font-size:11px; font-weight:700;
   padding:4px 12px; border-radius:20px; letter-spacing:.04em;
   border:1px solid #fde68a;
+}
+/* ログアウトボタン位置調整 */
+div[data-testid="stButton"] button[title="ログアウトします"] {
+  font-size:11px !important; padding:2px 8px !important;
+  height:28px !important; border-radius:6px !important;
 }
 
 /* ── ステップエリア ── */
@@ -443,20 +551,56 @@ def _init():
 _init()
 s = st.session_state   # 短縮
 
+# ── URL ナビゲーション処理（ステップクリック・ホーム戻り） ──
+_nav_param = st.query_params.get("nav")
+if _nav_param:
+    try:
+        _nav_step = int(_nav_param)
+        if 1 <= _nav_step <= 4:
+            s.step = _nav_step
+    except Exception:
+        pass
+    st.query_params.clear()
+    st.rerun()
+
+# ── YouTube OAuth コールバック処理 ──
+if "code" in st.query_params:
+    _handle_oauth_callback()
+
+# ── マルチユーザー: ログインチェック ──
+if _is_multi_user_mode():
+    if not s.get("user_id"):
+        render_login_page()
+        st.stop()
+
 
 # ── ブランドヘッダー ──────────────────────────────────────
 def render_logo():
-    """アプリ上部にブランドヘッダー（ロゴ + サービス名 + タグライン）を表示"""
-    import base64
+    """アプリ上部にブランドヘッダー（ロゴ + サービス名 + ユーザー情報）を表示"""
     logo_path = BASE_DIR / "assets" / "logo.png"
     if logo_path.exists():
         logo_b64 = base64.b64encode(logo_path.read_bytes()).decode()
         logo_html = (
             f'<img src="data:image/png;base64,{logo_b64}"'
-            f' class="brand-logo" alt="切り抜きくん">'
+            f' class="brand-logo" alt="切り抜きくん"'
+            f' onclick="window.top.location.href=\'/?nav=1\'"'
+            f' style="cursor:pointer;" title="ホームに戻る">'
         )
     else:
-        logo_html = '<div class="brand-logo-fallback">✂️</div>'
+        logo_html = (
+            '<div class="brand-logo-fallback"'
+            ' onclick="window.top.location.href=\'/?nav=1\'"'
+            ' style="cursor:pointer;" title="ホームに戻る">✂️</div>'
+        )
+
+    # マルチユーザーモード: ユーザー情報表示
+    user_section = ""
+    if _is_multi_user_mode() and st.session_state.get("user_id"):
+        email = st.session_state.get("user_email", "")
+        user_section = f"""
+        <div class="header-user">
+          <span class="header-user-email">{email[:28]}</span>
+        </div>"""
 
     st.markdown(f"""
     <div class="app-header">
@@ -467,9 +611,22 @@ def render_logo():
         <div class="brand-tagline">YouTube Shorts 自動作成ツール</div>
       </div>
       <div class="header-divider"></div>
+      {user_section}
       <div class="header-badge">✂️ Beta</div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ログアウトボタン（マルチユーザーモード時）
+    if _is_multi_user_mode() and st.session_state.get("user_id"):
+        cols = st.columns([10, 1])
+        with cols[1]:
+            if st.button("ログアウト", key="_logout_btn",
+                         help="ログアウトします"):
+                from core.auth import sign_out
+                sign_out()
+                for k in list(st.session_state.keys()):
+                    del st.session_state[k]
+                st.rerun()
 
 
 # ── ステップバー ──────────────────────────────────────────
@@ -483,10 +640,20 @@ def render_stepbar(current: int):
     ]
     parts = []
     for i, (num, label) in enumerate(steps):
-        cls = "done" if num < current else ("active" if num == current else "wait")
+        cls  = "done" if num < current else ("active" if num == current else "wait")
         icon = "✓" if num < current else str(num)
+
+        # 完了済みステップはクリックで戻れる
+        if num < current:
+            step_attrs = (
+                f'onclick="window.top.location.href=\'/?nav={num}\'"'
+                f' style="cursor:pointer;" title="ステップ{num}に戻る"'
+            )
+        else:
+            step_attrs = ""
+
         parts.append(f"""
-          <div class="st-step {cls}">
+          <div class="st-step {cls}" {step_attrs}>
             <div class="st-circle">{icon}</div>
             <div class="st-label">{label}</div>
           </div>
@@ -499,6 +666,111 @@ def render_stepbar(current: int):
         f'<div class="step-area"><div class="stepbar">{"".join(parts)}</div></div>',
         unsafe_allow_html=True,
     )
+
+
+# ── ログイン / 会員登録ページ ─────────────────────────────
+def render_login_page():
+    """マルチユーザーモード時のログイン・会員登録画面"""
+    render_logo()
+
+    # OAuth 成功 / エラーメッセージ
+    if st.session_state.pop("_oauth_success", False):
+        st.success("✅ YouTubeアカウントを接続しました！ログインしてください。")
+    if err := st.session_state.pop("_oauth_error", None):
+        st.error(f"YouTube認証エラー: {err}")
+
+    st.markdown("""
+    <div style="max-width:440px;margin:40px auto;padding:0 20px;">
+      <div style="font-size:22px;font-weight:800;color:#1e293b;margin-bottom:6px;text-align:center;">
+        アカウントにログイン
+      </div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:28px;text-align:center;">
+        切り抜きくんを使うにはアカウントが必要です
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_login, tab_signup = st.tabs(["🔑 ログイン", "📝 会員登録"])
+
+    # ─── ログインタブ ───────────────────────────────────────
+    with tab_login:
+        email_l = st.text_input("メールアドレス", key="login_email",
+                                placeholder="you@example.com")
+        pass_l  = st.text_input("パスワード", type="password", key="login_pass",
+                                placeholder="••••••••")
+        if st.button("ログイン", type="primary", use_container_width=True,
+                     disabled=not (email_l.strip() and pass_l)):
+            try:
+                from core.auth import sign_in
+                res = sign_in(email_l.strip(), pass_l)
+                if res.session:
+                    user = res.user
+                    st.session_state["user_id"]    = user.id
+                    st.session_state["user_email"] = user.email
+                    # Supabase から YouTube トークンを取得
+                    try:
+                        from core.db import get_youtube_token
+                        yt = get_youtube_token(user.id)
+                        if yt:
+                            st.session_state["yt_token"] = yt
+                    except Exception:
+                        pass
+                    st.rerun()
+                else:
+                    st.error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
+            except Exception as e:
+                st.error(f"ログインエラー: {e}")
+
+    # ─── 会員登録タブ ───────────────────────────────────────
+    with tab_signup:
+        email_s = st.text_input("メールアドレス", key="signup_email",
+                                placeholder="you@example.com")
+        pass_s1 = st.text_input("パスワード（8文字以上）", type="password",
+                                key="signup_pass1", placeholder="••••••••")
+        pass_s2 = st.text_input("パスワード（確認）", type="password",
+                                key="signup_pass2", placeholder="••••••••")
+
+        pass_ok = len(pass_s1) >= 8 and pass_s1 == pass_s2
+
+        if st.button("無料登録", type="primary", use_container_width=True,
+                     disabled=not (email_s.strip() and pass_ok)):
+            try:
+                from core.auth import sign_up, sign_in
+                res = sign_up(email_s.strip(), pass_s1)
+                if res.user:
+                    # 確認メール不要設定の場合はそのままログイン
+                    try:
+                        login_res = sign_in(email_s.strip(), pass_s1)
+                        if login_res.session:
+                            st.session_state["user_id"]    = login_res.user.id
+                            st.session_state["user_email"] = login_res.user.email
+                            st.rerun()
+                            return
+                    except Exception:
+                        pass
+                    st.success("✅ 登録完了！確認メールを送信しました。メールを確認してからログインしてください。")
+                else:
+                    st.error("登録に失敗しました。")
+            except Exception as e:
+                err_str = str(e)
+                if "already registered" in err_str.lower():
+                    st.error("このメールアドレスは既に登録されています。ログインしてください。")
+                elif "password" in err_str.lower():
+                    st.error("パスワードが条件を満たしていません（8文字以上）。")
+                else:
+                    st.error(f"登録エラー: {e}")
+
+        if pass_s1 and pass_s2 and not pass_ok:
+            if len(pass_s1) < 8:
+                st.caption("⚠️ パスワードは8文字以上で設定してください")
+            elif pass_s1 != pass_s2:
+                st.caption("⚠️ パスワードが一致しません")
+
+    st.markdown("""
+    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:32px;">
+      ✂️ 切り抜きくん Beta &nbsp;·&nbsp; 無料プランは月10本まで利用可能
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ── 動画情報バナー（ステップ2以降で表示） ─────────────────
@@ -1368,22 +1640,113 @@ def step4():
     """, unsafe_allow_html=True)
 
     # ── 認証状態チェック ──
-    from core.uploader import check_auth as _check_auth
-    secret_ok    = (CREDS_DIR / "client_secret.json").exists()
-    token_file   = (CREDS_DIR / "token.json").exists()
-    token_ok     = _check_auth()   # スコープ検証込み
-    scope_warn   = token_file and not token_ok  # ファイルはあるがスコープ不足
+    secret_ok  = (CREDS_DIR / "client_secret.json").exists()
+    multi_mode = _is_multi_user_mode()
 
-    with st.expander("🔑 YouTube 認証", expanded=not (secret_ok and token_ok)):
-        c1, c2 = st.columns(2)
-        c1.metric("client_secret.json", "✅ 設定済み" if secret_ok else "❌ 未設定")
-        _tok_label = "✅ 取得済み" if token_ok else ("⚠️ 再認証が必要" if scope_warn else "❌ 未取得")
-        c2.metric("認証トークン", _tok_label)
-        if scope_warn:
-            st.warning("⚠️ 認証スコープが不足しています。「YouTubeにログイン」から再認証してください。")
+    if multi_mode:
+        # ─── マルチユーザーモード: ユーザーごと YouTube 接続 ───────────
+        yt_token = s.get("yt_token")
+        token_ok = bool(yt_token)
 
-        if not secret_ok:
-            st.markdown("""
+        with st.expander("🔑 YouTube チャンネル接続", expanded=not token_ok):
+            if token_ok:
+                st.success("✅ YouTubeチャンネルが接続されています")
+                from core.uploader import check_token_valid
+                if not check_token_valid(yt_token):
+                    st.warning("⚠️ トークンが期限切れです。再接続してください。")
+                    token_ok = False
+
+            if not secret_ok:
+                st.markdown("""
+<div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:12px 0;">
+<b style="color:#92400e;">📋 管理者設定: Google Cloud OAuth クライアント（Webアプリケーション型）が必要です</b><br>
+<span style="font-size:12px;color:#78716c;">
+① <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" style="color:#1d4ed8;">YouTube Data API v3 を有効化</a>
+→ ② <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#1d4ed8;">OAuth クライアントID（<b>ウェブアプリケーション</b>型）を作成</a>
+→ ③ 承認済みリダイレクト URI に <code>{app_url}</code> を追加
+→ ④ 下欄にID・シークレットを入力
+</span>
+</div>
+""".format(app_url=_get_app_url()), unsafe_allow_html=True)
+                inp_id  = st.text_input("クライアント ID", key="oauth_client_id_m",
+                                        placeholder="xxxxxxxxxx.apps.googleusercontent.com")
+                inp_sec = st.text_input("クライアント シークレット", type="password",
+                                        key="oauth_client_secret_m", placeholder="GOCSPX-...")
+                if st.button("💾 保存", type="primary",
+                             disabled=not (inp_id.strip() and inp_sec.strip())):
+                    _secret_data = {
+                        "web": {
+                            "client_id":     inp_id.strip(),
+                            "client_secret": inp_sec.strip(),
+                            "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri":     "https://oauth2.googleapis.com/token",
+                            "auth_provider_x509_cert_url":
+                                "https://www.googleapis.com/oauth2/v1/certs",
+                            "redirect_uris": [_get_app_url()],
+                        }
+                    }
+                    CREDS_DIR.mkdir(exist_ok=True)
+                    (CREDS_DIR / "client_secret.json").write_text(
+                        json.dumps(_secret_data, indent=2), encoding="utf-8"
+                    )
+                    st.success("✅ 保存しました")
+                    st.rerun()
+                st.markdown("または")
+                uf = st.file_uploader("client_secret.json をアップロード", type="json",
+                                      label_visibility="collapsed")
+                if uf:
+                    CREDS_DIR.mkdir(exist_ok=True)
+                    (CREDS_DIR / "client_secret.json").write_bytes(uf.read())
+                    st.success("✅ 保存しました")
+                    st.rerun()
+
+            if secret_ok:
+                col_conn, col_disc = st.columns([3, 1])
+                with col_conn:
+                    btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
+                    if st.button(btn_lbl, type="primary" if not token_ok else "secondary",
+                                 use_container_width=True):
+                        try:
+                            _user_id  = s.get("user_id", "anon")
+                            _state    = _make_oauth_state(_user_id)
+                            _auth_url, _ = __import__("core.uploader",
+                                fromlist=["get_auth_url"]).get_auth_url(_get_app_url())
+                            # state を使った URL に変換
+                            from core.uploader import get_auth_url as _gau
+                            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                            _parsed = urlparse(_auth_url)
+                            _qs = parse_qs(_parsed.query)
+                            _qs["state"] = [_state]
+                            _new_query = urlencode({k: v[0] for k, v in _qs.items()})
+                            _auth_url_with_state = urlunparse(_parsed._replace(query=_new_query))
+                            _redirect_to_url(_auth_url_with_state)
+                        except Exception as e:
+                            st.error(f"認証URL生成エラー: {e}")
+                with col_disc:
+                    if token_ok and st.button("🗑 接続解除", use_container_width=True):
+                        if _is_multi_user_mode() and s.get("user_id"):
+                            from core.db import delete_youtube_token
+                            delete_youtube_token(s["user_id"])
+                        s.pop("yt_token", None)
+                        st.rerun()
+
+    else:
+        # ─── シングルユーザーモード: ファイルベース（既存） ────────────
+        from core.uploader import check_auth as _check_auth
+        token_file = (CREDS_DIR / "token.json").exists()
+        token_ok   = _check_auth()
+        scope_warn = token_file and not token_ok
+
+        with st.expander("🔑 YouTube 認証", expanded=not (secret_ok and token_ok)):
+            c1, c2 = st.columns(2)
+            c1.metric("client_secret.json", "✅ 設定済み" if secret_ok else "❌ 未設定")
+            _tok_label = "✅ 取得済み" if token_ok else ("⚠️ 再認証が必要" if scope_warn else "❌ 未取得")
+            c2.metric("認証トークン", _tok_label)
+            if scope_warn:
+                st.warning("⚠️ 認証スコープが不足しています。「YouTubeにログイン」から再認証してください。")
+
+            if not secret_ok:
+                st.markdown("""
 <div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:12px 0;">
 <div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:8px;">📋 Google Cloud Console で取得した情報を入力してください</div>
 <div style="font-size:12px;color:#78716c;">
@@ -1396,69 +1759,57 @@ def step4():
 </div>
 </div>
 """, unsafe_allow_html=True)
-
-            # ── 直接入力フォーム ──────────────────────────────
-            inp_id  = st.text_input(
-                "クライアント ID",
-                placeholder="xxxxxxxxxx-xxxx.apps.googleusercontent.com",
-                key="oauth_client_id",
-            )
-            inp_sec = st.text_input(
-                "クライアント シークレット",
-                placeholder="GOCSPX-...",
-                type="password",
-                key="oauth_client_secret",
-            )
-            if st.button("💾 保存して認証へ進む", type="primary",
-                         disabled=not (inp_id.strip() and inp_sec.strip())):
-                import json as _json
-                secret_data = {
-                    "installed": {
-                        "client_id":     inp_id.strip(),
-                        "client_secret": inp_sec.strip(),
-                        "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri":     "https://oauth2.googleapis.com/token",
-                        "auth_provider_x509_cert_url":
-                            "https://www.googleapis.com/oauth2/v1/certs",
-                        "redirect_uris": ["http://localhost"],
+                inp_id  = st.text_input("クライアント ID", key="oauth_client_id",
+                                        placeholder="xxxxxxxxxx-xxxx.apps.googleusercontent.com")
+                inp_sec = st.text_input("クライアント シークレット", type="password",
+                                        key="oauth_client_secret", placeholder="GOCSPX-...")
+                if st.button("💾 保存して認証へ進む", type="primary",
+                             disabled=not (inp_id.strip() and inp_sec.strip())):
+                    _secret_data = {
+                        "installed": {
+                            "client_id":     inp_id.strip(),
+                            "client_secret": inp_sec.strip(),
+                            "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri":     "https://oauth2.googleapis.com/token",
+                            "auth_provider_x509_cert_url":
+                                "https://www.googleapis.com/oauth2/v1/certs",
+                            "redirect_uris": ["http://localhost"],
+                        }
                     }
-                }
-                CREDS_DIR.mkdir(exist_ok=True)
-                (CREDS_DIR / "client_secret.json").write_text(
-                    _json.dumps(secret_data, indent=2), encoding="utf-8"
-                )
-                st.success("✅ 保存しました")
-                st.rerun()
+                    CREDS_DIR.mkdir(exist_ok=True)
+                    (CREDS_DIR / "client_secret.json").write_text(
+                        json.dumps(_secret_data, indent=2), encoding="utf-8"
+                    )
+                    st.success("✅ 保存しました")
+                    st.rerun()
+                st.markdown('<div style="text-align:center;color:#9ca3af;font-size:12px;margin:8px 0;">または</div>',
+                            unsafe_allow_html=True)
+                uf = st.file_uploader("client_secret.json をアップロード", type="json",
+                                      label_visibility="collapsed")
+                if uf:
+                    CREDS_DIR.mkdir(exist_ok=True)
+                    (CREDS_DIR / "client_secret.json").write_bytes(uf.read())
+                    st.success("✅ 保存しました")
+                    st.rerun()
 
-            st.markdown('<div style="text-align:center;color:#9ca3af;font-size:12px;margin:8px 0;">または</div>',
-                        unsafe_allow_html=True)
-            uploaded = st.file_uploader("client_secret.json をアップロード", type="json",
-                                        label_visibility="collapsed")
-            if uploaded:
-                CREDS_DIR.mkdir(exist_ok=True)
-                (CREDS_DIR / "client_secret.json").write_bytes(uploaded.read())
-                st.success("✅ 保存しました")
-                st.rerun()
+            if secret_ok and not token_ok:
+                btn_label = "🔑 YouTubeに再ログイン（ブラウザが開きます）" if scope_warn else "🔑 YouTubeにログイン（ブラウザが開きます）"
+                if st.button(btn_label, type="primary"):
+                    if scope_warn:
+                        (CREDS_DIR / "token.json").unlink(missing_ok=True)
+                    with st.spinner("認証中..."):
+                        try:
+                            from core.uploader import get_youtube_service
+                            get_youtube_service()
+                            st.success("✅ 認証完了！")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"認証エラー: {e}")
 
-        if secret_ok and not token_ok:
-            btn_label = "🔑 YouTubeに再ログイン（ブラウザが開きます）" if scope_warn else "🔑 YouTubeにログイン（ブラウザが開きます）"
-            if st.button(btn_label, type="primary"):
-                # スコープ不足の旧トークンを削除してから認証
-                if scope_warn:
+            if token_ok:
+                if st.button("🔄 トークンをリセット"):
                     (CREDS_DIR / "token.json").unlink(missing_ok=True)
-                with st.spinner("認証中..."):
-                    try:
-                        from core.uploader import get_youtube_service
-                        get_youtube_service()
-                        st.success("✅ 認証完了！")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"認証エラー: {e}")
-
-        if token_ok:
-            if st.button("🔄 トークンをリセット"):
-                (CREDS_DIR / "token.json").unlink(missing_ok=True)
-                st.rerun()
+                    st.rerun()
 
     # ── 実行サマリー ──
     st.markdown("")
@@ -1542,6 +1893,27 @@ def _run_pipeline(clips: list, sched: dict):
         st.error("スケジュール日時が正しくありません")
         return
 
+    # ── マルチユーザー: YouTube トークン取得＆リフレッシュ ──
+    _yt_token  = None
+    _user_id   = None
+    if _is_multi_user_mode():
+        _user_id  = s.get("user_id")
+        _yt_token = s.get("yt_token")
+        if not _yt_token:
+            st.error("YouTubeチャンネルが接続されていません。認証セクションで接続してください。")
+            return
+        # 事前にトークンをリフレッシュ（1時間の有効期限対策）
+        try:
+            from core.uploader import refresh_token_if_needed
+            from core.db import save_youtube_token
+            _yt_token = refresh_token_if_needed(_yt_token)
+            s["yt_token"] = _yt_token
+            if _user_id:
+                save_youtube_token(_user_id, _yt_token)
+        except Exception as _e:
+            st.error(f"YouTubeトークンのリフレッシュに失敗しました。再接続してください。({_e})")
+            return
+
     results = []
     OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -1615,6 +1987,7 @@ def _run_pipeline(clips: list, sched: dict):
                     playlist_id=sched.get("playlist_id"),
                     made_for_kids=bool(sched.get("made_for_kids", False)),
                     age_restricted=bool(sched.get("age_restricted", False)),
+                    token_json=_yt_token,  # マルチユーザー: per-user token
                 )
 
                 results.append({
@@ -1639,6 +2012,14 @@ def _run_pipeline(clips: list, sched: dict):
             label=f"🎉 完了！{ok}/{len(results)} 本の予約投稿が完了しました",
             state="complete",
         )
+
+        # マルチユーザー: 使用量を更新
+        if _is_multi_user_mode() and _user_id and ok > 0:
+            try:
+                from core.db import increment_clips_used
+                increment_clips_used(_user_id, ok)
+            except Exception:
+                pass
 
     s.results = results
 
