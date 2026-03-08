@@ -7,15 +7,10 @@ from pathlib import Path
 # クラウド環境でのyt-dlp共通オプション（403対策・JS runtime指定）
 _YTDLP_BASE = [
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=web_creator,tv_embedded,default",
-    "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    # ios/android クライアントは n-challenge 不要（JS runtime なしのクラウド環境向け）
+    "--extractor-args", "youtube:player_client=ios,web_creator,default",
     "--no-check-certificates",
 ]
-
-# Node.js が使える場合は JS runtime に指定
-import shutil as _shutil
-if _shutil.which("node"):
-    _YTDLP_BASE += ["--js-runtimes", "node"]
 
 
 def get_video_info(url: str) -> dict:
