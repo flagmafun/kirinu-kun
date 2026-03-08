@@ -7,7 +7,7 @@ from pathlib import Path
 # クラウド環境でのyt-dlp共通オプション（403対策・JS runtime指定）
 _YTDLP_BASE = [
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=web_creator,mweb,default",
+    "--extractor-args", "youtube:player_client=web_creator,tv_embedded,default",
     "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "--no-check-certificates",
 ]
