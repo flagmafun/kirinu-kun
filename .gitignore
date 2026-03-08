@@ -1,0 +1,31 @@
+# 認証情報（絶対にコミットしない）
+credentials/token.json
+credentials/client_secret.json
+credentials/
+
+# 出力ファイル（大容量のため除外）
+output/raw/
+output/shorts/
+output/transcript/
+output/session_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# Streamlit secrets（ローカル用）
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+output/images/*.png
+output/images/*.jpg
+.claude/
