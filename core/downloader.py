@@ -10,20 +10,17 @@ _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
 def _get_ytdlp_base() -> list[str]:
     """
     yt-dlp 共通オプションを返す。
-    cookies.txt が存在すればそれを使用（最も信頼性が高い）。
-    なければクライアント指定で対処。
+    ios クライアント限定 + cookies で n-challenge/PO Token を回避。
+    Streamlit Cloud に Deno/Node がないため EJS 不要な ios HLS ストリームを使う。
     """
     opts = [
         "--no-playlist",
         "--no-check-certificates",
+        # ios クライアント限定: HLS形式のみ取得 → n-challenge 不要
+        "--extractor-args", "youtube:player_client=ios",
     ]
     if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
         opts += ["--cookies", str(_COOKIES_PATH)]
-    else:
-        # cookies なし: web_safari が PO Token 不要で比較的安定
-        opts += [
-            "--extractor-args", "youtube:player_client=web_safari,ios,web_creator",
-        ]
     return opts
 
 
@@ -52,7 +49,8 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
     cmd = [
         "yt-dlp",
-        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        # HLS形式優先（ios クライアントが提供）、mp4 にマージ
+        "-f", "bestvideo+bestaudio/best",
         "--merge-output-format", "mp4",
         "-o", output_template,
     ] + base + [url]
