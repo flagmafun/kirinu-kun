@@ -627,7 +627,12 @@ def _load_session() -> tuple[dict | None, list]:
     try:
         if SESSION_FILE.exists():
             data = __import__("json").loads(SESSION_FILE.read_text(encoding="utf-8"))
-            return data.get("video_info"), data.get("clips", [])
+            video_info = data.get("video_info")
+            # 旧バージョンで保存されたURLが破損している場合に備えてクリーニング
+            if video_info and video_info.get("url"):
+                from core.downloader import _clean_url
+                video_info["url"] = _clean_url(video_info["url"])
+            return video_info, data.get("clips", [])
     except Exception:
         pass
     return None, []

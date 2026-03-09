@@ -27,14 +27,13 @@ _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
 def _get_ytdlp_base() -> list[str]:
     """
     yt-dlp 共通オプションを返す。
-    ios クライアント限定 + cookies で n-challenge/PO Token を回避。
-    Streamlit Cloud に Deno/Node がないため EJS 不要な ios HLS ストリームを使う。
+    android_vr クライアント: PO Token 不要・JS runtime 不要・cookiesなしでも動作。
     """
     opts = [
         "--no-playlist",
         "--no-check-certificates",
-        # ios クライアント限定: HLS形式のみ取得 → n-challenge 不要
-        "--extractor-args", "youtube:player_client=ios",
+        # android_vr: PO Token不要、n-challenge不要、cookiesなしでも1080pまで取得可
+        "--extractor-args", "youtube:player_client=android_vr",
     ]
     if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
         opts += ["--cookies", str(_COOKIES_PATH)]
