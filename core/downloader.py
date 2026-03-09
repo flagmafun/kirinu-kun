@@ -24,6 +24,31 @@ _CREDS_DIR = Path(__file__).parent.parent / "credentials"
 _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
 
 
+def _ensure_netscape_cookies() -> None:
+    """cookies.txtがJSON形式で保存されていたらNetscape形式に変換する。
+    yt-dlpはNetscape形式のみ受け付けるため、呼び出し前に必ず変換しておく。"""
+    if not _COOKIES_PATH.exists() or _COOKIES_PATH.stat().st_size == 0:
+        return
+    content = _COOKIES_PATH.read_text(encoding="utf-8").strip()
+    if not content.startswith("["):
+        return  # すでにNetscape形式
+    try:
+        cookies_list = json.loads(content)
+        lines = ["# Netscape HTTP Cookie File"]
+        for c in cookies_list:
+            domain = c.get("domain", "")
+            flag = "TRUE" if domain.startswith(".") else "FALSE"
+            path = c.get("path", "/")
+            secure = "TRUE" if c.get("secure", False) else "FALSE"
+            expiry = str(int(c.get("expirationDate", 0)))
+            name = c.get("name", "")
+            value = c.get("value", "")
+            lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+        _COOKIES_PATH.write_text("\n".join(lines), encoding="utf-8")
+    except Exception:
+        pass  # 変換失敗時はそのまま渡してyt-dlpのエラーに任せる
+
+
 def _get_ytdlp_base() -> list[str]:
     """
     yt-dlp 共通オプションを返す。
@@ -36,6 +61,7 @@ def _get_ytdlp_base() -> list[str]:
 
     cookies がある場合は追加で渡す（なくても動作する）。
     """
+    _ensure_netscape_cookies()  # JSON形式だった場合はNetscape形式に変換
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
 
