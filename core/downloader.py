@@ -1,4 +1,4 @@
-"""YouTube動画ダウンローダー (yt-dlp)"""
+"""YouTube動画ダウンローダー (yt-dlp / android_vr client)"""
 import subprocess
 import json
 import re
