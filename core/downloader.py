@@ -65,11 +65,18 @@ def _get_ytdlp_base() -> list[str]:
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
 
-    # android_vr のみ使用（PO Token不要・n-challenge不要・Deno不要）
-    # web クライアントはn-challengeにDeno/Nodeが必要 → Streamlit Cloudでは使えない
-    opts += ["--extractor-args", "youtube:player_client=android_vr"]
     if has_cookies:
-        opts += ["--cookies", str(_COOKIES_PATH)]
+        # Cookieあり → web クライアント（Cookie対応・認証済みCDN URL）
+        # 認証済みCDN URLはIPに縛られないためStreamlit Cloud 403を回避できる
+        # format 18（非DASH）はnパラメータを持たないためDeno/n-challenge不要
+        opts += [
+            "--extractor-args", "youtube:player_client=web",
+            "--cookies", str(_COOKIES_PATH),
+        ]
+    else:
+        # Cookieなし → android_vr（PO Token不要・n-challenge不要・Deno不要）
+        # ただしStreamlit CloudのデータセンターIPはCDNにブロックされる場合がある
+        opts += ["--extractor-args", "youtube:player_client=android_vr"]
 
     return opts
 
