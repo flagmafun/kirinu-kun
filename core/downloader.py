@@ -1,4 +1,15 @@
-"""YouTube動画ダウンローダー (yt-dlp / android_vr client)"""
+"""YouTube動画ダウンローダー (yt-dlp)
+
+クライアント選択戦略:
+  Cookieあり → web クライアント + --js-runtimes node
+    - Node.jsがn-challengeを解決（packages.txtのnodejsを使用）
+    - yt-dlp 2026.03以降はDenoがデフォルト → 明示的に node を指定
+    - 認証済みCDN URLでデータセンターIPブロックを回避
+  Cookieなし → android_vr クライアント
+    - ratebypass=yes → n-challenge不要・Deno不要
+    - PO Token不要
+    - ただしStreamlit CloudのデータセンターIPはCDNにブロックされる場合あり
+"""
 import subprocess
 import json
 import re
@@ -8,17 +19,15 @@ from pathlib import Path
 def _clean_url(url: str) -> str:
     """URLから markdown 記法などの余分な文字を取り除く"""
     url = url.strip()
-    # 先頭の markdown 記号を除去（__url__ や _url_）
     url = re.sub(r'^[_*`"\']+', '', url)
-    # URL を抽出（_ は URL 内で許可、ただし末尾の __ は markdown の終端なので除去）
     m = re.match(r'(https?://[^\s\'"<>`]+)', url)
     if not m:
         return url
     candidate = m.group(1)
-    # 末尾の __ (markdown closing bold) だけを除去
     if candidate.endswith('__'):
         candidate = candidate[:-2]
     return candidate
+
 
 _CREDS_DIR = Path(__file__).parent.parent / "credentials"
 _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
@@ -46,36 +55,26 @@ def _ensure_netscape_cookies() -> None:
             lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
         _COOKIES_PATH.write_text("\n".join(lines), encoding="utf-8")
     except Exception:
-        pass  # 変換失敗時はそのまま渡してyt-dlpのエラーに任せる
+        pass
 
 
 def _get_ytdlp_base() -> list[str]:
-    """
-    yt-dlp 共通オプションを返す。
-
-    android_vr クライアント固定：
-      - PO Token不要・n-challenge不要・Deno/Node不要
-      - Streamlit Cloud等の環境でも動作
-      - webクライアントはn-challengeにDeno/Nodeが必要なため使用しない
-      - format 18（非DASH単一ファイル360p mp4）と組み合わせてCDN IP制限を回避
-
-    cookies がある場合は追加で渡す（なくても動作する）。
-    """
-    _ensure_netscape_cookies()  # JSON形式だった場合はNetscape形式に変換
+    """yt-dlp共通オプションを返す。"""
+    _ensure_netscape_cookies()
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # Cookieあり → web クライアント（Cookie対応・認証済みCDN URL）
-        # 認証済みCDN URLはIPに縛られないためStreamlit Cloud 403を回避できる
-        # format 18（非DASH）はnパラメータを持たないためDeno/n-challenge不要
+        # Cookieあり: webクライアント + Node.jsでn-challenge解決
+        # packages.txtの nodejs がStreamlit Cloudにインストール済み
+        # yt-dlp 2026.03以降はDenoがデフォルトなので --js-runtimes node を明示
         opts += [
             "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
+            "--js-runtimes", "node",
         ]
     else:
-        # Cookieなし → android_vr（PO Token不要・n-challenge不要・Deno不要）
-        # ただしStreamlit CloudのデータセンターIPはCDNにブロックされる場合がある
+        # Cookieなし: android_vrクライアント（ratebypass=yes, n-challenge不要）
         opts += ["--extractor-args", "youtube:player_client=android_vr"]
 
     return opts
@@ -97,6 +96,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base = _get_ytdlp_base()
+    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
     # video_id取得
     id_result = subprocess.run(
@@ -106,39 +106,34 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
-    cmd = [
-        "yt-dlp",
-        # format 18（itag=18, 360p 非DASH単一ファイルmp4）を最優先
-        # Streamlit CloudのデータセンターIPはYouTube CDNにDASHストリームを403でブロックされるが
-        # format 18 は単一HTTP URLでレンジリクエストを使わないためIP制限を受けにくい
-        # fallback: ≤480p DASH（万一format 18がない場合）→ best
-        "-f", "18/bestvideo[height<=480]+bestaudio/best",
-        "--merge-output-format", "mp4",
-        "-o", output_template,
-    ] + base + [url]
+    # フォーマット選択:
+    #   Cookieあり（web + node）: 720p DASH + audio も取れる（認証済みCDN）
+    #   Cookieなし（android_vr）: format 18のみ安全（ratebypass=yes, n不要）
+    if has_cookies:
+        fmt = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/18/best"
+    else:
+        fmt = "18/best"
+
+    cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
+           "-o", output_template] + base + [url]
+
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
-        # 403 はデータセンターIP によるCDNブロック → Cookie不足のガイドを表示
         if "HTTP Error 403" in err or "403: Forbidden" in err:
-            cookie_hint = (
-                "\n\n【解決方法】Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
-                "YouTubeにログインしたブラウザからCookieをエクスポートし、\n"
-                "Streamlit Secrets の [youtube] セクションに\n"
-                "cookies = \"\"\"（cookies.txtの内容）\"\"\"\n"
-                "を追加してください。\n"
-                "Cookieのエクスポートには Chrome拡張「Get cookies.txt LOCALLY」が使えます。"
+            raise RuntimeError(
+                "YouTube CDN 403エラー（IP制限）\n\n"
+                "Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
+                "Streamlit Secrets の [youtube] セクションにcookiesを設定してください。\n\n"
+                f"詳細: {err[-300:]}"
             )
-            raise RuntimeError(f"YouTube CDN 403エラー（IP制限）{cookie_hint}\n\n詳細: {err[-300:]}")
-        raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-400:]}")
+        raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
-    # ダウンロード済みファイルを探す（拡張子不問でglobサーチ）
     for ext in [".mp4", ".mkv", ".webm", ".m4v", ".mov"]:
         path = output_dir / f"{video_id}{ext}"
         if path.exists():
             return path
 
-    # glob fallback（ffmpegなし等で拡張子が変わる場合）
     candidates = [
         p for p in output_dir.glob(f"{video_id}.*")
         if p.suffix not in {".part", ".ytdl", ".json"}
