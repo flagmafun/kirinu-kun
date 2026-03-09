@@ -2217,7 +2217,19 @@ def _run_pipeline(clips: list, sched: dict):
             raw_path = download_video(video_info["url"], OUTPUT_DIR / "raw")
             st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
         except Exception as e:
-            st.error(f"❌ ダウンロード失敗: {e}")
+            err_msg = str(e)
+            st.error(f"❌ ダウンロード失敗: {err_msg}")
+            if "403" in err_msg or "IP制限" in err_msg:
+                st.info(
+                    "💡 **解決方法**: Streamlit CloudのIPがYouTube CDNにブロックされています。\n\n"
+                    "**手順:**\n"
+                    "1. Chromeに [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 拡張をインストール\n"
+                    "2. YouTubeにログインした状態で拡張をクリック → `Export` → `youtube.com` のみを選択して保存\n"
+                    "3. Streamlit Cloud の **Settings → Secrets** を開く\n"
+                    "4. `[youtube]` セクションに以下を追加:\n"
+                    "```toml\n[youtube]\ncookies = \"\"\"\n# Netscape HTTP Cookie File\n（ここにcookies.txtの中身をペースト）\n\"\"\"\n```\n"
+                    "5. Save → アプリが自動的に再起動します"
+                )
             status.update(label="ダウンロード失敗", state="error")
             return
 

@@ -86,6 +86,17 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
+        # 403 はデータセンターIP によるCDNブロック → Cookie不足のガイドを表示
+        if "HTTP Error 403" in err or "403: Forbidden" in err:
+            cookie_hint = (
+                "\n\n【解決方法】Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
+                "YouTubeにログインしたブラウザからCookieをエクスポートし、\n"
+                "Streamlit Secrets の [youtube] セクションに\n"
+                "cookies = \"\"\"（cookies.txtの内容）\"\"\"\n"
+                "を追加してください。\n"
+                "Cookieのエクスポートには Chrome拡張「Get cookies.txt LOCALLY」が使えます。"
+            )
+            raise RuntimeError(f"YouTube CDN 403エラー（IP制限）{cookie_hint}\n\n詳細: {err[-300:]}")
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-400:]}")
 
     # ダウンロード済みファイルを探す（拡張子不問でglobサーチ）
