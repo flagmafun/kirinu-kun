@@ -2,9 +2,11 @@
 
 クライアント選択戦略:
   Cookieあり → web クライアント + --js-runtimes node
-    - Node.jsがn-challengeを解決（packages.txtのnodejsを使用）
+    - Node.jsがn-challengeを解決（requirements.txt の nodejs-wheel を使用）
     - yt-dlp 2026.03以降はDenoがデフォルト → 明示的に node を指定
     - 認証済みCDN URLでデータセンターIPブロックを回避
+    - yt-dlp-ejs (pip) がEJSスクリプト配布を担当
+    - nodejs-wheel (pip) がNode.js 22.6+ バイナリを提供（packages.txt 不要）
   Cookieなし → android_vr クライアント
     - ratebypass=yes → n-challenge不要・Deno不要
     - PO Token不要
@@ -66,7 +68,8 @@ def _get_ytdlp_base() -> list[str]:
 
     if has_cookies:
         # Cookieあり: webクライアント + Node.jsでn-challenge解決
-        # packages.txtの nodejs がStreamlit Cloudにインストール済み
+        # requirements.txtの nodejs-wheel がNode.js 22.6+ をpip経由で提供
+        # yt-dlp-ejs がEJSスクリプト配布を担当
         # yt-dlp 2026.03以降はDenoがデフォルトなので --js-runtimes node を明示
         opts += [
             "--extractor-args", "youtube:player_client=web",
