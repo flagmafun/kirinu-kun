@@ -2238,16 +2238,28 @@ def _run_pipeline(clips: list, sched: dict):
             err_msg = str(e)
             st.error(f"❌ ダウンロード失敗: {err_msg}")
             if "403" in err_msg or "IP制限" in err_msg:
-                st.info(
-                    "💡 **解決方法**: Streamlit CloudのIPがYouTube CDNにブロックされています。\n\n"
-                    "**手順:**\n"
-                    "1. Chromeに [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 拡張をインストール\n"
-                    "2. YouTubeにログインした状態で拡張をクリック → `Export` → `youtube.com` のみを選択して保存\n"
-                    "3. Streamlit Cloud の **Settings → Secrets** を開く\n"
-                    "4. `[youtube]` セクションに以下を追加:\n"
-                    "```toml\n[youtube]\ncookies = \"\"\"\n# Netscape HTTP Cookie File\n（ここにcookies.txtの中身をペースト）\n\"\"\"\n```\n"
-                    "5. Save → アプリが自動的に再起動します"
-                )
+                _ck = CREDS_DIR / "cookies.txt"
+                _has_cookies = _ck.exists() and _ck.stat().st_size > 0
+                if _has_cookies:
+                    st.warning(
+                        "⚠️ **cookies は設定済みですが、まだ 403 エラーが発生しています。**\n\n"
+                        "考えられる原因:\n"
+                        "- **cookiesの期限切れ**: YouTubeに再ログインして新しいcookiesを取得してください\n"
+                        "- **デプロイ直後**: 新バージョンの反映に数分かかります。少し待ってから再試行してください\n"
+                        "- **n-challenge解決の失敗**: Node.jsが正常に動作していない可能性があります\n\n"
+                        "cookiesを再取得する場合は、`Get cookies.txt LOCALLY` 拡張でエクスポートし直してSecretsを更新してください。"
+                    )
+                else:
+                    st.info(
+                        "💡 **解決方法**: Streamlit CloudのIPがYouTube CDNにブロックされています。\n\n"
+                        "**手順:**\n"
+                        "1. Chromeに [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 拡張をインストール\n"
+                        "2. YouTubeにログインした状態で拡張をクリック → `Export` → `youtube.com` のみを選択して保存\n"
+                        "3. Streamlit Cloud の **Settings → Secrets** を開く\n"
+                        "4. `[youtube]` セクションに以下を追加:\n"
+                        "```toml\n[youtube]\ncookies = \"\"\"\n# Netscape HTTP Cookie File\n（ここにcookies.txtの中身をペースト）\n\"\"\"\n```\n"
+                        "5. Save → アプリが自動的に再起動します"
+                    )
             status.update(label="ダウンロード失敗", state="error")
             return
 
