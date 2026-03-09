@@ -27,16 +27,30 @@ _COOKIES_PATH = _CREDS_DIR / "cookies.txt"
 def _get_ytdlp_base() -> list[str]:
     """
     yt-dlp 共通オプションを返す。
-    android_vr クライアント: PO Token 不要・JS runtime 不要・cookiesなしでも動作。
+
+    cookies あり → web クライアント優先
+      ログイン済みセッションはYouTube CDNのIP制限を回避できる。
+      n-challenge も認証済み cookies で自動バイパス。
+      android_vr をフォールバックとして追加（一部フォーマット補完）。
+
+    cookies なし → android_vr クライアント
+      PO Token不要・Deno不要で1080pまで取得可能。
+      ただしStreamlit Cloud等のデータセンターIPではCDN 403が出ることがある。
     """
-    opts = [
-        "--no-playlist",
-        "--no-check-certificates",
-        # android_vr: PO Token不要、n-challenge不要、cookiesなしでも1080pまで取得可
-        "--extractor-args", "youtube:player_client=android_vr",
-    ]
-    if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
-        opts += ["--cookies", str(_COOKIES_PATH)]
+    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    opts = ["--no-playlist", "--no-check-certificates"]
+
+    if has_cookies:
+        # 認証済みcookies → web クライアント（ログイン状態でCDU URLがIP非依存になる）
+        # android_vr をfallbackとして追加（webで取れないフォーマット補完）
+        opts += [
+            "--extractor-args", "youtube:player_client=web,android_vr",
+            "--cookies", str(_COOKIES_PATH),
+        ]
+    else:
+        # cookies なし: android_vr（PO Token不要・n-challenge不要）
+        opts += ["--extractor-args", "youtube:player_client=android_vr"]
+
     return opts
 
 
@@ -67,8 +81,9 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
     cmd = [
         "yt-dlp",
-        # HLS形式優先（ios クライアントが提供）、mp4 にマージ
-        "-f", "bestvideo+bestaudio/best",
+        # ≤720p 優先（Shorts に十分）→ format 18（非DASH 360p）→ best
+        # format 18 は DASH でない単一ファイル mp4 なので CDN IP制限を受けにくい
+        "-f", "bestvideo[height<=720]+bestaudio/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/18/best",
         "--merge-output-format", "mp4",
         "-o", output_template,
     ] + base + [url]
