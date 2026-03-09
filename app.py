@@ -71,6 +71,24 @@ def _restore_credentials():
         raw_ck = os.environ.get("YOUTUBE_COOKIES")
     if raw_ck:
         raw_ck = raw_ck.strip()
+        # JSON形式（ブラウザ開発者ツールからのエクスポート等）→ Netscape形式に変換
+        if raw_ck.startswith("["):
+            try:
+                import json as _json
+                cookies_list = _json.loads(raw_ck)
+                lines = ["# Netscape HTTP Cookie File"]
+                for c in cookies_list:
+                    domain = c.get("domain", "")
+                    flag = "TRUE" if domain.startswith(".") else "FALSE"
+                    path = c.get("path", "/")
+                    secure = "TRUE" if c.get("secure", False) else "FALSE"
+                    expiry = str(int(c.get("expirationDate", 0)))
+                    name = c.get("name", "")
+                    value = c.get("value", "")
+                    lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+                raw_ck = "\n".join(lines)
+            except Exception:
+                pass  # 変換失敗時はそのまま書き込む
         ck_path.write_text(raw_ck, encoding="utf-8")
 
 _restore_credentials()
