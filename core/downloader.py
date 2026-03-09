@@ -28,28 +28,22 @@ def _get_ytdlp_base() -> list[str]:
     """
     yt-dlp 共通オプションを返す。
 
-    cookies あり → web クライアント優先
-      ログイン済みセッションはYouTube CDNのIP制限を回避できる。
-      n-challenge も認証済み cookies で自動バイパス。
-      android_vr をフォールバックとして追加（一部フォーマット補完）。
+    android_vr クライアント固定：
+      - PO Token不要・n-challenge不要・Deno/Node不要
+      - Streamlit Cloud等の環境でも動作
+      - webクライアントはn-challengeにDeno/Nodeが必要なため使用しない
+      - format 18（非DASH単一ファイル360p mp4）と組み合わせてCDN IP制限を回避
 
-    cookies なし → android_vr クライアント
-      PO Token不要・Deno不要で1080pまで取得可能。
-      ただしStreamlit Cloud等のデータセンターIPではCDN 403が出ることがある。
+    cookies がある場合は追加で渡す（なくても動作する）。
     """
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
 
+    # android_vr のみ使用（PO Token不要・n-challenge不要・Deno不要）
+    # web クライアントはn-challengeにDeno/Nodeが必要 → Streamlit Cloudでは使えない
+    opts += ["--extractor-args", "youtube:player_client=android_vr"]
     if has_cookies:
-        # 認証済みcookies → web クライアント（ログイン状態でCDU URLがIP非依存になる）
-        # android_vr をfallbackとして追加（webで取れないフォーマット補完）
-        opts += [
-            "--extractor-args", "youtube:player_client=web,android_vr",
-            "--cookies", str(_COOKIES_PATH),
-        ]
-    else:
-        # cookies なし: android_vr（PO Token不要・n-challenge不要）
-        opts += ["--extractor-args", "youtube:player_client=android_vr"]
+        opts += ["--cookies", str(_COOKIES_PATH)]
 
     return opts
 
@@ -81,9 +75,11 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
     cmd = [
         "yt-dlp",
-        # ≤720p 優先（Shorts に十分）→ format 18（非DASH 360p）→ best
-        # format 18 は DASH でない単一ファイル mp4 なので CDN IP制限を受けにくい
-        "-f", "bestvideo[height<=720]+bestaudio/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/18/best",
+        # format 18（itag=18, 360p 非DASH単一ファイルmp4）を最優先
+        # Streamlit CloudのデータセンターIPはYouTube CDNにDASHストリームを403でブロックされるが
+        # format 18 は単一HTTP URLでレンジリクエストを使わないためIP制限を受けにくい
+        # fallback: ≤480p DASH（万一format 18がない場合）→ best
+        "-f", "18/bestvideo[height<=480]+bestaudio/best",
         "--merge-output-format", "mp4",
         "-o", output_template,
     ] + base + [url]
