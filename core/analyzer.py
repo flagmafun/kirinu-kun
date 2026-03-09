@@ -20,8 +20,13 @@ def get_video_info(url: str) -> dict:
     url = _clean_url(url)
     result = subprocess.run(
         ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True,
     )
+    if result.returncode != 0:
+        err_tail = result.stderr.strip()[-600:] if result.stderr else "(no stderr)"
+        raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}):\n{err_tail}")
+    if not result.stdout.strip():
+        raise RuntimeError("yt-dlp が空のレスポンスを返しました")
     info = json.loads(result.stdout)
     return {
         "url":        url,

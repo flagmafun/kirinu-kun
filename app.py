@@ -707,10 +707,8 @@ def render_logo():
     user_section = ""
     if _is_multi_user_mode() and st.session_state.get("user_id"):
         email = st.session_state.get("user_email", "")
-        user_section = f"""
-        <div class="header-user">
-          <span class="header-user-email">{email[:28]}</span>
-        </div>"""
+        # 先頭に空白・改行を入れると Markdown がコードブロックと誤認するため1行に
+        user_section = f'<div class="header-user"><span class="header-user-email">{email[:28]}</span></div>'
 
     st.markdown(f"""
     <div class="app-header">
@@ -1093,6 +1091,7 @@ def step1():
     st.markdown("")
     if st.button("🔍 解析開始", type="primary", use_container_width=True,
                  disabled=not url.strip()):
+        _analyze_error = None
         with st.status("動画を解析中...", expanded=True) as status:
             try:
                 from core.analyzer import get_video_info, get_transcript, auto_select_clips
@@ -1133,7 +1132,11 @@ def step1():
 
             except Exception as e:
                 status.update(label="エラーが発生しました", state="error")
-                st.error(f"エラー: {e}")
+                _analyze_error = e
+
+        # st.status が折りたたまれてもエラーが見えるよう外に出す
+        if _analyze_error is not None:
+            st.error(f"❌ エラー: {_analyze_error}")
 
 
 # ══════════════════════════════════════════════════════════
