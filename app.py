@@ -297,24 +297,30 @@ def _emit_localstorage_writer(rt: str):
     import streamlit.components.v1 as _c
     _c.html(
         f"<script>try{{localStorage.setItem({json.dumps(_LS_KEY)},{json.dumps(rt)});}}catch(e){{}}</script>",
-        height=0,
+        height=1,  # height=0 だと一部ブラウザで iframe が描画されず JS が実行されない
     )
 
 
 def _emit_localstorage_reader():
-    """localStorage から refresh_token を読み出し、?sb_rt= または ?no_auth=1 にリダイレクトする JS を発行"""
+    """localStorage から refresh_token を読み出し、?sb_rt= または ?no_auth=1 にリダイレクトする JS を発行。
+    「認証確認中...」表示も兼ねる（height=0 だと JS が実行されないため完全な HTML ドキュメントで描画）。
+    """
     import streamlit.components.v1 as _c
     _c.html(
-        f"""<script>(function(){{
-  try{{
-    var rt=localStorage.getItem({json.dumps(_LS_KEY)});
-    var b=window.top.location.origin+window.top.location.pathname;
-    window.top.location.href=rt?(b+'?sb_rt='+encodeURIComponent(rt)):(b+'?no_auth=1');
-  }}catch(e){{
-    window.top.location.href=window.top.location.origin+window.top.location.pathname+'?no_auth=1';
-  }}
-}})();</script>""",
-        height=0,
+        f"""<!DOCTYPE html><html><head><style>
+body{{margin:0;padding:60px 20px;text-align:center;
+     color:#64748b;font-size:15px;font-family:sans-serif;background:transparent;}}
+</style></head><body>
+<div>認証確認中...</div>
+<script>(function(){{
+  var key={json.dumps(_LS_KEY)};
+  var rt=null;
+  try{{rt=localStorage.getItem(key);}}catch(e){{}}
+  var base=window.top.location.origin+window.top.location.pathname;
+  window.top.location.href=rt?(base+'?sb_rt='+encodeURIComponent(rt)):(base+'?no_auth=1');
+}})();</script>
+</body></html>""",
+        height=120,
     )
 
 
@@ -327,7 +333,7 @@ def _emit_localstorage_clear():
   var l=window.top.location;
   window.top.location.href=l.origin+l.pathname+'?no_auth=1';
 }})();</script>""",
-        height=0,
+        height=1,
     )
 
 
@@ -2526,13 +2532,8 @@ if _is_multi_user_mode():
             render_login_page()
             st.stop()
         else:
-            # localStorage チェック中（JS が ?sb_rt= or ?no_auth=1 にリダイレクトするまで待機）
-            st.markdown(
-                '<div style="text-align:center;padding:80px;color:#64748b;font-size:15px;">'
-                '認証確認中...'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+            # localStorage チェック中（_emit_localstorage_reader 内の JS が ?sb_rt= or ?no_auth=1 にリダイレクト）
+            # ※「認証確認中...」表示は _emit_localstorage_reader の HTML に含まれている
             _emit_localstorage_reader()
             st.stop()
 
