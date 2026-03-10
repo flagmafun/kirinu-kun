@@ -746,10 +746,20 @@ def _run_claude_api_on_clips(user_prompt: str = "") -> dict:
                 pass
 
         if ai_meta:
-            if ai_meta.get("title"):        clip["title"]        = ai_meta["title"]
-            if ai_meta.get("catchphrase"):  clip["catchphrase"]  = ai_meta["catchphrase"]
-            if ai_meta.get("description"):  clip["description"]  = ai_meta["description"]
-            if ai_meta.get("hashtags"):     clip["hashtags"]     = ai_meta["hashtags"]
+            if ai_meta.get("title"):
+                clip["title"]        = ai_meta["title"]
+                # ウィジェットキーも同期: text_input が st.session_state["title_i"] を
+                # value より優先するため、ここで書き換えないとフォームと不一致になる
+                st.session_state[f"title_{i}"] = ai_meta["title"]
+            if ai_meta.get("catchphrase"):
+                clip["catchphrase"]  = ai_meta["catchphrase"]
+                st.session_state[f"catch_{i}"] = ai_meta["catchphrase"]
+            if ai_meta.get("description"):
+                clip["description"]  = ai_meta["description"]
+                st.session_state[f"desc_{i}"]  = ai_meta["description"]
+            if ai_meta.get("hashtags"):
+                clip["hashtags"]     = ai_meta["hashtags"]
+                st.session_state[f"tags_{i}"]  = ai_meta["hashtags"]
 
     progress.empty()
 
@@ -1383,6 +1393,10 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     # カード全高 = タイトルバー + 動画(180) + 底部(90)
     card_h = _title_bar_h + 180 + 90
 
+    # タイトル/キャッチコピーが変わったら components.html を強制再レンダリングさせる
+    # （Streamlit は components.html の iframe をキャッシュすることがあるため）
+    _render_key = hash((title, catchphrase, theme_key, size_key))
+
     card_html = f"""<!DOCTYPE html>
 <html><head><style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
@@ -1452,6 +1466,7 @@ window.addEventListener('load',function(){{
   }}catch(e){{}}
 }});
 </script>
+<!-- rk:{_render_key} -->
 </body></html>"""
     components.html(card_html, height=card_h + 30, scrolling=False)
 
