@@ -559,34 +559,64 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
 .badge-purple { background:#ede9fe; color:#5b21b6; }
 .badge-green  { background:#d1fae5; color:#065f46; }
 
-/* クリップカード */
-.clip-card {
-  background:#ffffff; border:1px solid #e5e7eb;
-  border-radius:14px; padding:0; margin:12px 0;
-  overflow:hidden; transition:.2s; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+/* ── クリップセクション ──────────────────────── */
+.clip-section-hd {
+  background: linear-gradient(110deg, #1e1b4b 0%, #4338ca 45%, #7c3aed 100%);
+  border-radius: 16px;
+  padding: 15px 20px;
+  display: flex; align-items: center; gap: 12px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(79,70,229,0.22), 0 1px 4px rgba(0,0,0,0.1);
 }
-.clip-header {
-  background:linear-gradient(90deg,#eef2ff,#f8faff);
-  padding:12px 18px; display:flex; align-items:center; gap:12px;
+.clip-section-hd::before {
+  content: '';
+  position: absolute; top: 0; right: 0;
+  width: 160px; height: 100%;
+  background: radial-gradient(ellipse at 80% 50%, rgba(255,255,255,0.07) 0%, transparent 70%);
+  pointer-events: none;
 }
-.clip-num {
-  background:#4f46e5; color:#fff; border-radius:50%;
-  width:26px; height:26px; display:flex; align-items:center;
-  justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;
+.clip-section-num {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.16); border: 2px solid rgba(255,255,255,0.38);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; flex-shrink: 0; letter-spacing: -0.5px;
 }
-.clip-title-preview { font-size:13px; color:#3730a3; font-weight:500; }
-.time-tag {
-  background:#ede9fe; color:#5b21b6; border-radius:6px;
-  padding:2px 9px; font-size:12px; font-family:monospace;
-  border:1px solid #c4b5fd; margin-left:auto;
+.clip-section-title {
+  font-size: 14px; color: rgba(255,255,255,0.95); font-weight: 600;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.clip-section-badges {
+  display: flex; gap: 7px; align-items: center; flex-shrink: 0; flex-wrap: wrap;
+}
+.clip-score-tag {
+  border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 800;
+  color: #fff; border: 1.5px solid rgba(255,255,255,0.22); white-space: nowrap;
+  cursor: default; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.clip-time-tag {
+  background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.88);
+  border-radius: 7px; padding: 3px 10px; font-size: 11px;
+  font-family: monospace; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;
+}
+/* 字幕ボックス */
 .transcript-box {
-  background:#f8fafc; border-radius:8px; padding:10px 14px;
-  font-size:12px; color:#64748b; line-height:1.65;
-  max-height:56px; overflow:hidden; margin:0 18px 14px;
-  border-left:3px solid #c4b5fd;
+  background: #fff; border-radius: 10px; padding: 10px 14px;
+  font-size: 12px; color: #4b5563; line-height: 1.7;
+  max-height: 58px; overflow: hidden; margin-bottom: 12px;
+  border-left: 3px solid #818cf8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 0 0 1px #eef2ff;
 }
-.no-transcript { font-style:italic; color:#9ca3af; }
+.no-transcript { font-style: italic; color: #9ca3af; }
+/* クリップ間セパレータ */
+.clip-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 28px 0 16px; color: #a5b4fc;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; user-select: none;
+}
+.clip-divider::before, .clip-divider::after {
+  content: ''; flex: 1; height: 1.5px;
+  background: linear-gradient(90deg, transparent, #c4b5fd 35%, transparent);
+}
 
 /* スケジュールリスト */
 .sched-row {
@@ -669,8 +699,15 @@ st.markdown("""
   h1 { font-size: 22px !important; font-weight: 800 !important; line-height: 1.25 !important; }
   h2 { font-size: 19px !important; font-weight: 700 !important; line-height: 1.3 !important; }
   h3 { font-size: 16px !important; font-weight: 700 !important; line-height: 1.4 !important; }
-  /* クリップタイトル */
-  .clip-title-preview { font-size: 15px !important; font-weight: 700 !important; }
+  /* クリップセクションヘッダー */
+  .clip-section-hd { padding: 12px 16px !important; border-radius: 12px !important; gap: 10px !important; }
+  .clip-section-num { width: 30px !important; height: 30px !important; font-size: 13px !important; }
+  .clip-section-title { font-size: 13px !important; }
+  .clip-section-badges { gap: 5px !important; }
+  .clip-score-tag { padding: 2px 8px !important; font-size: 11px !important; }
+  .clip-time-tag { font-size: 10px !important; padding: 2px 8px !important; }
+  .transcript-box { font-size: 12px !important; margin-bottom: 10px !important; }
+  .clip-divider { margin: 20px 0 12px !important; }
   /* ブランド */
   .brand-logo { height: 48px !important; }
   .brand-logo-fallback { width: 48px !important; height: 48px !important; font-size: 28px !important; }
@@ -684,9 +721,6 @@ st.markdown("""
   .video-card { flex-direction: column !important; gap: 10px !important; padding: 14px !important; }
   .video-meta h3 { font-size: 15px !important; }
   .video-meta p { font-size: 13px !important; }
-  .clip-header { flex-wrap: wrap !important; gap: 8px !important; padding: 10px 14px !important; }
-  .time-tag { margin-left: 0 !important; font-size: 12px !important; }
-  .transcript-box { margin: 0 0 12px !important; font-size: 12px !important; }
   /* スケジュール */
   .sched-row { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; }
   .sched-title { margin: 0 !important; font-size: 14px !important; }
@@ -1871,29 +1905,32 @@ def step2():
             "#ef4444"
         )
 
+        # ── クリップ間セパレータ（2枚目以降） ──
+        if i > 0:
+            st.markdown(
+                '<div class="clip-divider"><span>NEXT CLIP</span></div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── フルワイドセクションヘッダー ──
+        _clip_title_short = (clip.get("title") or "（タイトル未設定）")[:42]
+        st.markdown(f"""
+        <div class="clip-section-hd">
+          <div class="clip-section-num">{clip['index']}</div>
+          <div class="clip-section-title">{_clip_title_short}</div>
+          <div class="clip-section-badges">
+            <span class="clip-score-tag"
+                  title="スコア内訳&#10;📝文字密度:{s_density}/40&#10;🔥盛り上がり:{s_engage}/40&#10;✅文章完成度:{s_complete}/20"
+                  style="background:{score_color};">★ {score}点</span>
+            <span class="clip-time-tag">{time_str}</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
         # ── 左: 編集フォーム ／ 右: プレビュー ──
         edit_col, prev_col = st.columns([3, 2])
 
         with edit_col:
-            # カードヘッダー（スコアバッジ付き）
-            st.markdown(f"""
-            <div class="clip-card">
-              <div class="clip-header">
-                <div class="clip-num">{clip['index']}</div>
-                <div class="clip-title-preview">{"" if not clip['title'] else clip['title'][:40]}</div>
-                <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap;">
-                  <span title="スコア内訳&#10;📝文字密度:{s_density}/40&#10;🔥盛り上がり:{s_engage}/40&#10;✅文章完成度:{s_complete}/20"
-                    style="background:{score_color};color:#fff;border-radius:7px;
-                           padding:3px 9px;font-size:12px;font-weight:800;cursor:default;
-                           box-shadow:0 1px 4px {score_color}66;">
-                    ★ {score}点
-                  </span>
-                  <div class="time-tag">{time_str}</div>
-                </div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
             # ℹ️ 採点根拠ポップオーバー
             _pc, _ = st.columns([2.2, 3.8])
             with _pc:
@@ -1974,8 +2011,6 @@ def step2():
 
         with prev_col:
             _render_clip_preview(clip, i, video_id)
-
-        st.markdown('<hr style="border-color:#e5e7eb;margin:8px 0;">', unsafe_allow_html=True)
 
     s.clips = clips
     _save_session(s.video_info, clips)
