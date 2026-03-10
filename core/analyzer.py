@@ -76,14 +76,13 @@ def _segs_to_list(segs) -> list:
 
 def get_transcript(url: str, work_dir: Path) -> list:
     """
-    字幕を取得してパース。失敗時は空リストを返す。
+    yt-dlp --write-auto-subs で字幕を取得してパース。失敗時は空リストを返す。
 
-    取得順序:
-    1. yt-dlp --write-auto-subs（Streamlit Cloud でも動作。tv_embedded → ios → mweb）
-       cookies あり時は web クライアント + 認証
-    2. youtube-transcript-api（ローカル開発向け。クラウド IP では YouTube にブロックされる）
-
+    取得クライアント順（cookies なし）: tv_embedded → ios → mweb
     全て失敗しても auto_select_clips() が description テキストでフォールバックする。
+
+    注意: youtube-transcript-api は Streamlit Cloud IP では YouTube に 100% ブロックされるため
+         このパイプラインから除外済み（エラーを繰り返すだけで無意味）。
     """
     global _transcript_errors
     _transcript_errors = []
@@ -95,18 +94,14 @@ def get_transcript(url: str, work_dir: Path) -> list:
     if not video_id:
         return []
 
-    # ── 方式①: yt-dlp --write-auto-subs ──────────────────────────
-    # _get_ytdlp_base() は使わず、字幕専用オプションを直接組み立てる。
-    # これにより android_vr 固定・_has_ea バグを完全回避。
     work_dir.mkdir(parents=True, exist_ok=True)
     _ensure_netscape_cookies()
     _has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
-    # cookies あり: web（認証付き）/ なし: tv_embedded が Streamlit Cloud でも字幕を返しやすい
+    # cookies あり: web（認証済みで確実）/ なし: tv_embedded が IP 制限を受けにくい
     _clients = ["web"] if _has_cookies else ["tv_embedded", "ios", "mweb"]
 
     for _pc in _clients:
-        # このvideo_idのjson3だけを対象にする（他動画の混入防止）
         for _old in work_dir.glob(f"{video_id}*.json3"):
             _old.unlink(missing_ok=True)
         try:
@@ -120,72 +115,34 @@ def get_transcript(url: str, work_dir: Path) -> list:
             cmd = [
                 "yt-dlp", "--skip-download",
                 "--write-auto-subs", "--write-subs",
-                "--sub-langs", "ja.*,en.*",
+                "--sub-langs", "all",   # 言語コードを問わず全字幕を試みる
                 "--sub-format", "json3",
                 "-o", str(work_dir / "%(id)s"),
             ] + _opts + [url]
 
-            subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+            _r = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
 
-            for f in sorted(work_dir.glob(f"{video_id}*.json3")):
+            # 取得できたjson3を言語問わず走査
+            _found = sorted(work_dir.glob(f"{video_id}*.json3"))
+            if not _found:
+                # yt-dlp がファイルを作らなかった理由をログに残す
+                _stderr_tail = _r.stderr.strip().splitlines()
+                _hint = next(
+                    (ln for ln in reversed(_stderr_tail)
+                     if any(k in ln for k in ("ERROR", "WARNING", "unable", "blocked", "Sign in"))),
+                    _stderr_tail[-1] if _stderr_tail else "stderr なし",
+                )
+                _transcript_errors.append(f"yt-dlp({_pc}): 字幕ファイル未生成 — {_hint[-120:]}")
+                continue
+
+            for f in _found:
                 subs = _parse_json3(f)
                 if subs:
-                    # 成功はログに残さない（Step2で「✅ 字幕取得: 成功」が表示される）
-                    return subs
+                    return subs  # 成功: 呼び元でログなし → ✅ 表示
                 _transcript_errors.append(f"json3 empty: {f.name}")
 
         except Exception as _e:
-            _transcript_errors.append(f"yt-dlp({_pc}): {_e}")
-
-    # ── 方式②: youtube-transcript-api ────────────────────────────
-    # ローカル開発では動作するが、Streamlit Cloud の IP は YouTube にブロックされる。
-    # エラーはログに記録するが、UI 上では参考情報として扱う。
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-
-        _cookies_arg = str(_COOKIES_PATH) if _has_cookies else None
-
-        # 0.x (class method) / 1.x (instance method) 両対応
-        if hasattr(YouTubeTranscriptApi, "list_transcripts"):
-            tlist = YouTubeTranscriptApi.list_transcripts(
-                video_id, **({} if not _cookies_arg else {"cookies": _cookies_arg})
-            )
-        else:
-            try:
-                _inst = YouTubeTranscriptApi(**({"cookies": _cookies_arg} if _cookies_arg else {}))
-            except TypeError:
-                _inst = YouTubeTranscriptApi()
-            _fn = getattr(_inst, "list_transcripts", None) or getattr(_inst, "list", None)
-            if _fn is None:
-                raise AttributeError("youtube-transcript-api: list method not found")
-            tlist = _fn(video_id)
-
-        _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
-        for lang in _LANGS:
-            for _fetch in (
-                lambda l: tlist.find_manually_created_transcript([l]).fetch(),
-                lambda l: tlist.find_generated_transcript([l]).fetch(),
-                lambda l: getattr(tlist, "find_transcript", None) and
-                          tlist.find_transcript([l]).fetch(),
-            ):
-                try:
-                    segs = _fetch(lang)
-                    if segs:
-                        result = _segs_to_list(segs)
-                        if result:
-                            return result
-                except Exception:
-                    pass
-        for t in tlist:
-            try:
-                result = _segs_to_list(t.fetch())
-                if result:
-                    return result
-            except Exception:
-                pass
-
-    except Exception as _e2:
-        _transcript_errors.append(f"youtube-transcript-api: {_e2}")
+            _transcript_errors.append(f"yt-dlp({_pc}) exception: {_e}")
 
     return []  # auto_select_clips() が description テキストでフォールバック
 
