@@ -34,13 +34,24 @@ def _get_api_key() -> str | None:
         return None
 
 
+def _get_model() -> str:
+    """使用する Claude モデルを返す。Secrets で上書き可能"""
+    try:
+        return st.secrets["app"]["claude_model"]
+    except Exception:
+        pass
+    # デフォルト: claude-3-haiku（2024/3 リリース、安定）
+    return "claude-3-haiku-20240307"
+
+
 def _call_claude(prompt: str, api_key: str, max_tokens: int = 400) -> str | None:
     """Claude API を呼び出してテキストを返す。失敗時は None"""
     try:
         import anthropic
+        model = _get_model()
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model="claude-3-5-haiku-20241022",
+            model=model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
