@@ -26,12 +26,21 @@ CANVAS_H = 1920
 # ── フォント候補（日本語対応 / 優先順）──────────────────────────
 # UIプレビューは -apple-system,'Hiragino Sans' → ヒラギノ角ゴシックを優先
 _FONT_CANDIDATES = [
-    "/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc",   # 日本語極太（font-weight:900相当）
-    "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",   # 日本語太字（font-weight:700相当）
-    "/System/Library/Fonts/AppleSDGothicNeo.ttc",        # macOS システムフォント（日本語/韓国語）
-    "/System/Library/Fonts/Hiragino Sans GB.ttc",        # Hiragino Sans GB（フォールバック）
-    "/Library/Fonts/Arial Unicode.ttf",                  # Unicode 全対応
-    "/System/Library/Fonts/HelveticaNeue.ttc",           # 最終フォールバック
+    # Linux / Ubuntu (Streamlit Cloud) — fonts-noto-cjk パッケージ
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Bold.otf",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+    # Linux / Ubuntu (IPAフォント fallback)
+    "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
+    "/usr/share/fonts/truetype/ipafont-gothic/ipagp.ttf",
+    # macOS
+    "/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc",
+    "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    "/Library/Fonts/Arial Unicode.ttf",
+    "/System/Library/Fonts/HelveticaNeue.ttc",
 ]
 
 
