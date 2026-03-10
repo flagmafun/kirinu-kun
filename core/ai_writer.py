@@ -1,6 +1,6 @@
 """
 AI ライター – Claude API を使ってYouTube Shortsのタイトル・説明文を生成
-- モデル: claude-haiku-4-5（コスト最小・高速）
+- モデル: claude-3-5-haiku-20241022（コスト最小・高速）
 - フォールバック: API 未設定 or エラー時はルールベース（analyzer.py）を使用
 """
 import json
@@ -21,7 +21,7 @@ def _call_claude(prompt: str, api_key: str, max_tokens: int = 400) -> str | None
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model="claude-haiku-4-5",
+            model="claude-3-5-haiku-20241022",
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
