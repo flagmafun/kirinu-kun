@@ -98,8 +98,10 @@ def get_transcript(url: str, work_dir: Path) -> list:
     _ensure_netscape_cookies()
     _has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
-    # cookies あり: web（認証済みで確実）/ なし: tv_embedded が IP 制限を受けにくい
-    _clients = ["web"] if _has_cookies else ["tv_embedded", "ios", "mweb"]
+    # web は PO token がないと自動字幕が取れないため、cookies の有無に関わらず
+    # tv_embedded / ios / mweb もフォールバックとして必ず試みる。
+    # cookies は web クライアントのみに渡す（tv_embedded 等では不要かつ副作用の恐れあり）。
+    _clients = ["web", "tv_embedded", "ios", "mweb"] if _has_cookies else ["tv_embedded", "ios", "mweb"]
 
     for _pc in _clients:
         for _old in work_dir.glob(f"{video_id}*.json3"):
@@ -109,7 +111,8 @@ def get_transcript(url: str, work_dir: Path) -> list:
                 "--no-playlist", "--no-check-certificates",
                 "--extractor-args", f"youtube:player_client={_pc}",
             ]
-            if _has_cookies:
+            # cookies は web クライアントのみ使用（PO token なしでも tv_embedded 等は動く）
+            if _has_cookies and _pc == "web":
                 _opts += ["--cookies", str(_COOKIES_PATH), "--js-runtimes", "node"]
 
             cmd = [
