@@ -246,6 +246,12 @@ def _handle_supabase_confirmation():
         if user:
             st.session_state["user_id"]    = user.id
             st.session_state["user_email"] = user.email
+            # refresh_token を保存（ログイン保持用）
+            try:
+                if session_resp and session_resp.session:
+                    st.session_state["_supabase_rt"] = session_resp.session.refresh_token
+            except Exception:
+                pass
             # 保存済み YouTube トークンがあれば復元
             try:
                 from core.db import get_youtube_token
@@ -280,6 +286,85 @@ def _redirect_to_url(url: str):
         f'<script>window.top.location.href = {json.dumps(url)};</script>',
         height=0,
     )
+
+
+# ── localStorage ヘルパー（ログイン保持用） ────────────────────
+_LS_KEY = "kirinuki_sb_rt"
+
+
+def _emit_localstorage_writer(rt: str):
+    """refresh_token を localStorage に書き込む JS を発行"""
+    import streamlit.components.v1 as _c
+    _c.html(
+        f"<script>try{{localStorage.setItem({json.dumps(_LS_KEY)},{json.dumps(rt)});}}catch(e){{}}</script>",
+        height=0,
+    )
+
+
+def _emit_localstorage_reader():
+    """localStorage から refresh_token を読み出し、?sb_rt= または ?no_auth=1 にリダイレクトする JS を発行"""
+    import streamlit.components.v1 as _c
+    _c.html(
+        f"""<script>(function(){{
+  try{{
+    var rt=localStorage.getItem({json.dumps(_LS_KEY)});
+    var b=window.top.location.origin+window.top.location.pathname;
+    window.top.location.href=rt?(b+'?sb_rt='+encodeURIComponent(rt)):(b+'?no_auth=1');
+  }}catch(e){{
+    window.top.location.href=window.top.location.origin+window.top.location.pathname+'?no_auth=1';
+  }}
+}})();</script>""",
+        height=0,
+    )
+
+
+def _emit_localstorage_clear():
+    """localStorage の refresh_token を削除して ?no_auth=1 にリダイレクトする JS を発行"""
+    import streamlit.components.v1 as _c
+    _c.html(
+        f"""<script>(function(){{
+  try{{localStorage.removeItem({json.dumps(_LS_KEY)});}}catch(e){{}}
+  var l=window.top.location;
+  window.top.location.href=l.origin+l.pathname+'?no_auth=1';
+}})();</script>""",
+        height=0,
+    )
+
+
+def _handle_refresh_token_restore():
+    """?sb_rt= クエリパラメータから refresh_token を取得してセッションを復元する"""
+    rt = st.query_params.get("sb_rt", "")
+    if not rt:
+        return
+    st.query_params.clear()  # ブラウザ履歴にトークンを残さない
+    try:
+        from core.auth import refresh_session
+        result = refresh_session(rt)
+    except Exception:
+        result = None
+    if result:
+        st.session_state["user_id"]      = result["user_id"]
+        st.session_state["user_email"]   = result["user_email"]
+        st.session_state["_supabase_rt"] = result["refresh_token"]
+        # YouTube トークンも復元
+        try:
+            from core.db import get_youtube_token
+            from core.uploader import get_channel_info
+            yt = get_youtube_token(result["user_id"])
+            if yt:
+                st.session_state["yt_token"] = yt
+                ch = get_channel_info(yt)
+                if ch:
+                    st.session_state["yt_channel_name"]      = ch["title"]
+                    st.session_state["yt_channel_id"]        = ch["id"]
+                    st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+        except Exception:
+            pass
+        st.rerun()
+    else:
+        # トークン期限切れ or 無効 → localStorage クリア → ログインページへ
+        _emit_localstorage_clear()
+        st.stop()
 
 
 # ── タイトルデザインテーマ ──────────────────────────────────
@@ -754,16 +839,18 @@ def render_logo():
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
                     from core.auth import sign_out
                     sign_out()
-                    for k in list(st.session_state.keys()):
+                    for k in [k for k in st.session_state.keys() if k != "_clearing_storage"]:
                         del st.session_state[k]
+                    st.session_state["_clearing_storage"] = True
                     st.rerun()
         else:
             with btn_cols[1]:
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
                     from core.auth import sign_out
                     sign_out()
-                    for k in list(st.session_state.keys()):
+                    for k in [k for k in st.session_state.keys() if k != "_clearing_storage"]:
                         del st.session_state[k]
+                    st.session_state["_clearing_storage"] = True
                     st.rerun()
 
 
@@ -964,8 +1051,9 @@ def render_login_page():
                 res = sign_in(email_l.strip(), pass_l)
                 if res.session:
                     user = res.user
-                    st.session_state["user_id"]    = user.id
-                    st.session_state["user_email"] = user.email
+                    st.session_state["user_id"]      = user.id
+                    st.session_state["user_email"]   = user.email
+                    st.session_state["_supabase_rt"] = res.session.refresh_token
                     # Supabase から YouTube トークンを取得
                     try:
                         from core.db import get_youtube_token
@@ -1018,8 +1106,9 @@ def render_login_page():
                     try:
                         login_res = sign_in(email_s.strip(), pass_s1)
                         if login_res.session:
-                            st.session_state["user_id"]    = login_res.user.id
-                            st.session_state["user_email"] = login_res.user.email
+                            st.session_state["user_id"]      = login_res.user.id
+                            st.session_state["user_email"]   = login_res.user.email
+                            st.session_state["_supabase_rt"] = login_res.session.refresh_token
                             st.rerun()
                             return
                     except Exception:
@@ -1135,6 +1224,7 @@ def step1():
                     st.write("⚠️ 字幕を取得できませんでした → 概要欄テキストで代替します")
                     _dbg = get_transcript_debug()
                     if _dbg:
+                        st.session_state["transcript_debug"] = _dbg  # Step2でも見えるよう保存
                         with st.expander("🔍 字幕取得ログ（デバッグ用）"):
                             for _d in _dbg:
                                 st.code(_d)
@@ -1148,6 +1238,13 @@ def step1():
                 )
                 s.clips = clips
                 st.write(f"✅ {len(clips)} 本のクリップを選定しました")
+
+                # Claude API のステータスを session_state に保存（Step2で表示）
+                try:
+                    from core.ai_writer import get_ai_status
+                    st.session_state["ai_status"] = get_ai_status()
+                except Exception:
+                    pass
 
                 _save_session(info, clips)
                 status.update(label="解析完了！", state="complete")
@@ -1399,6 +1496,39 @@ def step2():
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── 解析ステータスバッジ ───────────────────────────────────
+    _status_cols = st.columns(2)
+
+    # 字幕取得ステータス
+    with _status_cols[0]:
+        _dbg = st.session_state.get("transcript_debug")
+        if _dbg:
+            with st.expander("🔴 字幕取得ログ（取得失敗）", expanded=False):
+                for _d in _dbg:
+                    st.code(_d)
+        else:
+            st.success("✅ 字幕取得: 成功")
+
+    # Claude API ステータス
+    with _status_cols[1]:
+        _ai_st = st.session_state.get("ai_status")
+        if _ai_st is None:
+            st.info("🤖 Claude API: 未実行")
+        elif _ai_st.get("errors") and _ai_st.get("errors")[0].startswith("Anthropic API キー未設定"):
+            st.warning("⚠️ Claude API: キー未設定（ルールベースで生成）")
+        elif _ai_st.get("total", 0) == 0:
+            st.info("🤖 Claude API: 字幕なし（スキップ）")
+        elif _ai_st.get("errors"):
+            _ok  = _ai_st["success"]
+            _tot = _ai_st["total"]
+            with st.expander(f"🔴 Claude API: {_ok}/{_tot} 成功（エラーあり）", expanded=True):
+                for _d in _ai_st["errors"]:
+                    st.code(_d)
+        else:
+            _ok  = _ai_st["success"]
+            _tot = _ai_st["total"]
+            st.success(f"✅ Claude API: {_ok}/{_tot} クリップ成功")
 
     clips = s.clips
     from core.analyzer import fmt_time
@@ -2367,21 +2497,44 @@ def _run_pipeline(clips: list, sched: dict):
 # ルーティング（全関数定義後に実行）
 # ══════════════════════════════════════════════════════════
 
-# ── YouTube OAuth コールバック処理 ──
+# ① ログアウト後の localStorage クリア
+if s.get("_clearing_storage"):
+    del st.session_state["_clearing_storage"]
+    _emit_localstorage_clear()
+    st.stop()
+
+# ② YouTube OAuth コールバック処理
 if "code" in st.query_params:
     _handle_oauth_callback()
 
-# ── Supabase メール確認トークン処理 ──
+# ③ Supabase メール確認トークン処理
 if "sb_access_token" in st.query_params:
     _handle_supabase_confirmation()
 
-# ── マルチユーザー: ログインチェック ──
+# ④ refresh_token によるセッション復元
+if "sb_rt" in st.query_params:
+    _handle_refresh_token_restore()
+
+# ⑤ マルチユーザー: ログインチェック
 if _is_multi_user_mode():
     if not s.get("user_id"):
-        render_login_page()
-        st.stop()
+        if "no_auth" in st.query_params:
+            # localStorage に token なし → ログインページを表示
+            st.query_params.clear()
+            render_login_page()
+            st.stop()
+        else:
+            # localStorage チェック中（JS が ?sb_rt= or ?no_auth=1 にリダイレクトするまで待機）
+            st.markdown(
+                '<div style="text-align:center;padding:80px;color:#64748b;font-size:15px;">'
+                '認証確認中...'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            _emit_localstorage_reader()
+            st.stop()
 
-# ── 管理者パネル ──
+# ⑥ 管理者パネル
 if st.query_params.get("page") == "admin":
     if _is_admin():
         render_admin_panel()
@@ -2391,12 +2544,16 @@ if st.query_params.get("page") == "admin":
         st.query_params.clear()
         st.rerun()
 
-# ── メール認証完了メッセージ ──
+# ⑦ メール認証完了メッセージ
 if st.session_state.pop("_email_confirmed", False):
     st.success("✅ メールアドレスを確認しました。ようこそ切り抜きくんへ！")
 
 STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
 STEPS[s.step]()
+
+# ⑧ localStorage に refresh_token を永続化（毎レンダリング・ログイン中のみ）
+if _is_multi_user_mode() and s.get("user_id") and s.get("_supabase_rt"):
+    _emit_localstorage_writer(s["_supabase_rt"])
 
 st.markdown(
     '<div class="footer">✂️ 切り抜きくん &nbsp;·&nbsp; '

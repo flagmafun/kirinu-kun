@@ -101,3 +101,19 @@ def get_user_by_token(access_token: str):
         return sb.auth.get_user(access_token)
     except Exception:
         return None
+
+
+def refresh_session(refresh_token: str) -> dict | None:
+    """refresh_token でセッションを復元し、ユーザー情報と新 refresh_token を返す"""
+    try:
+        sb = get_supabase()
+        resp = sb.auth.refresh_session(refresh_token)
+        if resp and resp.session and resp.user:
+            return {
+                "user_id":       resp.user.id,
+                "user_email":    resp.user.email,
+                "refresh_token": resp.session.refresh_token,
+            }
+    except Exception:
+        pass
+    return None

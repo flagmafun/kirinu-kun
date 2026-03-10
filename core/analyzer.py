@@ -69,8 +69,8 @@ def _segs_to_list(segs) -> list:
             text = text.replace("\n", " ").strip()
             if text:
                 result.append({"start": float(start), "end": float(start) + float(dur), "text": text})
-        except Exception:
-            pass
+        except Exception as e:
+            _transcript_errors.append(f"_segs_to_list seg error: {e}")
     return result
 
 
@@ -237,6 +237,8 @@ def get_transcript(url: str, work_dir: Path) -> list:
             subs = _parse_json3(f)
             if subs:
                 return subs
+            else:
+                _transcript_errors.append(f"json3 parse empty: {f.name}")
     except Exception as _e3:
         import sys
         print(f"[transcript] yt-dlp write-subs fallback failed: {_e3}", file=sys.stderr)
@@ -260,7 +262,8 @@ def _parse_json3(path: Path) -> list:
             dur   = ev.get("dDurationMs", 3000) / 1000
             out.append({"start": start, "end": start + dur, "text": text})
         return out
-    except Exception:
+    except Exception as e:
+        _transcript_errors.append(f"json3 parse exception: {e}")
         return []
 
 
@@ -319,6 +322,8 @@ def auto_select_clips(
         # 字幕なし時: description の対応チャンクをフォールバックテキストとして使用
         if not clip_text and desc_chunks:
             clip_text = desc_chunks[i] if i < len(desc_chunks) else ""
+        elif not clip_text and not desc_chunks:
+            _transcript_errors.append(f"clip {i + 1}: 字幕なし・descriptionフォールバックなし")
 
         scores = _score_clip(clip_text, clip_subs, clip_end - clip_start)
 
