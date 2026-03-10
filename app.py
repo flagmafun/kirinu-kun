@@ -699,6 +699,70 @@ def _load_session() -> tuple[dict | None, list, dict | None]:
         pass
     return None, [], None
 
+
+def _run_claude_api_on_clips() -> dict:
+    """
+    既存クリップに対して Claude API でタイトル等を再生成し、
+    ai_status を session_state とファイルに保存して rerun する。
+    """
+    clips = list(st.session_state.get("clips", []))
+    video_title = (st.session_state.get("video_info") or {}).get("title", "")
+    n_clips = len(clips)
+    if n_clips == 0:
+        return
+
+    # ai_writer カウンターを手動リセット（clip_index=1 のリセットに依存せず確実に）
+    try:
+        import core.ai_writer as _aw
+        _aw._ai_errors        = []
+        _aw._ai_success_count = 0
+        _aw._ai_total_count   = 0
+    except Exception:
+        pass
+
+    progress = st.progress(0, text="Claude API を呼び出し中…")
+    for i, clip in enumerate(clips):
+        progress.progress((i + 1) / n_clips, text=f"クリップ {i + 1}/{n_clips} を生成中…")
+        try:
+            from core.ai_writer import generate_clip_metadata
+            ai_meta = generate_clip_metadata(
+                clip_text=clip.get("transcript", ""),
+                video_title=video_title,
+                clip_index=i + 1,
+                total_clips=n_clips,
+                clip_start=clip.get("start", 0.0),
+                clip_end=clip.get("end", 60.0),
+            )
+        except Exception as _e:
+            ai_meta = None
+            try:
+                import core.ai_writer as _aw2
+                _aw2._ai_errors.append(
+                    f"clip {i + 1}: 予期しないエラー: {type(_e).__name__}: {_e}"
+                )
+            except Exception:
+                pass
+
+        if ai_meta:
+            if ai_meta.get("title"):        clip["title"]        = ai_meta["title"]
+            if ai_meta.get("catchphrase"):  clip["catchphrase"]  = ai_meta["catchphrase"]
+            if ai_meta.get("description"):  clip["description"]  = ai_meta["description"]
+            if ai_meta.get("hashtags"):     clip["hashtags"]     = ai_meta["hashtags"]
+
+    progress.empty()
+
+    # ステータスを session_state とファイルに保存
+    try:
+        from core.ai_writer import get_ai_status
+        st.session_state["ai_status"] = get_ai_status()
+    except Exception:
+        pass
+
+    st.session_state["clips"] = clips
+    _save_session(st.session_state.get("video_info", {}), clips)
+    st.rerun()
+
+
 # ── セッション初期化 ───────────────────────────────────────
 def _init():
     if "step" not in st.session_state:
@@ -1476,22 +1540,34 @@ def step2():
     # Claude API ステータス
     with _status_cols[1]:
         _ai_st = st.session_state.get("ai_status")
+        _show_regen_btn = False  # 「再生成」ボタンを表示するか
         if _ai_st is None:
             st.info("🤖 Claude API: 未実行")
+            _show_regen_btn = True
         elif _ai_st.get("errors") and _ai_st.get("errors")[0].startswith("Anthropic API キー未設定"):
             st.warning("⚠️ Claude API: キー未設定（ルールベースで生成）")
         elif _ai_st.get("total", 0) == 0:
             st.info("🤖 Claude API: 字幕なし（スキップ）")
+            _show_regen_btn = True
         elif _ai_st.get("errors"):
             _ok  = _ai_st["success"]
             _tot = _ai_st["total"]
             with st.expander(f"🔴 Claude API: {_ok}/{_tot} 成功（エラーあり）", expanded=True):
                 for _d in _ai_st["errors"]:
                     st.code(_d)
+            _show_regen_btn = True
         else:
             _ok  = _ai_st["success"]
             _tot = _ai_st["total"]
             st.success(f"✅ Claude API: {_ok}/{_tot} クリップ成功")
+            _show_regen_btn = True  # 成功済みでも再生成できるようにする
+
+        if _show_regen_btn:
+            if st.button("🔄 Claude APIで再生成", key="btn_regen_claude",
+                         help="Claude API を直接呼び出してタイトル・説明文を再生成します",
+                         use_container_width=True):
+                with st.spinner("Claude API を呼び出し中…"):
+                    _run_claude_api_on_clips()
 
     clips = s.clips
     from core.analyzer import fmt_time
