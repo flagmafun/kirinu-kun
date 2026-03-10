@@ -338,8 +338,13 @@ def auto_select_clips(
                 clip_start=clip_start,
                 clip_end=clip_end,
             )
-        except Exception:
+        except Exception as _e:
             ai_meta = None
+            try:
+                from core.ai_writer import _ai_errors
+                _ai_errors.append(f"clip {i + 1}: 予期しないエラー: {type(_e).__name__}: {_e}")
+            except Exception:
+                pass
 
         clips.append({
             "index":              i + 1,
