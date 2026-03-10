@@ -495,10 +495,18 @@ section[data-testid="stSidebar"] { display:none; }
   padding:4px 12px; border-radius:20px; letter-spacing:.04em;
   border:1px solid #fde68a;
 }
-/* ログアウトボタン位置調整 */
+/* ログアウトボタン */
 div[data-testid="stButton"] button[title="ログアウトします"] {
-  font-size:11px !important; padding:2px 8px !important;
-  height:28px !important; border-radius:6px !important;
+  font-size:12px !important; padding:4px 14px !important;
+  height:32px !important; border-radius:8px !important;
+  background:transparent !important;
+  color:#dc2626 !important;
+  border:1.5px solid #fca5a5 !important;
+  font-weight:500 !important;
+}
+div[data-testid="stButton"] button[title="ログアウトします"]:hover {
+  background:#fee2e2 !important;
+  border-color:#dc2626 !important;
 }
 
 /* ── ステップエリア ── */
@@ -668,11 +676,15 @@ def _save_session(video_info: dict, clips: list):
     """解析結果をファイルに保存"""
     OUTPUT_DIR.mkdir(exist_ok=True)
     SESSION_FILE.write_text(
-        __import__("json").dumps({"video_info": video_info, "clips": clips}, ensure_ascii=False, indent=2),
+        __import__("json").dumps({
+            "video_info": video_info,
+            "clips": clips,
+            "ai_status": st.session_state.get("ai_status"),
+        }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
-def _load_session() -> tuple[dict | None, list]:
+def _load_session() -> tuple[dict | None, list, dict | None]:
     """保存済み解析結果を読み込む"""
     try:
         if SESSION_FILE.exists():
@@ -682,20 +694,22 @@ def _load_session() -> tuple[dict | None, list]:
             if video_info and video_info.get("url"):
                 from core.downloader import _clean_url
                 video_info["url"] = _clean_url(video_info["url"])
-            return video_info, data.get("clips", [])
+            return video_info, data.get("clips", []), data.get("ai_status")
     except Exception:
         pass
-    return None, []
+    return None, [], None
 
 # ── セッション初期化 ───────────────────────────────────────
 def _init():
     if "step" not in st.session_state:
         # 初回ロード時：保存済みセッションがあれば Step 2 から再開
-        saved_info, saved_clips = _load_session()
+        saved_info, saved_clips, saved_ai_status = _load_session()
         if saved_info and saved_clips:
             st.session_state["step"]       = 2
             st.session_state["video_info"] = saved_info
             st.session_state["clips"]      = saved_clips
+            if saved_ai_status is not None:
+                st.session_state["ai_status"] = saved_ai_status
         else:
             st.session_state["step"]       = 1
             st.session_state["video_info"] = None
