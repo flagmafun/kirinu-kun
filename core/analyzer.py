@@ -10,6 +10,14 @@ import re
 from pathlib import Path
 from core.downloader import _get_ytdlp_base, _clean_url, _COOKIES_PATH, _ensure_netscape_cookies
 
+# 字幕取得デバッグ情報（app.py から参照可能）
+_transcript_errors: list = []
+
+
+def get_transcript_debug() -> list:
+    """直近の get_transcript() のデバッグ情報を返す"""
+    return list(_transcript_errors)
+
 
 # ──────────────────────────────────────────────────────────
 # 動画情報
@@ -72,6 +80,9 @@ def get_transcript(url: str, work_dir: Path) -> list:
     youtube-transcript-api を使用（CDN不要・IP制限回避）。
     失敗時は空リストを返す。
     """
+    global _transcript_errors
+    _transcript_errors = []
+
     # video_id を URL から抽出
     video_id = None
     m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
@@ -124,6 +135,7 @@ def get_transcript(url: str, work_dir: Path) -> list:
 
     except Exception as _e1:
         import sys
+        _transcript_errors.append(f"youtube-transcript-api: {_e1}")
         print(f"[transcript] youtube-transcript-api failed: {_e1}", file=sys.stderr)
 
     # ── フォールバック①: yt-dlp --dump-json の字幕URLを直接 requests でDL ──
@@ -140,14 +152,39 @@ def get_transcript(url: str, work_dir: Path) -> list:
             _PREF_EXTS  = ["json3", "srv3", "vtt"]
 
             def _cap_urls(d: dict) -> list:
-                """subtitles / automatic_captions から (priority, url) を優先順に返す"""
+                """subtitles / automatic_captions から (priority, url) を優先順に返す
+                優先言語を先に試し、次にすべての言語キーを試す（言語コード不一致対策）"""
+                seen = set()
                 results = []
+                # 優先言語
                 for lang in _PREF_LANGS:
                     for cap in d.get(lang, []):
                         ext = cap.get("ext", "")
                         pri = _PREF_EXTS.index(ext) if ext in _PREF_EXTS else 99
-                        results.append((pri, cap.get("url", "")))
+                        if pri < 99:
+                            u = cap.get("url", "")
+                            if u and u not in seen:
+                                results.append((pri, u))
+                                seen.add(u)
+                # 残りすべての言語キーも試す
+                for lang, caps in d.items():
+                    for cap in caps:
+                        ext = cap.get("ext", "")
+                        pri = _PREF_EXTS.index(ext) if ext in _PREF_EXTS else 99
+                        if pri < 99:
+                            u = cap.get("url", "")
+                            if u and u not in seen:
+                                results.append((pri + 20, u))  # 非優先は後回し
+                                seen.add(u)
                 return sorted(results)
+
+            # 利用可能な字幕言語をログ出力
+            import sys
+            _ac_keys = list(_info.get("automatic_captions", {}).keys())
+            _s_keys  = list(_info.get("subtitles", {}).keys())
+            _msg = f"auto_caps={_ac_keys[:8]}, subs={_s_keys}"
+            _transcript_errors.append(f"dump-json found: {_msg}")
+            print(f"[transcript] {_msg}", file=sys.stderr)
 
             for _, cap_url in _cap_urls(_info.get("subtitles", {})) + \
                               _cap_urls(_info.get("automatic_captions", {})):
@@ -156,6 +193,7 @@ def get_transcript(url: str, work_dir: Path) -> list:
                 try:
                     resp = _req.get(cap_url, timeout=15)
                     if not resp.ok:
+                        _transcript_errors.append(f"timedtext HTTP {resp.status_code}: {cap_url[:80]}")
                         continue
                     # json3 形式
                     data = resp.json()
@@ -171,11 +209,17 @@ def get_transcript(url: str, work_dir: Path) -> list:
                             out.append({"start": start, "end": start + dur, "text": text})
                     if out:
                         return out
-                except Exception:
+                except Exception as _eu:
                     # vtt など json3 以外は json パース失敗 → スキップ
-                    pass
+                    _transcript_errors.append(f"url fetch error: {_eu}")
+        else:
+            import sys
+            _msg = f"dump-json failed rc={_dump.returncode}"
+            _transcript_errors.append(_msg)
+            print(f"[transcript] {_msg}", file=sys.stderr)
     except Exception as _e2:
         import sys
+        _transcript_errors.append(f"dump-json fallback exception: {_e2}")
         print(f"[transcript] dump-json url fallback failed: {_e2}", file=sys.stderr)
 
     # ── フォールバック②: yt-dlp --skip-download --write-auto-subs ──
@@ -230,13 +274,27 @@ def auto_select_clips(
     n_clips:     int = 10,
     clip_sec:    int = 60,
     video_title: str = "",
+    description: str = "",
 ) -> list:
     """
     動画を n_clips ゾーンに分割し、各ゾーンから最適な
     開始点を選んで clip_sec 秒のクリップを生成する。
+    字幕なし時は description を分割してテキスト生成に利用する。
     """
     if duration <= 0 or n_clips <= 0:
         return []
+
+    # 字幕なし時: description を n_clips 等分して各クリップのテキストとして使う
+    desc_chunks: list = []
+    if not transcript and description:
+        import textwrap
+        desc_clean = description.replace("\n", " ").strip()
+        # 説明文を n_clips 等分（文字数ベース）
+        chunk_size = max(1, len(desc_clean) // n_clips)
+        desc_chunks = [
+            desc_clean[i * chunk_size: (i + 1) * chunk_size].strip()
+            for i in range(n_clips)
+        ]
 
     zone = duration / n_clips
     clips = []
@@ -257,6 +315,10 @@ def auto_select_clips(
 
         clip_subs = [t for t in transcript if clip_start <= t["start"] < clip_end]
         clip_text = " ".join(t["text"] for t in clip_subs)
+
+        # 字幕なし時: description の対応チャンクをフォールバックテキストとして使用
+        if not clip_text and desc_chunks:
+            clip_text = desc_chunks[i] if i < len(desc_chunks) else ""
 
         scores = _score_clip(clip_text, clip_subs, clip_end - clip_start)
 

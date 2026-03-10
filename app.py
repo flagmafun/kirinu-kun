@@ -1112,7 +1112,7 @@ def step1():
         _analyze_error = None
         with st.status("動画を解析中...", expanded=True) as status:
             try:
-                from core.analyzer import get_video_info, get_transcript, auto_select_clips
+                from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
 
                 st.write("📡 動画情報を取得しています...")
                 info = get_video_info(url.strip())
@@ -1132,13 +1132,19 @@ def step1():
                 if transcript:
                     st.write(f"✅ 字幕取得完了（{len(transcript)} セグメント）")
                 else:
-                    st.write("⚠️ 字幕なし → 等間隔で自動分割します")
+                    st.write("⚠️ 字幕を取得できませんでした → 概要欄テキストで代替します")
+                    _dbg = get_transcript_debug()
+                    if _dbg:
+                        with st.expander("🔍 字幕取得ログ（デバッグ用）"):
+                            for _d in _dbg:
+                                st.code(_d)
 
                 st.write(f"✂️ {n_clips} 本のクリップを自動選定しています...")
                 clips = auto_select_clips(
                     info["duration"], transcript,
                     n_clips=int(n_clips), clip_sec=clip_sec,
                     video_title=info.get("title", ""),
+                    description=info.get("description", ""),
                 )
                 s.clips = clips
                 st.write(f"✅ {len(clips)} 本のクリップを選定しました")
