@@ -48,28 +48,44 @@ def get_video_info(url: str) -> dict:
 def get_transcript(url: str, work_dir: Path) -> list:
     """
     字幕（日本語 → 英語 → 自動生成）を取得してパース。
+    youtube-transcript-api を使用（CDN不要・IP制限回避）。
     失敗時は空リストを返す。
     """
+    # video_id を URL から抽出
+    video_id = None
+    m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
+    if m:
+        video_id = m.group(1)
+    if not video_id:
+        return []
+
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        # 日本語 → 英語 の優先順でトランスクリプトを取得（手動・自動生成どちらも対象）
+        segs = YouTubeTranscriptApi.get_transcript(video_id, languages=["ja", "en"])
+        if segs:
+            return [
+                {
+                    "start": s["start"],
+                    "end":   s["start"] + s.get("duration", 3.0),
+                    "text":  s["text"].replace("\n", " ").strip(),
+                }
+                for s in segs
+                if s.get("text", "").strip()
+            ]
+    except Exception:
+        pass  # フォールバック: yt-dlp で取得
+
+    # フォールバック: yt-dlp（CDN経由・IP制限を受ける可能性あり）
     work_dir.mkdir(parents=True, exist_ok=True)
-
-    attempts = [
-        ("ja",   False),
-        ("ja",   True),
-        ("en",   False),
-        ("en",   True),
-    ]
-
-    for lang, auto in attempts:
+    for lang, auto in [("ja", False), ("ja", True), ("en", False), ("en", True)]:
         flag = "--write-auto-subs" if auto else "--write-subs"
         cmd = [
             "yt-dlp", "--skip-download",
-            flag,
-            "--sub-langs", lang,
-            "--sub-format", "json3",
+            flag, "--sub-langs", lang, "--sub-format", "json3",
             "-o", str(work_dir / "%(id)s"),
         ] + _get_ytdlp_base() + [url]
         subprocess.run(cmd, capture_output=True, text=True)
-
         for f in work_dir.glob(f"*.{lang}.json3"):
             subs = _parse_json3(f)
             if subs:
