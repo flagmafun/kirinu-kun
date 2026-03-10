@@ -122,23 +122,80 @@ def get_transcript(url: str, work_dir: Path) -> list:
             except Exception:
                 pass
 
-    except Exception:
-        pass  # フォールバック: yt-dlp で取得
+    except Exception as _e1:
+        import sys
+        print(f"[transcript] youtube-transcript-api failed: {_e1}", file=sys.stderr)
 
-    # フォールバック: yt-dlp（CDN経由・IP制限を受ける可能性あり）
+    # ── フォールバック①: yt-dlp --dump-json の字幕URLを直接 requests でDL ──
+    # CDN不要・n-challenge不要・timedtext APIから直接取得
+    try:
+        import requests as _req
+        _dump = subprocess.run(
+            ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
+            capture_output=True, text=True, timeout=60,
+        )
+        if _dump.returncode == 0 and _dump.stdout.strip():
+            _info = json.loads(_dump.stdout)
+            _PREF_LANGS = ["ja", "ja-JP", "en", "en-US"]
+            _PREF_EXTS  = ["json3", "srv3", "vtt"]
+
+            def _cap_urls(d: dict) -> list:
+                """subtitles / automatic_captions から (priority, url) を優先順に返す"""
+                results = []
+                for lang in _PREF_LANGS:
+                    for cap in d.get(lang, []):
+                        ext = cap.get("ext", "")
+                        pri = _PREF_EXTS.index(ext) if ext in _PREF_EXTS else 99
+                        results.append((pri, cap.get("url", "")))
+                return sorted(results)
+
+            for _, cap_url in _cap_urls(_info.get("subtitles", {})) + \
+                              _cap_urls(_info.get("automatic_captions", {})):
+                if not cap_url:
+                    continue
+                try:
+                    resp = _req.get(cap_url, timeout=15)
+                    if not resp.ok:
+                        continue
+                    # json3 形式
+                    data = resp.json()
+                    out = []
+                    for ev in data.get("events", []):
+                        segs = ev.get("segs")
+                        if not segs:
+                            continue
+                        text = "".join(s.get("utf8", "") for s in segs).replace("\n", " ").strip()
+                        if text:
+                            start = ev["tStartMs"] / 1000
+                            dur   = ev.get("dDurationMs", 3000) / 1000
+                            out.append({"start": start, "end": start + dur, "text": text})
+                    if out:
+                        return out
+                except Exception:
+                    # vtt など json3 以外は json パース失敗 → スキップ
+                    pass
+    except Exception as _e2:
+        import sys
+        print(f"[transcript] dump-json url fallback failed: {_e2}", file=sys.stderr)
+
+    # ── フォールバック②: yt-dlp --skip-download --write-auto-subs ──
     work_dir.mkdir(parents=True, exist_ok=True)
-    for lang, auto in [("ja", False), ("ja", True), ("en", False), ("en", True)]:
-        flag = "--write-auto-subs" if auto else "--write-subs"
+    try:
         cmd = [
             "yt-dlp", "--skip-download",
-            flag, "--sub-langs", lang, "--sub-format", "json3",
+            "--write-auto-subs", "--write-subs",
+            "--sub-langs", "ja,ja-JP,en,en-US",
+            "--sub-format", "json3",
             "-o", str(work_dir / "%(id)s"),
         ] + _get_ytdlp_base() + [url]
-        subprocess.run(cmd, capture_output=True, text=True)
-        for f in work_dir.glob(f"*.{lang}.json3"):
+        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        for f in sorted(work_dir.glob("*.json3")):  # 言語コード問わず全 json3 を試す
             subs = _parse_json3(f)
             if subs:
                 return subs
+    except Exception as _e3:
+        import sys
+        print(f"[transcript] yt-dlp write-subs fallback failed: {_e3}", file=sys.stderr)
 
     return []
 
