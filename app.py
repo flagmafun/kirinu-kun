@@ -1072,6 +1072,7 @@ def render_login_page():
                                 pass
                     except Exception:
                         pass
+                    st.query_params.clear()  # ?no_auth=1 を URL から除去
                     st.rerun()
                 else:
                     st.error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
@@ -1109,6 +1110,7 @@ def render_login_page():
                             st.session_state["user_id"]      = login_res.user.id
                             st.session_state["user_email"]   = login_res.user.email
                             st.session_state["_supabase_rt"] = login_res.session.refresh_token
+                            st.query_params.clear()  # ?no_auth=1 を URL から除去
                             st.rerun()
                             return
                     except Exception:
@@ -2520,7 +2522,7 @@ if _is_multi_user_mode():
     if not s.get("user_id"):
         if "no_auth" in st.query_params:
             # localStorage に token なし → ログインページを表示
-            st.query_params.clear()
+            # ※ここで st.query_params.clear() を呼ぶとリランが発生してループするため呼ばない
             render_login_page()
             st.stop()
         else:
