@@ -443,6 +443,10 @@ st.markdown("""
 [data-testid="stHeader"] { background:transparent; }
 section[data-testid="stSidebar"] { display:none; }
 .block-container { padding:0 0 60px !important; max-width:1100px; }
+/* 横スクロール防止（グローバル） */
+html, body { overflow-x: hidden; }
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] { overflow-x: hidden; max-width: 100vw; }
 
 /* ── アプリヘッダー ── */
 .app-header {
@@ -642,29 +646,56 @@ div[data-testid="stNumberInput"] input { background:#ffffff !important; color:#1
 st.markdown("""
 <style>
 @media (max-width: 640px) {
-  .block-container { padding:0 0 40px !important; }
-  .app-header { padding:12px 16px !important; margin-left:-16px !important; margin-right:-16px !important; }
-  .brand-logo { height:48px !important; }
-  .brand-logo-fallback { width:48px !important; height:48px !important; font-size:28px !important; }
-  .brand-name { font-size:18px !important; }
-  .step-area { padding:14px 16px 0 !important; margin-left:-16px !important; margin-right:-16px !important; }
-  .st-circle { width:28px !important; height:28px !important; font-size:12px !important; }
-  .st-line { min-width:16px !important; }
-  .st-label { font-size:9px !important; }
-  .stepbar { padding-bottom:14px !important; }
-  .video-card { flex-direction:column !important; gap:10px !important; padding:14px !important; }
-  .clip-header { flex-wrap:wrap !important; gap:8px !important; padding:10px 12px !important; }
-  .time-tag { margin-left:0 !important; }
-  .transcript-box { margin:0 10px 12px !important; font-size:11px !important; }
-  .sched-row { flex-direction:column !important; align-items:flex-start !important; gap:4px !important; }
-  .sched-title { margin:0 !important; }
-  [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; }
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    min-width:100% !important; flex:1 1 100% !important;
-  }
-  div[data-testid="stButton"] > button { font-size:13px !important; }
-  h1, h2 { font-size:20px !important; line-height:1.3 !important; }
-  h3 { font-size:16px !important; }
+  /* === 水平余白（+12px → 合計28px/側） === */
+  .block-container { padding: 0 12px 40px !important; overflow-x: hidden !important; }
+  /* 全幅バー: -(16+12)=-28px */
+  .app-header { padding: 12px 20px !important; margin-left: -28px !important; margin-right: -28px !important; }
+  .step-area { padding: 14px 20px 0 !important; margin-left: -28px !important; margin-right: -28px !important; }
+  /* カラム縦積み */
+  [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; overflow-x: hidden !important; }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { min-width: 100% !important; flex: 1 1 100% !important; }
+  /* フォントサイズ（iOS zoom防止: 16px以上） */
+  div[data-testid="stTextInput"] input,
+  div[data-testid="stTextArea"] textarea,
+  div[data-testid="stNumberInput"] input { font-size: 16px !important; }
+  /* ラベル */
+  div[data-testid="stTextInput"] label, div[data-testid="stTextArea"] label,
+  div[data-testid="stNumberInput"] label, div[data-testid="stCheckbox"] label { font-size: 13px !important; font-weight: 600 !important; }
+  /* 本文 */
+  div[data-testid="stMarkdown"] p, div[data-testid="stMarkdown"] li { font-size: 13px !important; line-height: 1.65 !important; }
+  /* ボタン */
+  div[data-testid="stButton"] > button { font-size: 15px !important; min-height: 44px !important; }
+  /* 見出し階層 */
+  h1 { font-size: 22px !important; font-weight: 800 !important; line-height: 1.25 !important; }
+  h2 { font-size: 19px !important; font-weight: 700 !important; line-height: 1.3 !important; }
+  h3 { font-size: 16px !important; font-weight: 700 !important; line-height: 1.4 !important; }
+  /* クリップタイトル */
+  .clip-title-preview { font-size: 15px !important; font-weight: 700 !important; }
+  /* ブランド */
+  .brand-logo { height: 48px !important; }
+  .brand-logo-fallback { width: 48px !important; height: 48px !important; font-size: 28px !important; }
+  .brand-name { font-size: 19px !important; }
+  /* ステップバー */
+  .st-circle { width: 28px !important; height: 28px !important; font-size: 12px !important; }
+  .st-line { min-width: 12px !important; }
+  .st-label { font-size: 10px !important; }
+  .stepbar { padding-bottom: 14px !important; }
+  /* ビデオ・クリップカード */
+  .video-card { flex-direction: column !important; gap: 10px !important; padding: 14px !important; }
+  .video-meta h3 { font-size: 15px !important; }
+  .video-meta p { font-size: 13px !important; }
+  .clip-header { flex-wrap: wrap !important; gap: 8px !important; padding: 10px 14px !important; }
+  .time-tag { margin-left: 0 !important; font-size: 12px !important; }
+  .transcript-box { margin: 0 0 12px !important; font-size: 12px !important; }
+  /* スケジュール */
+  .sched-row { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; }
+  .sched-title { margin: 0 !important; font-size: 14px !important; }
+  .sched-num { font-size: 14px !important; }
+  .sched-time { font-size: 13px !important; }
+  /* ポップオーバー */
+  div[data-testid="stPopover"] button, div[data-testid="stPopover"] button p,
+  div[data-testid="stPopover"] button span { white-space: nowrap !important; overflow: hidden !important; font-size: 13px !important; }
+  div[data-testid="stPopover"] { min-width: 0 !important; }
 }
 </style>
 """, unsafe_allow_html=True)
