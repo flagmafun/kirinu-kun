@@ -288,89 +288,30 @@ def _redirect_to_url(url: str):
     )
 
 
-# ── localStorage ヘルパー（ログイン保持用） ────────────────────
-_LS_KEY = "kirinuki_sb_rt"
+# ── Cookie ヘルパー（ログイン保持用） ────────────────────
+_COOKIE_NAME    = "kirinuki_sb_rt"
+_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30日
 
 
-def _emit_localstorage_writer(rt: str):
-    """refresh_token を localStorage に書き込む JS を発行"""
+def _emit_cookie_writer(rt: str):
+    """refresh_token を Cookie に書き込む JS を発行（毎レンダリング・ローテーション対応）"""
     import streamlit.components.v1 as _c
     _c.html(
-        f"<script>try{{localStorage.setItem({json.dumps(_LS_KEY)},{json.dumps(rt)});}}catch(e){{}}</script>",
-        height=1,  # height=0 だと一部ブラウザで iframe が描画されず JS が実行されない
-    )
-
-
-def _emit_localstorage_reader():
-    """localStorage から refresh_token を読み出し、?sb_rt= または ?no_auth=1 にリダイレクトする JS を発行。
-    「認証確認中...」表示も兼ねる（height=0 だと JS が実行されないため完全な HTML ドキュメントで描画）。
-    """
-    import streamlit.components.v1 as _c
-    _c.html(
-        f"""<!DOCTYPE html><html><head><style>
-body{{margin:0;padding:60px 20px;text-align:center;
-     color:#64748b;font-size:15px;font-family:sans-serif;background:transparent;}}
-</style></head><body>
-<div>認証確認中...</div>
-<script>(function(){{
-  var key={json.dumps(_LS_KEY)};
-  var rt=null;
-  try{{rt=localStorage.getItem(key);}}catch(e){{}}
-  var base=window.top.location.origin+window.top.location.pathname;
-  window.top.location.href=rt?(base+'?sb_rt='+encodeURIComponent(rt)):(base+'?no_auth=1');
-}})();</script>
-</body></html>""",
-        height=120,
-    )
-
-
-def _emit_localstorage_clear():
-    """localStorage の refresh_token を削除して ?no_auth=1 にリダイレクトする JS を発行"""
-    import streamlit.components.v1 as _c
-    _c.html(
-        f"""<script>(function(){{
-  try{{localStorage.removeItem({json.dumps(_LS_KEY)});}}catch(e){{}}
-  var l=window.top.location;
-  window.top.location.href=l.origin+l.pathname+'?no_auth=1';
-}})();</script>""",
+        f'<script>document.cookie={json.dumps(_COOKIE_NAME)}'
+        f'+"="+encodeURIComponent({json.dumps(rt)})'
+        f'+"; path=/; max-age={_COOKIE_MAX_AGE}; SameSite=Lax";</script>',
         height=1,
     )
 
 
-def _handle_refresh_token_restore():
-    """?sb_rt= クエリパラメータから refresh_token を取得してセッションを復元する"""
-    rt = st.query_params.get("sb_rt", "")
-    if not rt:
-        return
-    st.query_params.clear()  # ブラウザ履歴にトークンを残さない
-    try:
-        from core.auth import refresh_session
-        result = refresh_session(rt)
-    except Exception:
-        result = None
-    if result:
-        st.session_state["user_id"]      = result["user_id"]
-        st.session_state["user_email"]   = result["user_email"]
-        st.session_state["_supabase_rt"] = result["refresh_token"]
-        # YouTube トークンも復元
-        try:
-            from core.db import get_youtube_token
-            from core.uploader import get_channel_info
-            yt = get_youtube_token(result["user_id"])
-            if yt:
-                st.session_state["yt_token"] = yt
-                ch = get_channel_info(yt)
-                if ch:
-                    st.session_state["yt_channel_name"]      = ch["title"]
-                    st.session_state["yt_channel_id"]        = ch["id"]
-                    st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
-        except Exception:
-            pass
-        st.rerun()
-    else:
-        # トークン期限切れ or 無効 → localStorage クリア → ログインページへ
-        _emit_localstorage_clear()
-        st.stop()
+def _emit_cookie_clear():
+    """Cookie の refresh_token を削除する JS を発行"""
+    import streamlit.components.v1 as _c
+    _c.html(
+        f'<script>document.cookie={json.dumps(_COOKIE_NAME)}'
+        f'+"=; path=/; max-age=0; SameSite=Lax";</script>',
+        height=1,
+    )
 
 
 # ── タイトルデザインテーマ ──────────────────────────────────
@@ -845,18 +786,18 @@ def render_logo():
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
                     from core.auth import sign_out
                     sign_out()
-                    for k in [k for k in st.session_state.keys() if k != "_clearing_storage"]:
+                    for k in [k for k in st.session_state.keys() if k != "_clearing_cookie"]:
                         del st.session_state[k]
-                    st.session_state["_clearing_storage"] = True
+                    st.session_state["_clearing_cookie"] = True
                     st.rerun()
         else:
             with btn_cols[1]:
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
                     from core.auth import sign_out
                     sign_out()
-                    for k in [k for k in st.session_state.keys() if k != "_clearing_storage"]:
+                    for k in [k for k in st.session_state.keys() if k != "_clearing_cookie"]:
                         del st.session_state[k]
-                    st.session_state["_clearing_storage"] = True
+                    st.session_state["_clearing_cookie"] = True
                     st.rerun()
 
 
@@ -2505,10 +2446,11 @@ def _run_pipeline(clips: list, sched: dict):
 # ルーティング（全関数定義後に実行）
 # ══════════════════════════════════════════════════════════
 
-# ① ログアウト後の localStorage クリア
-if s.get("_clearing_storage"):
-    del st.session_state["_clearing_storage"]
-    _emit_localstorage_clear()
+# ① ログアウト後の Cookie クリア
+if s.get("_clearing_cookie"):
+    del st.session_state["_clearing_cookie"]
+    _emit_cookie_clear()
+    render_login_page()
     st.stop()
 
 # ② YouTube OAuth コールバック処理
@@ -2519,25 +2461,51 @@ if "code" in st.query_params:
 if "sb_access_token" in st.query_params:
     _handle_supabase_confirmation()
 
-# ④ refresh_token によるセッション復元
-if "sb_rt" in st.query_params:
-    _handle_refresh_token_restore()
-
-# ⑤ マルチユーザー: ログインチェック
+# ④ マルチユーザー: Cookie からセッション復元 + ログインチェック
 if _is_multi_user_mode():
     if not s.get("user_id"):
-        if "no_auth" in st.query_params:
-            # localStorage に token なし → ログインページを表示
-            # ※ここで st.query_params.clear() を呼ぶとリランが発生してループするため呼ばない
+        # Cookie から refresh_token を読んでセッション復元を試みる
+        try:
+            import urllib.parse
+            _raw_rt = st.context.cookies.get(_COOKIE_NAME, "")
+            rt = urllib.parse.unquote(_raw_rt) if _raw_rt else ""
+        except Exception:
+            rt = ""
+        if rt:
+            try:
+                from core.auth import refresh_session
+                result = refresh_session(rt)
+            except Exception:
+                result = None
+            if result:
+                s["user_id"]      = result["user_id"]
+                s["user_email"]   = result["user_email"]
+                s["_supabase_rt"] = result["refresh_token"]
+                # YouTube トークンも復元
+                try:
+                    from core.db import get_youtube_token
+                    from core.uploader import get_channel_info
+                    yt = get_youtube_token(result["user_id"])
+                    if yt:
+                        s["yt_token"] = yt
+                        ch = get_channel_info(yt)
+                        if ch:
+                            s["yt_channel_name"]      = ch["title"]
+                            s["yt_channel_id"]        = ch["id"]
+                            s["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+                except Exception:
+                    pass
+                st.rerun()
+            else:
+                # トークン期限切れ → Cookie クリア → ログインページへ
+                _emit_cookie_clear()
+                render_login_page()
+                st.stop()
+        else:
             render_login_page()
             st.stop()
-        else:
-            # localStorage チェック中（_emit_localstorage_reader 内の JS が ?sb_rt= or ?no_auth=1 にリダイレクト）
-            # ※「認証確認中...」表示は _emit_localstorage_reader の HTML に含まれている
-            _emit_localstorage_reader()
-            st.stop()
 
-# ⑥ 管理者パネル
+# ⑤ 管理者パネル
 if st.query_params.get("page") == "admin":
     if _is_admin():
         render_admin_panel()
@@ -2547,16 +2515,16 @@ if st.query_params.get("page") == "admin":
         st.query_params.clear()
         st.rerun()
 
-# ⑦ メール認証完了メッセージ
+# ⑥ メール認証完了メッセージ
 if st.session_state.pop("_email_confirmed", False):
     st.success("✅ メールアドレスを確認しました。ようこそ切り抜きくんへ！")
 
 STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
 STEPS[s.step]()
 
-# ⑧ localStorage に refresh_token を永続化（毎レンダリング・ログイン中のみ）
+# ⑦ Cookie に refresh_token を永続化（毎レンダリング・ログイン中のみ）
 if _is_multi_user_mode() and s.get("user_id") and s.get("_supabase_rt"):
-    _emit_localstorage_writer(s["_supabase_rt"])
+    _emit_cookie_writer(s["_supabase_rt"])
 
 st.markdown(
     '<div class="footer">✂️ 切り抜きくん &nbsp;·&nbsp; '
