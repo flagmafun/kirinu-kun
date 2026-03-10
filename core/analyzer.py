@@ -322,15 +322,29 @@ def auto_select_clips(
 
         scores = _score_clip(clip_text, clip_subs, clip_end - clip_start)
 
+        # Claude API でタイトル等を生成（失敗時はルールベースにフォールバック）
+        try:
+            from core.ai_writer import generate_clip_metadata
+            ai_meta = generate_clip_metadata(
+                clip_text=clip_text,
+                video_title=video_title,
+                clip_index=i + 1,
+                total_clips=n_clips,
+                clip_start=clip_start,
+                clip_end=clip_end,
+            )
+        except Exception:
+            ai_meta = None
+
         clips.append({
             "index":              i + 1,
             "start":              clip_start,
             "end":                clip_end,
             "transcript":         clip_text[:400],
-            "title":              _suggest_title(clip_text, video_title),
-            "catchphrase":        _suggest_catchphrase(clip_text),
-            "description":        _generate_description(clip_text, video_title),
-            "hashtags":           _suggest_hashtags(clip_text, video_title),
+            "title":              (ai_meta or {}).get("title")      or _suggest_title(clip_text, video_title),
+            "catchphrase":        (ai_meta or {}).get("catchphrase") or _suggest_catchphrase(clip_text),
+            "description":        (ai_meta or {}).get("description") or _generate_description(clip_text, video_title),
+            "hashtags":           (ai_meta or {}).get("hashtags")    or _suggest_hashtags(clip_text, video_title),
             "enabled":            True,
             "score":              scores["score"],
             "score_density":      scores["score_density"],
