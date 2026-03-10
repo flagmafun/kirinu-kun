@@ -200,6 +200,7 @@ def generate_clip_metadata(
     total_clips: int,
     clip_start: float,
     clip_end: float,
+    user_prompt: str = "",
 ) -> dict | None:
     """
     Claude API でクリップのタイトル・キャッチコピー・説明文・ハッシュタグを生成。
@@ -225,6 +226,7 @@ def generate_clip_metadata(
     position_pct = int((clip_start / max(clip_end, 1)) * 100)
     minutes = int(clip_start // 60)
     seconds = int(clip_start % 60)
+    _user_req = ("\n【追加要望】\n" + user_prompt.strip()) if user_prompt.strip() else ""
 
     prompt = f"""あなたは日本語YouTube Shortsのバイラルタイトル専門家です。
 以下の動画クリップの内容から、最高のCTRが期待できるメタデータを生成してください。
@@ -238,7 +240,7 @@ def generate_clip_metadata(
 【クリップ情報】
 - 位置: {minutes}:{seconds:02d} 付近（全体の{position_pct}%地点）
 - クリップ番号: {clip_index}/{total_clips}
-
+{_user_req}
 以下のJSON形式で出力してください（他の文章は不要）:
 {{
   "title": "40文字以内の超バイラルタイトル（ブラケット+フック+絵文字の構成）",

@@ -700,10 +700,11 @@ def _load_session() -> tuple[dict | None, list, dict | None]:
     return None, [], None
 
 
-def _run_claude_api_on_clips() -> dict:
+def _run_claude_api_on_clips(user_prompt: str = "") -> dict:
     """
     既存クリップに対して Claude API でタイトル等を再生成し、
     ai_status を session_state とファイルに保存して rerun する。
+    user_prompt: UI から渡される追加要望テキスト（任意）
     """
     clips = list(st.session_state.get("clips", []))
     video_title = (st.session_state.get("video_info") or {}).get("title", "")
@@ -732,6 +733,7 @@ def _run_claude_api_on_clips() -> dict:
                 total_clips=n_clips,
                 clip_start=clip.get("start", 0.0),
                 clip_end=clip.get("end", 60.0),
+                user_prompt=user_prompt,
             )
         except Exception as _e:
             ai_meta = None
@@ -1564,11 +1566,18 @@ def step2():
             _show_regen_btn = True  # 成功済みでも再生成できるようにする
 
         if _show_regen_btn:
+            _user_prompt = st.text_area(
+                "✏️ 追加要望（任意）",
+                placeholder="例: ターゲットは30代男性 / 「驚き」系ワードを多用 / 英語タイトルにして",
+                key="claude_user_prompt",
+                height=80,
+                help="Claude への追加指示。空欄の場合はデフォルトのプロンプトで生成します。",
+            )
             if st.button("🔄 Claude APIで再生成", key="btn_regen_claude",
                          help="Claude API を直接呼び出してタイトル・説明文を再生成します",
                          use_container_width=True):
                 with st.spinner("Claude API を呼び出し中…"):
-                    _run_claude_api_on_clips()
+                    _run_claude_api_on_clips(user_prompt=_user_prompt)
 
     clips = s.clips
     from core.analyzer import fmt_time
