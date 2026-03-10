@@ -76,14 +76,18 @@ def _segs_to_list(segs) -> list:
 
 def get_transcript(url: str, work_dir: Path) -> list:
     """
-    字幕（日本語 → 英語 → 自動生成）を取得してパース。
-    youtube-transcript-api を使用（CDN不要・IP制限回避）。
-    失敗時は空リストを返す。
+    字幕を取得してパース。失敗時は空リストを返す。
+
+    取得順序:
+    1. yt-dlp --write-auto-subs（Streamlit Cloud でも動作。tv_embedded → ios → mweb）
+       cookies あり時は web クライアント + 認証
+    2. youtube-transcript-api（ローカル開発向け。クラウド IP では YouTube にブロックされる）
+
+    全て失敗しても auto_select_clips() が description テキストでフォールバックする。
     """
     global _transcript_errors
     _transcript_errors = []
 
-    # video_id を URL から抽出
     video_id = None
     m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
     if m:
@@ -91,222 +95,99 @@ def get_transcript(url: str, work_dir: Path) -> list:
     if not video_id:
         return []
 
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-
-        # cookies.txt があれば渡す（Streamlit Cloud の IP 制限を回避）
-        _ensure_netscape_cookies()
-        _cookies = str(_COOKIES_PATH) if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0 else None
-
-        # ── youtube-transcript-api 0.x / 1.x 両対応 ──────────────
-        # 0.x: クラスメソッド  YouTubeTranscriptApi.list_transcripts(id, cookies=...)
-        # 1.x: インスタンスメソッド  YouTubeTranscriptApi().list(id)
-        if hasattr(YouTubeTranscriptApi, "list_transcripts"):
-            # 0.x 系
-            transcript_list = YouTubeTranscriptApi.list_transcripts(
-                video_id, **({} if not _cookies else {"cookies": _cookies})
-            )
-        else:
-            # 1.x 系: cookies はコンストラクタ引数またはメソッド引数
-            try:
-                _inst = YouTubeTranscriptApi(**({"cookies": _cookies} if _cookies else {}))
-            except TypeError:
-                _inst = YouTubeTranscriptApi()
-
-            _list_fn = getattr(_inst, "list_transcripts", None) or getattr(_inst, "list", None)
-            if _list_fn is None:
-                raise AttributeError("youtube-transcript-api: list method not found")
-            try:
-                transcript_list = _list_fn(video_id)
-            except TypeError:
-                # cookies を引数に渡すタイプ
-                transcript_list = _list_fn(video_id, cookies=_cookies)
-
-        # 優先言語リスト
-        _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
-
-        # 1) 手動字幕（日本語 → 英語）
-        for lang in _LANGS:
-            try:
-                segs = transcript_list.find_manually_created_transcript([lang]).fetch()
-                result = _segs_to_list(segs)
-                if result:
-                    return result
-            except Exception:
-                pass
-
-        # 2) 自動生成字幕（日本語 → 英語）
-        for lang in _LANGS:
-            try:
-                segs = transcript_list.find_generated_transcript([lang]).fetch()
-                result = _segs_to_list(segs)
-                if result:
-                    return result
-            except Exception:
-                pass
-
-        # 3) find_transcript() — 1.x で追加された統合メソッド（あれば）
-        for lang in _LANGS:
-            try:
-                _ft = getattr(transcript_list, "find_transcript", None)
-                if _ft:
-                    segs = _ft([lang]).fetch()
-                    result = _segs_to_list(segs)
-                    if result:
-                        return result
-            except Exception:
-                pass
-
-        # 4) 言語問わず最初の字幕を使用
-        for t in transcript_list:
-            try:
-                segs = t.fetch()
-                result = _segs_to_list(segs)
-                if result:
-                    return result
-            except Exception:
-                pass
-
-    except Exception as _e1:
-        import sys
-        _transcript_errors.append(f"youtube-transcript-api: {_e1}")
-        print(f"[transcript] youtube-transcript-api failed: {_e1}", file=sys.stderr)
-
-    # ── フォールバック①: yt-dlp --dump-json の字幕URLを直接 requests でDL ──
-    # android_vr は字幕メタデータを含まないため、字幕向けクライアントを順に試す
-    _SUBTITLE_CLIENTS = ["tv_embedded", "web", "mweb", "ios"]
-    _info = None
-    for _sc in _SUBTITLE_CLIENTS:
-        try:
-            _base = _get_ytdlp_base()
-            # すでに --extractor-args が含まれている場合は置き換えてテスト
-            _ea_idx = next((i for i, o in enumerate(_base) if o == "--extractor-args"), None)
-            if _ea_idx is not None:
-                _base = _base[:_ea_idx] + ["--extractor-args", f"youtube:player_client={_sc}"] + _base[_ea_idx + 2:]
-            else:
-                _base = _base + ["--extractor-args", f"youtube:player_client={_sc}"]
-            _dump = subprocess.run(
-                ["yt-dlp", "--dump-json"] + _base + [url],
-                capture_output=True, text=True, timeout=60,
-            )
-            if _dump.returncode == 0 and _dump.stdout.strip():
-                _candidate = json.loads(_dump.stdout)
-                _has_subs = bool(
-                    _candidate.get("automatic_captions") or _candidate.get("subtitles")
-                )
-                _transcript_errors.append(
-                    f"dump-json({_sc}): auto_caps={list(_candidate.get('automatic_captions', {}).keys())[:6]}, "
-                    f"subs={list(_candidate.get('subtitles', {}).keys())}"
-                )
-                if _has_subs:
-                    _info = _candidate
-                    break  # 字幕が見つかったクライアントで確定
-                elif _info is None:
-                    _info = _candidate  # 字幕なしでも最初のメタデータを保持
-        except Exception as _esc:
-            _transcript_errors.append(f"dump-json({_sc}) error: {_esc}")
-
-    try:
-        import requests as _req
-        if _info is not None:
-            _PREF_LANGS = ["ja", "ja-JP", "en", "en-US"]
-            _PREF_EXTS  = ["json3", "srv3", "vtt"]
-
-            def _cap_urls(d: dict) -> list:
-                """subtitles / automatic_captions から (priority, url) を優先順に返す
-                優先言語を先に試し、次にすべての言語キーを試す（言語コード不一致対策）"""
-                seen = set()
-                results = []
-                # 優先言語
-                for lang in _PREF_LANGS:
-                    for cap in d.get(lang, []):
-                        ext = cap.get("ext", "")
-                        pri = _PREF_EXTS.index(ext) if ext in _PREF_EXTS else 99
-                        if pri < 99:
-                            u = cap.get("url", "")
-                            if u and u not in seen:
-                                results.append((pri, u))
-                                seen.add(u)
-                # 残りすべての言語キーも試す
-                for lang, caps in d.items():
-                    for cap in caps:
-                        ext = cap.get("ext", "")
-                        pri = _PREF_EXTS.index(ext) if ext in _PREF_EXTS else 99
-                        if pri < 99:
-                            u = cap.get("url", "")
-                            if u and u not in seen:
-                                results.append((pri + 20, u))  # 非優先は後回し
-                                seen.add(u)
-                return sorted(results)
-
-            for _, cap_url in _cap_urls(_info.get("subtitles", {})) + \
-                              _cap_urls(_info.get("automatic_captions", {})):
-                if not cap_url:
-                    continue
-                try:
-                    resp = _req.get(cap_url, timeout=15)
-                    if not resp.ok:
-                        _transcript_errors.append(f"timedtext HTTP {resp.status_code}: {cap_url[:80]}")
-                        continue
-                    # json3 形式
-                    data = resp.json()
-                    out = []
-                    for ev in data.get("events", []):
-                        segs = ev.get("segs")
-                        if not segs:
-                            continue
-                        text = "".join(s.get("utf8", "") for s in segs).replace("\n", " ").strip()
-                        if text:
-                            start = ev["tStartMs"] / 1000
-                            dur   = ev.get("dDurationMs", 3000) / 1000
-                            out.append({"start": start, "end": start + dur, "text": text})
-                    if out:
-                        return out
-                except Exception as _eu:
-                    # vtt など json3 以外は json パース失敗 → スキップ
-                    _transcript_errors.append(f"url fetch error: {_eu}")
-        else:
-            _transcript_errors.append("dump-json: 全クライアントで字幕メタデータ取得失敗")
-    except Exception as _e2:
-        import sys
-        _transcript_errors.append(f"dump-json fallback exception: {_e2}")
-        print(f"[transcript] dump-json url fallback failed: {_e2}", file=sys.stderr)
-
-    # ── フォールバック②: yt-dlp --skip-download --write-auto-subs ──
-    # player_client を変えて複数回試す（Streamlit Cloud IP では web が空を返す場合がある）
+    # ── 方式①: yt-dlp --write-auto-subs ──────────────────────────
+    # _get_ytdlp_base() は使わず、字幕専用オプションを直接組み立てる。
+    # これにより android_vr 固定・_has_ea バグを完全回避。
     work_dir.mkdir(parents=True, exist_ok=True)
-    _sub_clients = ["tv_embedded", "ios", "web"]
-    for _pc in _sub_clients:
-        # 前回の json3 をクリア
-        for _old in work_dir.glob("*.json3"):
+    _ensure_netscape_cookies()
+    _has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+
+    # cookies あり: web（認証付き）/ なし: tv_embedded が Streamlit Cloud でも字幕を返しやすい
+    _clients = ["web"] if _has_cookies else ["tv_embedded", "ios", "mweb"]
+
+    for _pc in _clients:
+        # このvideo_idのjson3だけを対象にする（他動画の混入防止）
+        for _old in work_dir.glob(f"{video_id}*.json3"):
             _old.unlink(missing_ok=True)
         try:
-            _base = _get_ytdlp_base()
-            # 既に --extractor-args がある場合は上書きしない（cookies あり時）
-            _has_ea = any("extractor-args" in o for o in _base)
+            _opts = [
+                "--no-playlist", "--no-check-certificates",
+                "--extractor-args", f"youtube:player_client={_pc}",
+            ]
+            if _has_cookies:
+                _opts += ["--cookies", str(_COOKIES_PATH), "--js-runtimes", "node"]
+
             cmd = [
                 "yt-dlp", "--skip-download",
                 "--write-auto-subs", "--write-subs",
-                "--sub-langs", "ja,ja-JP,en,en-US,.*",
+                "--sub-langs", "ja.*,en.*",
                 "--sub-format", "json3",
                 "-o", str(work_dir / "%(id)s"),
-            ] + _base + [url]
-            if not _has_ea:
-                cmd = cmd[:-1] + ["--extractor-args", f"youtube:player_client={_pc}"] + [url]
+            ] + _opts + [url]
+
             subprocess.run(cmd, capture_output=True, text=True, timeout=90)
-            for f in sorted(work_dir.glob("*.json3")):  # 言語コード問わず全 json3 を試す
+
+            for f in sorted(work_dir.glob(f"{video_id}*.json3")):
                 subs = _parse_json3(f)
                 if subs:
-                    _transcript_errors.append(f"write-subs ok (client={_pc}): {f.name}")
+                    # 成功はログに残さない（Step2で「✅ 字幕取得: 成功」が表示される）
                     return subs
-                else:
-                    _transcript_errors.append(f"json3 parse empty: {f.name}")
-        except Exception as _e3:
-            import sys
-            _transcript_errors.append(f"write-subs fallback ({_pc}) error: {_e3}")
-            print(f"[transcript] yt-dlp write-subs({_pc}) failed: {_e3}", file=sys.stderr)
+                _transcript_errors.append(f"json3 empty: {f.name}")
 
-    return []
+        except Exception as _e:
+            _transcript_errors.append(f"yt-dlp({_pc}): {_e}")
+
+    # ── 方式②: youtube-transcript-api ────────────────────────────
+    # ローカル開発では動作するが、Streamlit Cloud の IP は YouTube にブロックされる。
+    # エラーはログに記録するが、UI 上では参考情報として扱う。
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+
+        _cookies_arg = str(_COOKIES_PATH) if _has_cookies else None
+
+        # 0.x (class method) / 1.x (instance method) 両対応
+        if hasattr(YouTubeTranscriptApi, "list_transcripts"):
+            tlist = YouTubeTranscriptApi.list_transcripts(
+                video_id, **({} if not _cookies_arg else {"cookies": _cookies_arg})
+            )
+        else:
+            try:
+                _inst = YouTubeTranscriptApi(**({"cookies": _cookies_arg} if _cookies_arg else {}))
+            except TypeError:
+                _inst = YouTubeTranscriptApi()
+            _fn = getattr(_inst, "list_transcripts", None) or getattr(_inst, "list", None)
+            if _fn is None:
+                raise AttributeError("youtube-transcript-api: list method not found")
+            tlist = _fn(video_id)
+
+        _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
+        for lang in _LANGS:
+            for _fetch in (
+                lambda l: tlist.find_manually_created_transcript([l]).fetch(),
+                lambda l: tlist.find_generated_transcript([l]).fetch(),
+                lambda l: getattr(tlist, "find_transcript", None) and
+                          tlist.find_transcript([l]).fetch(),
+            ):
+                try:
+                    segs = _fetch(lang)
+                    if segs:
+                        result = _segs_to_list(segs)
+                        if result:
+                            return result
+                except Exception:
+                    pass
+        for t in tlist:
+            try:
+                result = _segs_to_list(t.fetch())
+                if result:
+                    return result
+            except Exception:
+                pass
+
+    except Exception as _e2:
+        _transcript_errors.append(f"youtube-transcript-api: {_e2}")
+
+    return []  # auto_select_clips() が description テキストでフォールバック
 
 
 def _parse_json3(path: Path) -> list:

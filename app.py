@@ -1531,7 +1531,8 @@ def step2():
     with _status_cols[0]:
         _dbg = st.session_state.get("transcript_debug")
         if _dbg:
-            with st.expander("🔴 字幕取得ログ（取得失敗）", expanded=False):
+            st.warning("⚠️ 字幕なし（概要欄テキストで代替）")
+            with st.expander("詳細ログ", expanded=False):
                 for _d in _dbg:
                     st.code(_d)
         else:
