@@ -45,6 +45,27 @@ def get_video_info(url: str) -> dict:
 # 字幕取得
 # ──────────────────────────────────────────────────────────
 
+def _segs_to_list(segs) -> list:
+    """youtube-transcript-api の FetchedTranscript をパース（dict / object 両対応）"""
+    result = []
+    for s in segs:
+        try:
+            if isinstance(s, dict):
+                text  = s.get("text", "")
+                start = s.get("start", 0.0)
+                dur   = s.get("duration", 3.0)
+            else:
+                text  = getattr(s, "text", "")
+                start = getattr(s, "start", 0.0)
+                dur   = getattr(s, "duration", 3.0)
+            text = text.replace("\n", " ").strip()
+            if text:
+                result.append({"start": float(start), "end": float(start) + float(dur), "text": text})
+        except Exception:
+            pass
+    return result
+
+
 def get_transcript(url: str, work_dir: Path) -> list:
     """
     字幕（日本語 → 英語 → 自動生成）を取得してパース。
@@ -61,18 +82,42 @@ def get_transcript(url: str, work_dir: Path) -> list:
 
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        # 日本語 → 英語 の優先順でトランスクリプトを取得（手動・自動生成どちらも対象）
-        segs = YouTubeTranscriptApi.get_transcript(video_id, languages=["ja", "en"])
-        if segs:
-            return [
-                {
-                    "start": s["start"],
-                    "end":   s["start"] + s.get("duration", 3.0),
-                    "text":  s["text"].replace("\n", " ").strip(),
-                }
-                for s in segs
-                if s.get("text", "").strip()
-            ]
+
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+        # 優先言語リスト
+        _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
+
+        # 1) 手動字幕（日本語 → 英語）
+        for lang in _LANGS:
+            try:
+                segs = transcript_list.find_manually_created_transcript([lang]).fetch()
+                result = _segs_to_list(segs)
+                if result:
+                    return result
+            except Exception:
+                pass
+
+        # 2) 自動生成字幕（日本語 → 英語）
+        for lang in _LANGS:
+            try:
+                segs = transcript_list.find_generated_transcript([lang]).fetch()
+                result = _segs_to_list(segs)
+                if result:
+                    return result
+            except Exception:
+                pass
+
+        # 3) 言語問わず最初の字幕を使用
+        for t in transcript_list:
+            try:
+                segs = t.fetch()
+                result = _segs_to_list(segs)
+                if result:
+                    return result
+            except Exception:
+                pass
+
     except Exception:
         pass  # フォールバック: yt-dlp で取得
 
@@ -240,7 +285,10 @@ def _suggest_title(text: str, video_title: str = "", max_len: int = 50) -> str:
     """
     combined = text + " " + video_title
     if not text:
-        return ""
+        # 字幕なしでも動画タイトルからタイトルを生成
+        text = video_title
+        if not text:
+            return ""
 
     # 文に分割（6〜48文字）
     sentences = re.split(r"[。！？!?]+", text)
