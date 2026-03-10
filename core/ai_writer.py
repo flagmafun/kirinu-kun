@@ -111,6 +111,42 @@ def _resolve_model(api_key: str) -> str | None:
     return None  # 全て失敗
 
 
+def _fix_unescaped_quotes(s: str) -> str:
+    """
+    JSON文字列値内の未エスケープのダブルクォートを修正する。
+    例: "title": "foo"bar"baz"  →  "title": "foo\"bar\"baz"
+    ロジック: 文字列の中で " に出会ったとき、直後（空白除く）が JSON 区切り文字
+    （, } ] 改行）でなければ内側の引用符とみなしてエスケープする。
+    """
+    result: list[str] = []
+    in_string = False
+    escape_next = False
+    for i, c in enumerate(s):
+        if escape_next:
+            result.append(c)
+            escape_next = False
+            continue
+        if c == "\\":
+            result.append(c)
+            escape_next = True
+            continue
+        if c == '"':
+            if not in_string:
+                result.append('"')
+                in_string = True
+            else:
+                # 直後（空白除く）が JSON 区切り文字なら閉じ引用符、さもなければ内側
+                rest = s[i + 1:].lstrip(" \t")
+                if not rest or rest[0] in (",", "}", "]", ":", "\n", "\r"):
+                    result.append('"')
+                    in_string = False
+                else:
+                    result.append('\\"')
+        else:
+            result.append(c)
+    return "".join(result)
+
+
 def _call_claude(prompt: str, api_key: str, max_tokens: int = 400) -> str | None:
     """Claude API を呼び出してテキストを返す。失敗時は None"""
     try:
@@ -193,7 +229,8 @@ def generate_clip_metadata(
 - 数字があれば積極活用（「3つの方法」「10倍速く」）
 - 疑問形・感嘆形を使う
 - 具体的なベネフィットを示す
-- 40文字厳守・末尾に絵文字1個"""
+- 40文字厳守・末尾に絵文字1個
+- 重要: 全フィールドの値内にダブルクォート（"）を絶対に使わない。強調は「」を使うこと"""
 
     response = _call_claude(prompt, api_key, max_tokens=500)
     if not response:
@@ -206,7 +243,12 @@ def generate_clip_metadata(
             response = response.split("```")[1]
             if response.startswith("json"):
                 response = response[4:]
-        data = json.loads(response.strip())
+        txt = response.strip()
+        # まず素直にパース、失敗したら未エスケープ " を修正して再試行
+        try:
+            data = json.loads(txt)
+        except json.JSONDecodeError:
+            data = json.loads(_fix_unescaped_quotes(txt))
         # 必須キーが揃っているか確認
         for key in ("title", "catchphrase", "description", "hashtags"):
             if key not in data:
