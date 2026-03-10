@@ -173,15 +173,42 @@ def get_transcript(url: str, work_dir: Path) -> list:
         print(f"[transcript] youtube-transcript-api failed: {_e1}", file=sys.stderr)
 
     # ── フォールバック①: yt-dlp --dump-json の字幕URLを直接 requests でDL ──
-    # CDN不要・n-challenge不要・timedtext APIから直接取得
+    # android_vr は字幕メタデータを含まないため、字幕向けクライアントを順に試す
+    _SUBTITLE_CLIENTS = ["tv_embedded", "web", "mweb", "ios"]
+    _info = None
+    for _sc in _SUBTITLE_CLIENTS:
+        try:
+            _base = _get_ytdlp_base()
+            # すでに --extractor-args が含まれている場合は置き換えてテスト
+            _ea_idx = next((i for i, o in enumerate(_base) if o == "--extractor-args"), None)
+            if _ea_idx is not None:
+                _base = _base[:_ea_idx] + ["--extractor-args", f"youtube:player_client={_sc}"] + _base[_ea_idx + 2:]
+            else:
+                _base = _base + ["--extractor-args", f"youtube:player_client={_sc}"]
+            _dump = subprocess.run(
+                ["yt-dlp", "--dump-json"] + _base + [url],
+                capture_output=True, text=True, timeout=60,
+            )
+            if _dump.returncode == 0 and _dump.stdout.strip():
+                _candidate = json.loads(_dump.stdout)
+                _has_subs = bool(
+                    _candidate.get("automatic_captions") or _candidate.get("subtitles")
+                )
+                _transcript_errors.append(
+                    f"dump-json({_sc}): auto_caps={list(_candidate.get('automatic_captions', {}).keys())[:6]}, "
+                    f"subs={list(_candidate.get('subtitles', {}).keys())}"
+                )
+                if _has_subs:
+                    _info = _candidate
+                    break  # 字幕が見つかったクライアントで確定
+                elif _info is None:
+                    _info = _candidate  # 字幕なしでも最初のメタデータを保持
+        except Exception as _esc:
+            _transcript_errors.append(f"dump-json({_sc}) error: {_esc}")
+
     try:
         import requests as _req
-        _dump = subprocess.run(
-            ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
-            capture_output=True, text=True, timeout=60,
-        )
-        if _dump.returncode == 0 and _dump.stdout.strip():
-            _info = json.loads(_dump.stdout)
+        if _info is not None:
             _PREF_LANGS = ["ja", "ja-JP", "en", "en-US"]
             _PREF_EXTS  = ["json3", "srv3", "vtt"]
 
@@ -212,14 +239,6 @@ def get_transcript(url: str, work_dir: Path) -> list:
                                 seen.add(u)
                 return sorted(results)
 
-            # 利用可能な字幕言語をログ出力
-            import sys
-            _ac_keys = list(_info.get("automatic_captions", {}).keys())
-            _s_keys  = list(_info.get("subtitles", {}).keys())
-            _msg = f"auto_caps={_ac_keys[:8]}, subs={_s_keys}"
-            _transcript_errors.append(f"dump-json found: {_msg}")
-            print(f"[transcript] {_msg}", file=sys.stderr)
-
             for _, cap_url in _cap_urls(_info.get("subtitles", {})) + \
                               _cap_urls(_info.get("automatic_captions", {})):
                 if not cap_url:
@@ -247,10 +266,7 @@ def get_transcript(url: str, work_dir: Path) -> list:
                     # vtt など json3 以外は json パース失敗 → スキップ
                     _transcript_errors.append(f"url fetch error: {_eu}")
         else:
-            import sys
-            _msg = f"dump-json failed rc={_dump.returncode}"
-            _transcript_errors.append(_msg)
-            print(f"[transcript] {_msg}", file=sys.stderr)
+            _transcript_errors.append("dump-json: 全クライアントで字幕メタデータ取得失敗")
     except Exception as _e2:
         import sys
         _transcript_errors.append(f"dump-json fallback exception: {_e2}")
