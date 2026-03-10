@@ -98,7 +98,29 @@ def get_transcript(url: str, work_dir: Path) -> list:
         _ensure_netscape_cookies()
         _cookies = str(_COOKIES_PATH) if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0 else None
 
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=_cookies)
+        # ── youtube-transcript-api 0.x / 1.x 両対応 ──────────────
+        # 0.x: クラスメソッド  YouTubeTranscriptApi.list_transcripts(id, cookies=...)
+        # 1.x: インスタンスメソッド  YouTubeTranscriptApi().list(id)
+        if hasattr(YouTubeTranscriptApi, "list_transcripts"):
+            # 0.x 系
+            transcript_list = YouTubeTranscriptApi.list_transcripts(
+                video_id, **({} if not _cookies else {"cookies": _cookies})
+            )
+        else:
+            # 1.x 系: cookies はコンストラクタ引数またはメソッド引数
+            try:
+                _inst = YouTubeTranscriptApi(**({"cookies": _cookies} if _cookies else {}))
+            except TypeError:
+                _inst = YouTubeTranscriptApi()
+
+            _list_fn = getattr(_inst, "list_transcripts", None) or getattr(_inst, "list", None)
+            if _list_fn is None:
+                raise AttributeError("youtube-transcript-api: list method not found")
+            try:
+                transcript_list = _list_fn(video_id)
+            except TypeError:
+                # cookies を引数に渡すタイプ
+                transcript_list = _list_fn(video_id, cookies=_cookies)
 
         # 優先言語リスト
         _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
@@ -123,7 +145,19 @@ def get_transcript(url: str, work_dir: Path) -> list:
             except Exception:
                 pass
 
-        # 3) 言語問わず最初の字幕を使用
+        # 3) find_transcript() — 1.x で追加された統合メソッド（あれば）
+        for lang in _LANGS:
+            try:
+                _ft = getattr(transcript_list, "find_transcript", None)
+                if _ft:
+                    segs = _ft([lang]).fetch()
+                    result = _segs_to_list(segs)
+                    if result:
+                        return result
+            except Exception:
+                pass
+
+        # 4) 言語問わず最初の字幕を使用
         for t in transcript_list:
             try:
                 segs = t.fetch()
@@ -223,25 +257,38 @@ def get_transcript(url: str, work_dir: Path) -> list:
         print(f"[transcript] dump-json url fallback failed: {_e2}", file=sys.stderr)
 
     # ── フォールバック②: yt-dlp --skip-download --write-auto-subs ──
+    # player_client を変えて複数回試す（Streamlit Cloud IP では web が空を返す場合がある）
     work_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        cmd = [
-            "yt-dlp", "--skip-download",
-            "--write-auto-subs", "--write-subs",
-            "--sub-langs", "ja,ja-JP,en,en-US",
-            "--sub-format", "json3",
-            "-o", str(work_dir / "%(id)s"),
-        ] + _get_ytdlp_base() + [url]
-        subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        for f in sorted(work_dir.glob("*.json3")):  # 言語コード問わず全 json3 を試す
-            subs = _parse_json3(f)
-            if subs:
-                return subs
-            else:
-                _transcript_errors.append(f"json3 parse empty: {f.name}")
-    except Exception as _e3:
-        import sys
-        print(f"[transcript] yt-dlp write-subs fallback failed: {_e3}", file=sys.stderr)
+    _sub_clients = ["tv_embedded", "ios", "web"]
+    for _pc in _sub_clients:
+        # 前回の json3 をクリア
+        for _old in work_dir.glob("*.json3"):
+            _old.unlink(missing_ok=True)
+        try:
+            _base = _get_ytdlp_base()
+            # 既に --extractor-args がある場合は上書きしない（cookies あり時）
+            _has_ea = any("extractor-args" in o for o in _base)
+            cmd = [
+                "yt-dlp", "--skip-download",
+                "--write-auto-subs", "--write-subs",
+                "--sub-langs", "ja,ja-JP,en,en-US,.*",
+                "--sub-format", "json3",
+                "-o", str(work_dir / "%(id)s"),
+            ] + _base + [url]
+            if not _has_ea:
+                cmd = cmd[:-1] + ["--extractor-args", f"youtube:player_client={_pc}"] + [url]
+            subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+            for f in sorted(work_dir.glob("*.json3")):  # 言語コード問わず全 json3 を試す
+                subs = _parse_json3(f)
+                if subs:
+                    _transcript_errors.append(f"write-subs ok (client={_pc}): {f.name}")
+                    return subs
+                else:
+                    _transcript_errors.append(f"json3 parse empty: {f.name}")
+        except Exception as _e3:
+            import sys
+            _transcript_errors.append(f"write-subs fallback ({_pc}) error: {_e3}")
+            print(f"[transcript] yt-dlp write-subs({_pc}) failed: {_e3}", file=sys.stderr)
 
     return []
 
