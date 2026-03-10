@@ -1,6 +1,6 @@
 """
 AI ライター – Claude API を使ってYouTube Shortsのタイトル・説明文を生成
-- モデル: claude-3-5-haiku-20241022（コスト最小・高速）
+- モデル: 利用可能モデルを API から自動取得（haiku 系を優先）
 - フォールバック: API 未設定 or エラー時はルールベース（analyzer.py）を使用
 """
 import json
@@ -10,6 +10,9 @@ import streamlit as st
 _ai_errors: list = []
 _ai_success_count: int = 0
 _ai_total_count: int = 0
+
+# 動作確認済みモデルをキャッシュ（プロセス内で再利用）
+_cached_model: str | None = None
 
 
 def get_ai_debug() -> list:
@@ -34,22 +37,91 @@ def _get_api_key() -> str | None:
         return None
 
 
-def _get_model() -> str:
-    """使用する Claude モデルを返す。Secrets で上書き可能"""
+def _resolve_model(api_key: str) -> str | None:
+    """
+    利用可能な Claude モデルを返す。
+    1. Secrets に claude_model が指定されていればそれを使う
+    2. client.models.list() で取得し haiku 系を優先
+    3. 上記が失敗したらフォールバックリストを順に試す
+    キャッシュ済みモデルがあればそれを返す（API 呼び出しを節約）。
+    """
+    global _cached_model
+
+    # ① Secrets で手動指定された場合はキャッシュを上書きして返す
     try:
-        return st.secrets["app"]["claude_model"]
+        m = st.secrets["app"]["claude_model"]
+        if m:
+            _cached_model = m
+            return m
     except Exception:
         pass
-    # デフォルト: claude-3-haiku（2024/3 リリース、安定）
-    return "claude-3-haiku-20240307"
+
+    # ② キャッシュがあれば再利用
+    if _cached_model:
+        return _cached_model
+
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # ③ models.list() で取得（SDK が対応していれば）
+    try:
+        resp = client.models.list()
+        ids: list[str] = [m.id for m in resp.data]
+        # haiku 系を優先、なければ sonnet、それ以外も許可
+        for keyword in ("haiku", "sonnet", "opus"):
+            for mid in ids:
+                if keyword in mid.lower():
+                    _cached_model = mid
+                    return mid
+        if ids:
+            _cached_model = ids[0]
+            return ids[0]
+    except Exception:
+        pass
+
+    # ④ フォールバックリストを順に試す（404 でなければ採用）
+    candidates = [
+        "claude-haiku-4-5",
+        "claude-3-5-haiku-latest",
+        "claude-3-5-haiku-20241022",
+        "claude-3-haiku-20240307",
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-7-sonnet-20250219",
+        "claude-sonnet-4-5",
+        "claude-3-opus-20240229",
+    ]
+    for cand in candidates:
+        try:
+            msg = client.messages.create(
+                model=cand,
+                max_tokens=5,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            _cached_model = cand
+            return cand
+        except anthropic.NotFoundError:
+            continue
+        except Exception:
+            # 404 以外のエラー（RateLimit 等）はそのモデルを採用して続行
+            _cached_model = cand
+            return cand
+
+    return None  # 全て失敗
 
 
 def _call_claude(prompt: str, api_key: str, max_tokens: int = 400) -> str | None:
     """Claude API を呼び出してテキストを返す。失敗時は None"""
     try:
         import anthropic
-        model = _get_model()
         client = anthropic.Anthropic(api_key=api_key)
+
+        model = _resolve_model(api_key)
+        if not model:
+            _ai_errors.append("Claude API error: 利用可能なモデルが見つかりません")
+            return None
+
         msg = client.messages.create(
             model=model,
             max_tokens=max_tokens,
