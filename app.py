@@ -1368,17 +1368,38 @@ def step1():
 # STEP 2 — クリップ確認・編集
 # ══════════════════════════════════════════════════════════
 
+# ── 採点根拠ダイアログ（st.dialog: Streamlit 1.35+） ──────
+@st.dialog("★ 採点根拠", width="small")
+def _score_dialog(score: int, s_density: int, s_engage: int, s_complete: int):
+    st.markdown(f"### 合計 **{score}** / 100点")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("📝 文字密度",   f"{s_density} / 40")
+    c2.metric("🔥 盛り上がり", f"{s_engage} / 40")
+    c3.metric("✅ 完成度",     f"{s_complete} / 20")
+    st.caption("📝 **文字密度** — 発話量（文字数/秒）")
+    st.caption("🔥 **盛り上がり** — ？！・すごい・秘密 等のキーワード数")
+    st.caption("✅ **完成度** — 字幕セグメントの充実度")
+    if st.button("✕ 閉じる", use_container_width=True):
+        st.rerun()
+
+
+# ── プレビューカード定数 ──────────────────────────────────
+_PREVIEW_W = 224   # カード幅(px) — 9:16 比率の縦型プレビュー用
+_VIDEO_H   = int(_PREVIEW_W * 16 / 9)   # = 398px（9:16 縦型エリア）
+_IFRAME_H  = int(_PREVIEW_W * 9 / 16)   # = 126px（16:9 ネイティブ高さ）
+
+
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
     """
-    16:9 Shorts プレビューカード（テーマ・サイズ対応版）
-    ┌─────────────────────────────┐
-    │  ⚡ キャッチコピー（小）        │
-    │  BIG TITLE テキスト           │  ← テーマグラデーション背景
-    ├─────────────────────────────┤
-    │     16:9 動画プレビュー        │  ← YouTube embed
-    ├─────────────────────────────┤
-    │     底部画像エリア             │  ← 顔写真・ロゴ等
-    └─────────────────────────────┘
+    9:16 Shorts プレビューカード（縦型・テーマ対応版）
+    ┌──────────────┐
+    │ ⚡ キャッチ  │
+    │ TITLE TEXT   │  ← テーマグラデーション
+    ├──────────────┤
+    │              │
+    │   [video]    │  ← 9:16 縦型エリア（16:9動画がレターボックス）
+    │              │
+    └──────────────┘
     """
     import base64
     import streamlit.components.v1 as components
@@ -1447,19 +1468,18 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
                 f'style="width:100%;height:100%;object-fit:cover;">'
             )
 
-    # ── タイトルバー高さ動的計算（行数推定・日本語基準） ──
-    _cpl  = {"small": 24, "medium": 19, "large": 14}[size_key]  # 1行あたり文字数
+    # ── タイトルバー高さ動的計算（行数推定・日本語基準、224px幅） ──
+    _cpl  = {"small": 17, "medium": 13, "large": 10}[size_key]  # 1行あたり文字数（224px幅）
     _lh   = {"small": 17, "medium": 22, "large": 27}[size_key]  # 1行の高さ(px)
     _padv = {"small": 24, "medium": 32, "large": 38}[size_key]  # 上下パディング合計(px)
     _ch   = 26 if catchphrase else 0                             # キャッチコピー分(px)
     _lines = max(1, (len(title[:60]) + _cpl - 1) // _cpl)
     _dyn_h = _lines * _lh + _padv + _ch
     _title_bar_h = max(TITLE_BAR_H[size_key], _dyn_h)
-    # カード全高 = タイトルバー + 動画(180) + 底部(90)
-    card_h = _title_bar_h + 180 + 90
+    # カード全高 = タイトルバー + 9:16 縦型動画エリア
+    card_h = _title_bar_h + _VIDEO_H
 
     # タイトル/キャッチコピーが変わったら components.html を強制再レンダリングさせる
-    # （Streamlit は components.html の iframe をキャッシュすることがあるため）
     _render_key = hash((title, catchphrase, theme_key, size_key))
 
     card_html = f"""<!DOCTYPE html>
@@ -1467,7 +1487,7 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{ background:transparent; font-family:-apple-system,'Hiragino Sans',sans-serif; }}
   .card {{
-    width:320px; background:#fff;
+    width:{_PREVIEW_W}px; background:#fff;
     border-radius:16px; overflow:hidden;
     border:1px solid #cbd5e1;
     box-shadow:0 6px 28px rgba(0,0,0,0.16);
@@ -1502,11 +1522,21 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     text-shadow:0 2px 8px rgba(0,0,0,0.40);
     word-break:break-all;
   }}
+  /* 9:16 縦型動画エリア — 16:9ソース動画はレターボックス表示 */
   .video-area {{
-    width:320px; height:180px; background:#000; overflow:hidden;
+    width:{_PREVIEW_W}px; height:{_VIDEO_H}px;
+    background:#000; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
   }}
-  .video-area iframe {{ width:320px; height:180px; border:none; }}
-  .bottom-area {{ width:320px; height:90px; overflow:hidden; }}
+  .video-area iframe {{ width:{_PREVIEW_W}px; height:{_IFRAME_H}px; border:none; flex-shrink:0; }}
+  /* Shorts フォーマット表示ラベル */
+  .shorts-label {{
+    position:absolute; bottom:8px; right:10px;
+    background:rgba(0,0,0,0.55); color:rgba(255,255,255,0.75);
+    font-size:9px; font-weight:700; letter-spacing:0.08em;
+    padding:2px 6px; border-radius:4px; pointer-events:none;
+  }}
 </style></head>
 <body>
   <div class="card">
@@ -1518,8 +1548,8 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
       <iframe src="{embed_url}"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen></iframe>
+      <div class="shorts-label">9:16</div>
     </div>
-    <div class="bottom-area">{bottom_img_html}</div>
   </div>
 <script>
 window.addEventListener('load',function(){{
@@ -1931,23 +1961,11 @@ def step2():
         edit_col, prev_col = st.columns([3, 2])
 
         with edit_col:
-            # ℹ️ 採点根拠ポップオーバー
+            # ℹ️ 採点根拠ダイアログ
             _pc, _ = st.columns([2.2, 3.8])
             with _pc:
-                with st.popover("ℹ️ 採点根拠", use_container_width=True):
-                    st.markdown(f"#### ★ 合計 **{score}** / 100点")
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("📝 文字密度",   f"{s_density} / 40")
-                    c2.metric("🔥 盛り上がり", f"{s_engage} / 40")
-                    c3.metric("✅ 完成度",     f"{s_complete} / 20")
-                    st.markdown(
-                        "<small>"
-                        "📝 **文字密度** — 発話量（文字数/秒）<br>"
-                        "🔥 **盛り上がり** — ？！・すごい・秘密 等のキーワード数<br>"
-                        "✅ **完成度** — 字幕セグメントの充実度"
-                        "</small>",
-                        unsafe_allow_html=True,
-                    )
+                if st.button("ℹ️ 採点根拠", key=f"score_{i}", use_container_width=True):
+                    _score_dialog(score, s_density, s_engage, s_complete)
 
             # 字幕プレビュー
             if clip.get("transcript"):
@@ -2006,7 +2024,7 @@ def step2():
             with desc_col:
                 clip["description"] = st.text_area(
                     "説明文", value=clip.get("description", ""),
-                    key=f"desc_{i}", height=68, placeholder="説明文（省略可）",
+                    key=f"desc_{i}", height=120, placeholder="説明文（省略可）",
                 )
 
         with prev_col:
