@@ -8,7 +8,7 @@ import subprocess
 import json
 import re
 from pathlib import Path
-from core.downloader import _get_ytdlp_base, _clean_url
+from core.downloader import _get_ytdlp_base, _clean_url, _COOKIES_PATH, _ensure_netscape_cookies
 
 
 # ──────────────────────────────────────────────────────────
@@ -83,7 +83,11 @@ def get_transcript(url: str, work_dir: Path) -> list:
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
 
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # cookies.txt があれば渡す（Streamlit Cloud の IP 制限を回避）
+        _ensure_netscape_cookies()
+        _cookies = str(_COOKIES_PATH) if _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0 else None
+
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=_cookies)
 
         # 優先言語リスト
         _LANGS = ["ja", "ja-JP", "en", "en-US", "en-GB"]
