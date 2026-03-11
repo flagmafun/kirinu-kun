@@ -589,8 +589,8 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
   background:#e2e8f0; display:flex; align-items:center; justify-content:center;
   font-size:5px; color:#64748b;
 }
-.shorts-thumb-hl-title  { box-shadow:0 0 0 2.5px #f59e0b inset; }
-.shorts-thumb-hl-bottom { box-shadow:0 0 0 2.5px #10b981 inset; }
+.shorts-thumb-hl-title .shorts-thumb-title  { outline:2.5px solid #f59e0b; }
+.shorts-thumb-hl-bottom .shorts-thumb-bottom { outline:2.5px solid #10b981; }
 .diagram-note { font-size:12px; color:#475569; line-height:1.7; }
 .diagram-note strong { color:#4f46e5; }
 
@@ -1865,7 +1865,7 @@ def step2():
         <div class="design-sec-icon orange">🖼</div>
         <div>
           <div class="design-sec-title">底部画像（全クリップ共通）</div>
-          <div class="design-sec-desc">動画の一番下に表示するロゴ・顔写真などを全クリップに一括設定</div>
+          <div class="design-sec-desc">動画の一番下に表示するロゴ・顔写真などを全クリップに一括設定（各クリップごとに設定も可能です）</div>
         </div>
       </div>
     </div>
