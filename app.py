@@ -571,22 +571,22 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
   background:#000;
 }
 .shorts-thumb-title {
-  /* 実際の出力比率 18% → 98px × 0.18 ≈ 18px */
-  position:absolute; top:0; left:0; right:0; height:18px;
+  /* 出力比率 タイトル ~35% → 98px × 0.35 ≈ 34px */
+  position:absolute; top:0; left:0; right:0; height:34px;
   background:linear-gradient(135deg,#4f46e5,#7c3aed);
   display:flex; align-items:center; justify-content:center;
   font-size:5px; color:#fff; font-weight:700; text-align:center;
   padding:1px;
 }
 .shorts-thumb-video {
-  /* 実際の出力比率 32% → 98px × 0.32 ≈ 31px */
-  position:absolute; top:18px; left:0; right:0; height:31px;
+  /* 出力比率 動画 ~32% → 98px × 0.32 ≈ 31px */
+  position:absolute; top:34px; left:0; right:0; height:31px;
   background:#1a1a2e; display:flex; align-items:center; justify-content:center;
   font-size:10px; color:#666;
 }
 .shorts-thumb-bottom {
-  /* 実際の出力比率 50% → 98px × 0.50 ≈ 49px（ほぼ正方形 56×49px） */
-  position:absolute; top:49px; left:0; right:0; height:49px;
+  /* 出力比率 底部 ~33% → 98px × 0.33 ≈ 33px (1.7:1 横長) */
+  position:absolute; top:65px; left:0; right:0; height:33px;
   background:#e2e8f0; display:flex; align-items:center; justify-content:center;
   font-size:5px; color:#64748b;
 }
@@ -1438,13 +1438,11 @@ def _score_dialog(score: int, s_density: int, s_engage: int, s_complete: int):
         st.rerun()
 
 
-# ── プレビューカード固定レイアウト（Bバランス型）──────────────
-# タイトル 88px (22%) / 動画 126px (32%) / 底部 184px (46%)
+# ── プレビューカードレイアウト（Aバランス型：タイトル自動高さ）──────────
+# タイトル 自動 / 動画 126px (16:9固定) / 底部 132px (1.7:1横長)
 _PREVIEW_W = 224   # カード幅(px)
-_CARD_H    = 398   # 9:16 総高さ (224×1920/1080)
-_TITLE_H   = 88    # タイトルエリア固定高さ
 _VIDEO_H   = 126   # 動画エリア固定高さ (16:9 = 224×9/16)
-_BOTTOM_H  = _CARD_H - _TITLE_H - _VIDEO_H   # = 184px
+_BOTTOM_H  = 132   # 底部エリア固定高さ (224:132 ≈ 1.7:1 横長)
 
 
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
@@ -1527,8 +1525,14 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
                 f'style="width:100%;height:100%;object-fit:cover;">'
             )
 
-    # 全エリア固定（Bバランス型: タイトル88px / 動画126px / 底部184px）
-    card_h = _CARD_H   # 398px 固定
+    # タイトル高さをテキスト量で推定（JS が実サイズに再調整）
+    _pad_v  = {"large": 38, "xlarge": 44}.get(size_key, 38)   # 上下パディング合計
+    _lh_px  = {"large": 27, "xlarge": 33}.get(size_key, 27)   # 1行の実高さ(px)
+    _cpl    = {"large": 12, "xlarge": 10}.get(size_key, 12)   # 1行あたり文字数目安
+    _cp_add = 28 if catchphrase else 0                         # キャッチコピー分
+    _lines  = max(1, (len(title) + _cpl - 1) // _cpl)
+    _title_h_est = _pad_v + _lines * _lh_px + _cp_add
+    card_h = _title_h_est + _VIDEO_H + _BOTTOM_H
 
     # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
     _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
@@ -1537,20 +1541,19 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
 <html><head><style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{ background:transparent; font-family:-apple-system,'Hiragino Sans',sans-serif; }}
-  /* カード全体: 9:16 固定・flexbox 縦並び */
+  /* カード全体: タイトル自動高さ・flexbox 縦並び */
   .card {{
-    width:{_PREVIEW_W}px; height:{_CARD_H}px;
+    width:{_PREVIEW_W}px;
     background:#fff; border-radius:16px; overflow:hidden;
     border:1px solid #cbd5e1; box-shadow:0 6px 28px rgba(0,0,0,0.16);
     display:flex; flex-direction:column;
   }}
-  /* タイトルバー: 88px 固定 */
+  /* タイトルバー: 自動高さ（テキスト量に応じて伸縮） */
   .title-bar {{
     background:{theme["bg"]};
     padding:{size["pad"]};
-    flex:0 0 {_TITLE_H}px;
-    height:{_TITLE_H}px;
-    overflow:hidden;
+    flex:0 0 auto;
+    overflow:visible;
     display:flex; flex-direction:column; justify-content:center;
     position:relative;
   }}
@@ -1584,7 +1587,7 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     background:#000; overflow:hidden; position:relative;
   }}
   .video-area iframe {{ width:{_PREVIEW_W}px; height:{_VIDEO_H}px; border:none; display:block; }}
-  /* 底部画像エリア: 184px 固定 */
+  /* 底部画像エリア: 132px 固定 (1.7:1 横長) */
   .bottom-area {{
     flex:0 0 {_BOTTOM_H}px;
     height:{_BOTTOM_H}px;
@@ -1595,7 +1598,7 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
   <div class="card">
     <div class="title-bar">
       {catchphrase_html}
-      <div class="title-text">{title[:60]}</div>
+      <div class="title-text">{title}</div>
     </div>
     <div class="video-area">
       <iframe src="{embed_url}"
@@ -1882,12 +1885,12 @@ def step2():
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-top:10px;">
       <div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:8px;">📐 推奨画像サイズ</div>
       <div style="font-size:12px;color:#166534;line-height:1.9;">
-        <span style="display:inline-block;background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 10px;font-weight:700;font-size:13px;margin-bottom:6px;">1080 × 960 px 推奨</span><br>
-        縦横比 <strong>ほぼ正方形（1:1）</strong> が最適です。<br>
+        <span style="display:inline-block;background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 10px;font-weight:700;font-size:13px;margin-bottom:6px;">1080 × 640 px 推奨</span><br>
+        縦横比 <strong>横長（約 1.7:1）</strong> が最適です。<br>
         <span style="color:#86efac;font-weight:700;">▸</span> 幅は1080pxに自動リサイズされます<br>
-        <span style="color:#86efac;font-weight:700;">▸</span> 高さはタイトル行数によって変わります<br>
+        <span style="color:#86efac;font-weight:700;">▸</span> 底部エリアは固定の横長エリアに収まります<br>
         <span style="color:#86efac;font-weight:700;">▸</span> 余白部分はテーマ色で自動補完されます<br>
-        <span style="color:#94a3b8;font-size:11px;">※ 横長（16:9）でも表示されますが上下に余白が出ます</span>
+        <span style="color:#94a3b8;font-size:11px;">※ 正方形・縦長でも表示されますが上下に余白が出ます</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
