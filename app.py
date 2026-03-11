@@ -3939,6 +3939,39 @@ def step5():
             key="want_download",
         )
 
+        if _want_dl:
+            import streamlit.components.v1 as _comp_hint
+            _comp_hint.html("""
+<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;
+            padding:12px 16px;margin:4px 0 8px;font-family:sans-serif;">
+  <div style="font-weight:700;color:#166534;font-size:13px;margin-bottom:6px;">
+    📥 チェックON：生成 → ダウンロード → アップロードの順で進みます
+  </div>
+  <div style="font-size:12px;color:#14532d;line-height:1.9;">
+    クリップが生成されたあと、ダウンロード画面が表示されます。<br>
+    各クリップを端末に保存してから、YouTubeへアップロードするか選べます。<br>
+    <b>💡 保存先フォルダを選びたい場合：</b><br>
+    　📱 iPhone（Safari）: 設定 → Safari → ダウンロード → 好きな場所を選択<br>
+    　🤖 Android（Chrome）: Chromeメニュー → 設定 → ダウンロード先を変更<br>
+    　💻 PC（Chrome）: Chrome設定 → ダウンロード →「保存場所を毎回確認する」をオン
+  </div>
+</div>
+""", height=145)
+        else:
+            import streamlit.components.v1 as _comp_hint
+            _comp_hint.html("""
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+            padding:12px 16px;margin:4px 0 8px;font-family:sans-serif;">
+  <div style="font-weight:700;color:#475569;font-size:13px;margin-bottom:6px;">
+    ☁️ チェックOFF：生成 → 即YouTube予約投稿（ダウンロードなし）
+  </div>
+  <div style="font-size:12px;color:#64748b;line-height:1.7;">
+    クリップは生成後そのままYouTubeにアップロードされます。<br>
+    端末への保存は行われません。
+  </div>
+</div>
+""", height=90)
+
         # ダウンロードしない場合はYouTube認証も必要
         all_ready = secret_ok and token_ok and len(enabled_clips) > 0
         gen_ready = len(enabled_clips) > 0
