@@ -1853,12 +1853,48 @@ def step1():
 
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
 
-    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+    <!-- ① AI文字起こし＆自動選定 -->
+    <div style="background:#fff;border-radius:16px;padding:14px 8px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
-      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
-                  background:linear-gradient(135deg,#fff7ed,#ffedd5);
-                  display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+      <svg viewBox="0 0 54 70" fill="none" style="width:100%;max-width:60px;height:auto;display:block;margin:0 auto 10px;">
+        <defs>
+          <clipPath id="ai-clip"><rect width="54" height="70" rx="11"/></clipPath>
+          <linearGradient id="ai-grad" x1="0" y1="0" x2="54" y2="27" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ea580c"/>
+          </linearGradient>
+        </defs>
+        <g clip-path="url(#ai-clip)">
+          <rect width="54" height="27" fill="url(#ai-grad)"/>
+          <rect y="27" width="54" height="28" fill="#111827"/>
+          <rect y="55" width="54" height="15" fill="#fff7ed"/>
+        </g>
+        <rect width="54" height="70" rx="11" fill="none" stroke="#fed7aa" stroke-width="1.5"/>
+        <!-- waveform bars -->
+        <rect x="9"  y="10" width="3" height="12" rx="1.5" fill="rgba(255,255,255,.35)"/>
+        <rect x="14" y="7"  width="3" height="18" rx="1.5" fill="rgba(255,255,255,.55)"/>
+        <rect x="19" y="4"  width="3" height="24" rx="1.5" fill="rgba(255,255,255,.8)"/>
+        <rect x="24" y="2"  width="3" height="26" rx="1.5" fill="white"/>
+        <rect x="29" y="5"  width="3" height="20" rx="1.5" fill="rgba(255,255,255,.65)"/>
+        <rect x="34" y="8"  width="3" height="14" rx="1.5" fill="rgba(255,255,255,.45)"/>
+        <rect x="39" y="12" width="3" height="8"  rx="1.5" fill="rgba(255,255,255,.3)"/>
+        <!-- highlight around peak -->
+        <rect x="22" y="1" width="9" height="26" rx="3" fill="rgba(255,255,255,.15)" stroke="rgba(255,255,255,.65)" stroke-width="1"/>
+        <!-- transcript lines -->
+        <rect x="8" y="33"   width="38" height="2.5" rx="1.25" fill="rgba(255,255,255,.18)"/>
+        <rect x="8" y="38.5" width="30" height="2.5" rx="1.25" fill="rgba(255,255,255,.18)"/>
+        <!-- highlighted selected line -->
+        <rect x="8" y="44" width="24" height="2.5" rx="1.25" fill="#fb923c" opacity=".9"/>
+        <!-- star badge -->
+        <circle cx="45" cy="44" r="5" fill="#f97316"/>
+        <text x="42.3" y="46.8" font-family="system-ui,sans-serif" font-size="6.5" fill="white">★</text>
+        <!-- score dots -->
+        <circle cx="15" cy="62" r="2.5" fill="#fed7aa"/>
+        <circle cx="22" cy="62" r="2.5" fill="#fdba74"/>
+        <circle cx="29" cy="62" r="3.5" fill="#f97316"/>
+        <circle cx="36" cy="62" r="2.5" fill="#fdba74"/>
+        <circle cx="43" cy="62" r="2.5" fill="#fed7aa"/>
+      </svg>
       <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
         AI文字起こし<br>&amp;自動選定
       </div>
@@ -1867,12 +1903,36 @@ def step1():
       </div>
     </div>
 
-    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+    <!-- ② デザインカスタマイズ -->
+    <div style="background:#fff;border-radius:16px;padding:14px 8px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
-      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
-                  background:linear-gradient(135deg,#eef2ff,#e0e7ff);
-                  display:flex;align-items:center;justify-content:center;font-size:20px;">🎨</div>
+      <svg viewBox="0 0 54 70" fill="none" style="width:100%;max-width:60px;height:auto;display:block;margin:0 auto 10px;">
+        <defs>
+          <clipPath id="ds-clip"><rect width="54" height="70" rx="11"/></clipPath>
+          <linearGradient id="ds-grad" x1="0" y1="0" x2="0" y2="27" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#5b21b6"/>
+          </linearGradient>
+        </defs>
+        <g clip-path="url(#ds-clip)">
+          <rect width="54" height="27" fill="url(#ds-grad)"/>
+          <rect y="27" width="54" height="28" fill="#111827"/>
+          <rect y="55" width="54" height="15" fill="#f5f3ff"/>
+        </g>
+        <rect width="54" height="70" rx="11" fill="none" stroke="#ddd6fe" stroke-width="1.5"/>
+        <!-- TITLE label block -->
+        <rect x="10" y="8" width="34" height="8" rx="4" fill="rgba(255,255,255,.9)"/>
+        <!-- TEXT label smaller -->
+        <rect x="14" y="18" width="26" height="5" rx="2.5" fill="rgba(255,255,255,.5)"/>
+        <!-- play button circle -->
+        <circle cx="27" cy="41" r="9.5" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+        <polygon points="24,37 24,45 33.5,41" fill="rgba(255,255,255,.8)"/>
+        <!-- image thumbnail in bottom -->
+        <rect x="17" y="57.5" width="20" height="11" rx="3.5" fill="#c4b5fd" opacity=".65"/>
+        <!-- landscape in thumbnail -->
+        <path d="M17 68.5 L21.5 62 L26 65.5 L29.5 61 L37 68.5 Z" clip-path="url(#ds-clip)" fill="#7c3aed" opacity=".45"/>
+        <circle cx="21.5" cy="60.5" r="2" fill="#fbbf24" opacity=".85"/>
+      </svg>
       <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
         デザイン<br>カスタマイズ
       </div>
@@ -1881,12 +1941,49 @@ def step1():
       </div>
     </div>
 
-    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+    <!-- ③ YouTube予約投稿 -->
+    <div style="background:#fff;border-radius:16px;padding:14px 8px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
-      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
-                  background:linear-gradient(135deg,#f0fdf4,#dcfce7);
-                  display:flex;align-items:center;justify-content:center;font-size:20px;">📅</div>
+      <svg viewBox="0 0 54 70" fill="none" style="width:100%;max-width:60px;height:auto;display:block;margin:0 auto 10px;">
+        <defs>
+          <clipPath id="sc-clip"><rect width="54" height="70" rx="11"/></clipPath>
+          <linearGradient id="sc-grad" x1="0" y1="0" x2="0" y2="27" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#be123c"/>
+          </linearGradient>
+        </defs>
+        <g clip-path="url(#sc-clip)">
+          <rect width="54" height="27" fill="url(#sc-grad)"/>
+          <rect y="27" width="54" height="28" fill="#111827"/>
+          <rect y="55" width="54" height="15" fill="#f0fdf4"/>
+        </g>
+        <rect width="54" height="70" rx="11" fill="none" stroke="#bbf7d0" stroke-width="1.5"/>
+        <!-- calendar date circle -->
+        <circle cx="19" cy="15" r="8" fill="rgba(255,255,255,.9)"/>
+        <text x="15.5" y="19.5" font-family="system-ui,sans-serif" font-size="8" fill="#be123c" font-weight="800">25</text>
+        <!-- day labels -->
+        <rect x="30" y="9"  width="16" height="2.5" rx="1.25" fill="rgba(255,255,255,.55)"/>
+        <rect x="30" y="14" width="12" height="2.5" rx="1.25" fill="rgba(255,255,255,.4)"/>
+        <rect x="30" y="19" width="14" height="2.5" rx="1.25" fill="rgba(255,255,255,.4)"/>
+        <!-- video thumbnails in dark section -->
+        <rect x="6"  y="30" width="18" height="13" rx="2.5" fill="#1f2937"/>
+        <rect x="6"  y="30" width="18" height="13" rx="2.5" fill="#ef4444" opacity=".12"/>
+        <polygon points="11,35 11,40.5 17.5,37.5" fill="rgba(255,255,255,.75)"/>
+        <rect x="28" y="30" width="18" height="13" rx="2.5" fill="#1f2937"/>
+        <polygon points="33,35 33,40.5 39.5,37.5" fill="rgba(255,255,255,.35)"/>
+        <!-- clock badge -->
+        <circle cx="43" cy="49" r="6.5" fill="#16a34a"/>
+        <circle cx="43" cy="49" r="4.5"  fill="white"/>
+        <line x1="43" y1="46" x2="43"  y2="49"  stroke="#16a34a" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="43" y1="49" x2="45.5" y2="51"  stroke="#16a34a" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- check marks in bottom -->
+        <circle cx="16" cy="62" r="5" fill="#dcfce7"/>
+        <path d="M13 62 L15.5 64.5 L19.5 59.5" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <circle cx="29" cy="62" r="5" fill="#dcfce7"/>
+        <path d="M26 62 L28.5 64.5 L32.5 59.5" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <circle cx="42" cy="62" r="5" fill="#bbf7d0"/>
+        <path d="M39 62 L41.5 64.5 L45.5 59.5" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".5"/>
+      </svg>
       <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
         YouTube<br>予約投稿
       </div>
@@ -1898,7 +1995,7 @@ def step1():
   </div>
 
 </div>
-""", height=390, scrolling=False)
+""", height=440, scrolling=False)
 
     # URL入力ラベル
     st.markdown("""
