@@ -1716,7 +1716,7 @@ button[data-testid="baseButton-primary"]:disabled,
     はじめましょう
   </h2>
   <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.6;">
-    無料で始められます。月10本まで利用可能。
+    無料で始められます。
   </p>
 </div>
 """, unsafe_allow_html=True)
@@ -1799,7 +1799,7 @@ button[data-testid="baseButton-primary"]:disabled,
     # ── フッター ────────────────────────────────────────────
     st.markdown("""
 <div style="text-align:center;font-size:11px;color:#cbd5e1;margin-top:36px;line-height:2;">
-  ✂️ 切り抜きくん Beta &nbsp;·&nbsp; 無料プランは月10本まで利用可能
+  ✂️ 切り抜きくん Beta
 </div>
 """, unsafe_allow_html=True)
 
@@ -2048,7 +2048,7 @@ def step1():
             unsafe_allow_html=True,
         )
     with col2:
-        n_clips = st.number_input("本数", 1, 10, 10, key="n_clips_s1")
+        n_clips = st.number_input("本数", 1, 50, 10, key="n_clips_s1")
     with col3:
         st.markdown("")
 
@@ -2955,7 +2955,7 @@ def step3():
         ✂️ クリップを確認・編集
       </div>
       <div style="font-size:13px;color:#64748b;margin-bottom:20px;">
-        自動選定された10本のクリップを確認してください。タイトル・説明・時間帯は自由に編集できます。
+        自動選定されたクリップを確認してください。タイトル・説明・時間帯は自由に編集できます。
       </div>
     </div>
     """, unsafe_allow_html=True)
