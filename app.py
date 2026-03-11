@@ -2086,7 +2086,106 @@ def step1():
                             for _d in _dbg:
                                 st.code(_d)
 
-                st.write(f"✂️ {n_clips} 本のクリップを自動選定しています...")
+                # ── AI選定ローディングアニメーション ──────────────
+                _seg_count = len(transcript) if transcript else 0
+                _nc = int(n_clips)
+                _bars = "".join(
+                    f'<div class="bar" style="animation-delay:{round(i/36*1.8,2)}s;'
+                    f'--bh:{15+(i%8)*10}%"></div>'
+                    for i in range(36)
+                )
+                _citems = "".join(
+                    f'<div class="ci" style="animation-delay:{round(0.5+j*0.18,2)}s">'
+                    f'✂ {j}本目</div>'
+                    for j in range(1, _nc + 1)
+                )
+                import streamlit.components.v1 as _cai
+                _cai.html(f"""
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Hiragino Sans',sans-serif;}}
+body{{background:transparent;overflow:hidden;}}
+.card{{
+  background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
+  border-radius:14px;padding:18px 18px 16px;
+  border:1px solid rgba(99,102,241,.3);
+}}
+.hd{{display:flex;align-items:center;gap:9px;margin-bottom:14px;}}
+.badge{{
+  background:linear-gradient(135deg,#f97316,#ef4444);
+  border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;
+  color:#fff;letter-spacing:.05em;flex-shrink:0;
+}}
+.htitle{{font-size:13px;font-weight:700;color:#e2e8f0;}}
+.dots span{{animation:blink 1.2s infinite;}}
+.dots span:nth-child(2){{animation-delay:.25s;}}
+.dots span:nth-child(3){{animation-delay:.5s;}}
+@keyframes blink{{0%,100%{{opacity:.15;}}50%{{opacity:1;}}}}
+
+/* Waveform */
+.wv{{display:flex;align-items:center;gap:2px;height:44px;
+     position:relative;overflow:hidden;margin-bottom:10px;}}
+.bar{{
+  flex:1;border-radius:2px;
+  background:rgba(99,102,241,.55);
+  height:var(--bh);
+  animation:pulse 0.9s ease-in-out infinite;
+}}
+@keyframes pulse{{
+  0%,100%{{opacity:.3;transform:scaleY(.4);}}
+  50%{{opacity:1;transform:scaleY(1);}}
+}}
+.scan{{
+  position:absolute;top:0;width:48px;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(249,115,22,.65),transparent);
+  animation:scanmove 1.8s linear infinite;
+}}
+@keyframes scanmove{{0%{{left:-48px;}}100%{{left:100%;}}}}
+
+/* Timeline */
+.tl{{background:rgba(255,255,255,.08);border-radius:6px;height:6px;
+     overflow:hidden;margin-bottom:12px;}}
+.tlp{{height:100%;
+      background:linear-gradient(90deg,#f97316,#ef4444);
+      border-radius:6px;
+      animation:tlprogress 2.8s ease-in-out infinite alternate;}}
+@keyframes tlprogress{{0%{{width:5%;}}100%{{width:88%;}}}}
+
+/* Clip detection chips */
+.chips{{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}}
+.ci{{
+  background:rgba(99,102,241,.18);
+  border:1px solid rgba(99,102,241,.45);
+  border-radius:5px;padding:3px 8px;
+  font-size:11px;color:#a5b4fc;
+  opacity:0;animation:ci-in .4s ease forwards;
+}}
+@keyframes ci-in{{from{{opacity:0;transform:translateY(5px);}}to{{opacity:1;transform:translateY(0);}}}}
+
+/* Bottom status */
+.st{{display:flex;align-items:center;gap:7px;}}
+.sp{{
+  width:13px;height:13px;flex-shrink:0;border-radius:50%;
+  border:2px solid rgba(249,115,22,.3);border-top-color:#f97316;
+  animation:spin .75s linear infinite;
+}}
+@keyframes spin{{to{{transform:rotate(360deg);}}}}
+.stxt{{font-size:11.5px;color:#94a3b8;}}
+</style>
+<div class="card">
+  <div class="hd">
+    <div class="badge">AI</div>
+    <div class="htitle">おいしい瞬間を分析中<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
+  </div>
+  <div class="wv">{_bars}<div class="scan"></div></div>
+  <div class="tl"><div class="tlp"></div></div>
+  <div class="chips">{_citems}</div>
+  <div class="st">
+    <div class="sp"></div>
+    <div class="stxt">{_seg_count} セグメントの字幕から盛り上がりシーンを {_nc} 本検出中...</div>
+  </div>
+</div>
+""", height=230, scrolling=False)
+
                 clips = auto_select_clips(
                     info["duration"], transcript,
                     n_clips=int(n_clips), clip_sec=clip_sec,
