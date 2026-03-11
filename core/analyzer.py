@@ -30,6 +30,23 @@ def get_video_info(url: str) -> dict:
         ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
         capture_output=True, text=True,
     )
+
+    # クッキーが期限切れ/無効な場合 → クッキーを削除してクッキーなしでリトライ
+    if result.returncode != 0 and "no longer valid" in (result.stderr or ""):
+        try:
+            _COOKIES_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
+        result = subprocess.run(
+            [
+                "yt-dlp", "--dump-json",
+                "--no-playlist", "--no-check-certificates",
+                "--extractor-args", "youtube:player_client=tv_embedded",
+                url,
+            ],
+            capture_output=True, text=True,
+        )
+
     if result.returncode != 0:
         err_tail = result.stderr.strip()[-600:] if result.stderr else "(no stderr)"
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}):\n{err_tail}")

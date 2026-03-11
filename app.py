@@ -1531,51 +1531,59 @@ button[data-testid="baseButton-primary"]:disabled,
     _google_url = st.session_state.get("_google_oauth_url", "")
     _gcv        = st.session_state.get("_google_oauth_cv", "")
 
-    # ── code_verifier を localStorage/sessionStorage に保存 ─────────
-    # ?code= が URL にある場合は保存しない（OAuth コールバック中の上書きを防ぐ）
-    # → コールバック時の JS リダイレクトが「ログイン前に保存した正しい verifier」を読める
-    if _gcv and "code" not in st.query_params:
-        import streamlit.components.v1 as _comp_store
-        _comp_store.html(
-            "<script>try{var _v="
-            + json.dumps(_gcv)
-            + ";sessionStorage.setItem('_sb_pkce_cv',_v);"
-            "localStorage.setItem('_sb_pkce_cv',_v);}catch(e){}</script>",
-            height=0,
+    # ── Google ボタン（components.html で描画）──────────────────────
+    # onclick で localStorage 保存 + window.top 遷移を1アクションで実行する。
+    # ・st.markdown は DOMPurify で onclick が削除されるため使用不可。
+    # ・<a target="_top"> は iframe サンドボックス制限で動作しないため使用不可。
+    # ・window.top.location.href は components.html の iframe JS から確実に動作する。
+    # ・window._sbGUrl / window._sbGCv は <script> で事前設定→属性エスケープ不要。
+    def _make_google_btn(label: str) -> str:
+        if not _google_url:
+            return ""
+        _url_js = json.dumps(_google_url)
+        _cv_js  = json.dumps(_gcv)
+        _svg = (
+            '<svg width="20" height="20" viewBox="0 0 24 24">'
+            '<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92'
+            'c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57'
+            'c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>'
+            '<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77'
+            'c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18'
+            'v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>'
+            '<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09'
+            'V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93'
+            'l2.85-2.22.81-.62z" fill="#FBBC05"/>'
+            '<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15'
+            'C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07'
+            'l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>'
+            '</svg>'
         )
-
-    # ── Google ボタン HTML ──────────────────────────────────────────
-    # components.html (iframe) を使わず st.markdown でメインDOMに直接描画する
-    # → iframe のサンドボックス制限で target="_top" がブロックされる問題を解消
-    # → onclick/onmouseover は DOMPurify に削除されるため CSS hover のみ使用
-    _google_btn_html = f"""
-<style>
-._ggl-btn {{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:13px 20px;
-  border:1.5px solid #e5e7eb;border-radius:14px;
-  background:white;text-decoration:none;
-  font-size:14.5px;font-weight:700;color:#374151;
-  font-family:-apple-system,'Hiragino Sans',sans-serif;
-  box-sizing:border-box;cursor:pointer;
-  transition:border-color 0.18s,background 0.18s;
-}}
-._ggl-btn:hover {{
-  border-color:#d1d5db;background:#fafafa;
-}}
-</style>
-<div style="padding:2px 0 0;">
-  <a href="{_google_url}" target="_top" class="_ggl-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-    Googleでログイン
-  </a>
-</div>
-""" if _google_url else ""
+        return (
+            # <script> で変数を設定 → onclick 属性内では引用符エスケープ不要
+            "<script>"
+            "window._sbGUrl=" + _url_js + ";"
+            "window._sbGCv=" + _cv_js + ";"
+            "</script>"
+            "<style>"
+            "*{margin:0;padding:0;box-sizing:border-box}"
+            ".gb{display:flex;align-items:center;justify-content:center;gap:10px;"
+            "width:100%;padding:12px 20px;"
+            "border:1.5px solid #e5e7eb;border-radius:14px;"
+            "background:white;font-size:14.5px;font-weight:700;color:#374151;"
+            "font-family:-apple-system,'Hiragino Sans',sans-serif;"
+            "cursor:pointer;transition:border-color .18s,background .18s}"
+            ".gb:hover{border-color:#d1d5db;background:#fafafa}"
+            "</style>"
+            # onclick: localStorage に verifier を保存してから遷移
+            "<button class='gb' onclick=\"(function(){"
+            "try{var v=window._sbGCv;"
+            "sessionStorage.setItem('_sb_pkce_cv',v);"
+            "localStorage.setItem('_sb_pkce_cv',v);}catch(e){}"
+            "window.top.location.href=window._sbGUrl;"
+            "})();\">"
+            + _svg + label
+            + "</button>"
+        )
 
     _divider_html = """
 <div style="display:flex;align-items:center;gap:10px;margin:16px 0;">
@@ -1603,9 +1611,9 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-        # Google ボタン（st.markdown でメインDOMに直接描画）
-        if _google_btn_html:
-            st.markdown(_google_btn_html, unsafe_allow_html=True)
+        # Google ボタン（components.html で描画 → onclick で localStorage 保存+遷移）
+        if _google_url:
+            _comp.html(_make_google_btn("Googleでログイン"), height=56)
             st.markdown(_divider_html, unsafe_allow_html=True)
 
         # メール/パスワード
@@ -1673,10 +1681,9 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-        # Google ボタン（テキストを「Googleで登録」に・st.markdown でメインDOMに直接描画）
+        # Google ボタン（テキストを「Googleで登録」に変更・components.html で描画）
         if _google_url:
-            _google_reg_html = _google_btn_html.replace("Googleでログイン", "Googleで登録")
-            st.markdown(_google_reg_html, unsafe_allow_html=True)
+            _comp.html(_make_google_btn("Googleで登録"), height=56)
             st.markdown(_divider_html, unsafe_allow_html=True)
 
         # 入力フォーム
