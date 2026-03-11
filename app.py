@@ -574,19 +574,22 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
   background:#000;
 }
 .shorts-thumb-title {
-  position:absolute; top:0; left:0; right:0; height:40px;
+  /* 実際の出力比率 18% → 98px × 0.18 ≈ 18px */
+  position:absolute; top:0; left:0; right:0; height:18px;
   background:linear-gradient(135deg,#4f46e5,#7c3aed);
   display:flex; align-items:center; justify-content:center;
-  font-size:6px; color:#fff; font-weight:700; text-align:center;
-  padding:2px;
+  font-size:5px; color:#fff; font-weight:700; text-align:center;
+  padding:1px;
 }
 .shorts-thumb-video {
-  position:absolute; top:40px; left:0; right:0; height:40px;
+  /* 実際の出力比率 32% → 98px × 0.32 ≈ 31px */
+  position:absolute; top:18px; left:0; right:0; height:31px;
   background:#1a1a2e; display:flex; align-items:center; justify-content:center;
   font-size:10px; color:#666;
 }
 .shorts-thumb-bottom {
-  position:absolute; top:80px; left:0; right:0; height:18px;
+  /* 実際の出力比率 50% → 98px × 0.50 ≈ 49px（ほぼ正方形 56×49px） */
+  position:absolute; top:49px; left:0; right:0; height:49px;
   background:#e2e8f0; display:flex; align-items:center; justify-content:center;
   font-size:5px; color:#64748b;
 }
@@ -1719,7 +1722,7 @@ def step2():
           TITLE<br>TEXT
         </div>
         <div class="shorts-thumb-video">▶</div>
-        <div class="shorts-thumb-bottom">底部画像</div>
+        <div class="shorts-thumb-bottom">🖼</div>
       </div>
       <div class="diagram-note">
         <strong>← タイトルカード</strong>（ここを設定）<br><br>
@@ -1858,10 +1861,10 @@ def step2():
         all(c.get("bottom_image") == _bulk_path_cur for c in clips) and
         Path(_bulk_path_cur).exists()
     )
-    st.markdown("""
+    st.markdown(f"""
     <div class="design-diagram">
       <div class="shorts-thumb shorts-thumb-hl-bottom">
-        <div class="shorts-thumb-title">TITLE</div>
+        <div class="shorts-thumb-title" style="background:{_t_preview['bg']};">TITLE</div>
         <div class="shorts-thumb-video">▶</div>
         <div class="shorts-thumb-bottom" style="background:#d1fae5;color:#065f46;font-weight:700;">
           ← ここ
