@@ -1116,7 +1116,7 @@ def render_logo():
     ※ st.markdown の DOMPurify / React がクリックを遮断するため
       components.html で全体を描画し window.top.location.href で確実にナビゲート。
     """
-    _top_url = "https://kirinuki-kun.streamlit.app"
+    _top_url = "/?nav=1"
     logo_path = BASE_DIR / "assets" / "logo.png"
     logo_src = ""
     if logo_path.exists():
