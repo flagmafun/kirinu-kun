@@ -1545,23 +1545,27 @@ button[data-testid="baseButton-primary"]:disabled,
         )
 
     # ── Google ボタン HTML ──────────────────────────────────────────
-    # onclick: Cookie にも code_verifier を保存（追加フォールバック）
+    # components.html (iframe) を使わず st.markdown でメインDOMに直接描画する
+    # → iframe のサンドボックス制限で target="_top" がブロックされる問題を解消
+    # → onclick/onmouseover は DOMPurify に削除されるため CSS hover のみ使用
     _google_btn_html = f"""
+<style>
+._ggl-btn {{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:13px 20px;
+  border:1.5px solid #e5e7eb;border-radius:14px;
+  background:white;text-decoration:none;
+  font-size:14.5px;font-weight:700;color:#374151;
+  font-family:-apple-system,'Hiragino Sans',sans-serif;
+  box-sizing:border-box;cursor:pointer;
+  transition:border-color 0.18s,background 0.18s;
+}}
+._ggl-btn:hover {{
+  border-color:#d1d5db;background:#fafafa;
+}}
+</style>
 <div style="padding:2px 0 0;">
-  <a href="{_google_url}" target="_top"
-    style="
-      display:flex;align-items:center;justify-content:center;gap:10px;
-      width:100%;padding:13px 20px;
-      border:1.5px solid #e5e7eb;border-radius:14px;
-      background:white;text-decoration:none;
-      font-size:14.5px;font-weight:700;color:#374151;
-      font-family:-apple-system,'Hiragino Sans',sans-serif;
-      box-sizing:border-box;cursor:pointer;
-      transition:all 0.18s;
-    "
-    onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
-    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';"
-    onclick="(function(){{var v='{_gcv}';if(v){{try{{document.cookie='_sb_pkce_cv='+encodeURIComponent(v)+'; path=/; SameSite=Lax; max-age=600';}}catch(e){{}}}}return true;}})();">
+  <a href="{_google_url}" target="_top" class="_ggl-btn">
     <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -1599,9 +1603,9 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-        # Google ボタン
+        # Google ボタン（st.markdown でメインDOMに直接描画）
         if _google_btn_html:
-            _comp.html(_google_btn_html, height=56)
+            st.markdown(_google_btn_html, unsafe_allow_html=True)
             st.markdown(_divider_html, unsafe_allow_html=True)
 
         # メール/パスワード
@@ -1669,10 +1673,10 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-        # Google ボタン（テキストを「Googleで登録」に）
+        # Google ボタン（テキストを「Googleで登録」に・st.markdown でメインDOMに直接描画）
         if _google_url:
             _google_reg_html = _google_btn_html.replace("Googleでログイン", "Googleで登録")
-            _comp.html(_google_reg_html, height=56)
+            st.markdown(_google_reg_html, unsafe_allow_html=True)
             st.markdown(_divider_html, unsafe_allow_html=True)
 
         # 入力フォーム
