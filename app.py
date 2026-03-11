@@ -1794,23 +1794,25 @@ def step1():
     render_stepbar(1)
 
     # ── サービス紹介セクション ──────────────────────────────────
-    st.markdown("""
-<div style="margin:4px 0 20px;">
+    # components.html を使い Markdown パーサーを完全バイパス（HTML コメントによる誤動作回避）
+    import streamlit.components.v1 as _comp_s1
+    _comp_s1.html("""
+<style>
+  body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+</style>
+<div style="margin:4px 0 14px;">
 
-  <!-- ダークヒーローカード -->
   <div style="
     background:linear-gradient(145deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);
     border-radius:22px;padding:28px 22px 24px;text-align:center;
     margin-bottom:14px;position:relative;overflow:hidden;">
 
-    <!-- 背景グロー -->
     <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);
                 width:240px;height:160px;
                 background:radial-gradient(ellipse,rgba(249,115,22,.25) 0%,transparent 70%);
                 pointer-events:none;"></div>
 
-    <!-- AI POWERED バッジ -->
-    <div style="display:inline-flex;align-items:center;gap:5px;
+    <div style="position:relative;display:inline-flex;align-items:center;gap:5px;
                 background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);
                 border-radius:100px;padding:4px 12px;margin-bottom:16px;">
       <span style="width:5px;height:5px;border-radius:50%;background:#f97316;
@@ -1818,8 +1820,7 @@ def step1():
       <span style="font-size:10.5px;font-weight:800;color:#fb923c;letter-spacing:.1em;">AI POWERED</span>
     </div>
 
-    <!-- ヘッドライン -->
-    <div style="font-size:22px;font-weight:900;color:#f8fafc;
+    <div style="position:relative;font-size:22px;font-weight:900;color:#f8fafc;
                 line-height:1.35;letter-spacing:-.02em;margin-bottom:12px;">
       YouTube動画の<br>
       <span style="background:linear-gradient(90deg,#f97316 0%,#ef4444 100%);
@@ -1828,17 +1829,14 @@ def step1():
       Shortsに自動で切り抜き
     </div>
 
-    <!-- サブコピー -->
-    <div style="font-size:12.5px;color:#94a3b8;font-weight:500;line-height:1.7;">
+    <div style="position:relative;font-size:12.5px;color:#94a3b8;font-weight:500;line-height:1.7;">
       URLを貼るだけ。<br>AIが解析・編集・投稿まで全自動でやります。
     </div>
 
   </div>
 
-  <!-- 機能3カード -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
 
-    <!-- ① AI解析 -->
     <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
@@ -1853,7 +1851,6 @@ def step1():
       </div>
     </div>
 
-    <!-- ② デザイン -->
     <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
@@ -1868,7 +1865,6 @@ def step1():
       </div>
     </div>
 
-    <!-- ③ 予約投稿 -->
     <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
                 text-align:center;border:1px solid #f1f5f9;
                 box-shadow:0 2px 12px rgba(15,23,42,.07);">
@@ -1886,8 +1882,10 @@ def step1():
   </div>
 
 </div>
+""", height=390, scrolling=False)
 
-<!-- URL入力ラベル -->
+    # URL入力ラベル
+    st.markdown("""
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
   <div style="width:3px;height:18px;border-radius:2px;
               background:linear-gradient(180deg,#f97316,#ef4444);flex-shrink:0;"></div>
