@@ -340,7 +340,7 @@ def _handle_supabase_pkce_callback() -> bool:
     if state:
         try:
             import base64 as _b64, json as _json
-            padding = "=" * (4 - len(state) % 4)
+            padding = "=" * ((4 - len(state) % 4) % 4)
             state_data = _json.loads(_b64.urlsafe_b64decode(state + padding))
             if "cv" in state_data and "uid" not in state_data:
                 code_verifier = state_data["cv"]
