@@ -2300,14 +2300,16 @@ def step3():
                 if st.button("ℹ️ 採点根拠", key=f"score_{i}", use_container_width=True):
                     _score_dialog(score, s_density, s_engage, s_complete)
 
-            # 字幕プレビュー
+            # この区間の内容
             if clip.get("transcript"):
                 st.markdown(
+                    f'<div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:4px;">📄 この区間の内容</div>'
                     f'<div class="transcript-box">{clip["transcript"]}</div>',
                     unsafe_allow_html=True,
                 )
             else:
                 st.markdown(
+                    '<div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:4px;">📄 この区間の内容</div>'
                     '<div class="transcript-box no-transcript">（字幕なし）</div>',
                     unsafe_allow_html=True,
                 )
