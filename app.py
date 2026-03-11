@@ -1880,10 +1880,10 @@ def step2():
         </div>
       </div>
       <div class="diagram-note">
-        <strong style="color:#059669;">← 底部画像エリア</strong>（ここを設定）<br><br>
         動画の一番下に表示される画像エリアです。<br>
         チャンネルのロゴ・顔写真・SNS情報などを設定すると<br>
-        ブランディングに効果的です。<br><br>
+        ブランディングや宣伝に効果的です。<br><br>
+        <strong style="color:#059669;">← 底部画像エリア</strong>（ここを設定）<br>
         <span style="color:#94a3b8;font-size:11px;">💡 スキップして後から設定することもできます</span>
       </div>
     </div>
