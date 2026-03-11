@@ -365,8 +365,9 @@ TITLE_SIZES = {
     "medium": {"label": "M 中",  "font": "15px", "weight": "900", "lh": "1.45","pad": "14px 16px 18px"},
     "large":  {"label": "L 大",  "font": "18px", "weight": "900", "lh": "1.5", "pad": "16px 16px 22px"},
 }
-# タイトルバー高さ概算（catchphrase込み）
-TITLE_BAR_H = {"small": 72, "medium": 92, "large": 112}
+# タイトルバー最小高さ — 実出力の最小18%(345/1920)をプレビュー幅224pxに換算
+# small=72, medium=80, large=88 (長タイトルで多少大きく)
+TITLE_BAR_H = {"small": 72, "medium": 80, "large": 88}
 
 # タイトル背景の柄パターン
 _NOISE_CSS = (
@@ -1437,11 +1438,11 @@ def _score_dialog(score: int, s_density: int, s_engage: int, s_complete: int):
         st.rerun()
 
 
-# ── プレビューカード定数 ──────────────────────────────────
-_PREVIEW_W = 224   # カード幅(px) — 9:16 比率の縦型プレビュー用
-_VIDEO_H   = int(_PREVIEW_W * 16 / 9)   # = 398px（9:16 縦型エリア）
-_IFRAME_H  = int(_PREVIEW_W * 9 / 16)   # = 126px（16:9 ネイティブ高さ）
-_BOTTOM_H  = 72                          # 底部画像エリアの高さ(px)
+# ── プレビューカード定数（最終出力 1080×1920 に忠実な比率）──────
+# 最終出力レイアウト: canvas=1080×1920, video=1080×608(16:9), bottom=残り
+_PREVIEW_W = 224                              # カード幅(px)
+_CARD_H    = int(_PREVIEW_W * 1920 / 1080)   # = 398px  — 9:16 総高さ
+_VIDEO_H   = int(_PREVIEW_W * 608  / 1080)   # = 126px  — 16:9 動画セクション
 
 
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
@@ -1504,13 +1505,14 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
         <div class="catchphrase">{catchphrase}</div>
         """
 
-    # 底部画像 HTML
+    # 底部画像 HTML（未設定時プレースホルダー）
     bottom_img_html = (
         '<div style="width:100%;height:100%;background:#f1f5f9;'
         'display:flex;align-items:center;justify-content:center;'
-        'flex-direction:column;gap:4px;color:#94a3b8;">'
-        '<span style="font-size:22px;">📷</span>'
-        '<span style="font-size:10px;font-weight:600;">底部画像を設定</span>'
+        'flex-direction:column;gap:8px;color:#94a3b8;">'
+        '<span style="font-size:32px;">📷</span>'
+        '<span style="font-size:11px;font-weight:600;">底部画像を設定</span>'
+        '<span style="font-size:10px;color:#cbd5e1;">ロゴ・顔写真など</span>'
         '</div>'
     )
     if clip.get("bottom_image"):
@@ -1531,8 +1533,11 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     _lines = max(1, (len(title[:60]) + _cpl - 1) // _cpl)
     _dyn_h = _lines * _lh + _padv + _ch
     _title_bar_h = max(TITLE_BAR_H[size_key], _dyn_h)
-    # カード全高 = タイトルバー + 9:16 縦型動画エリア + 底部画像エリア
-    card_h = _title_bar_h + _VIDEO_H + _BOTTOM_H
+    # 底部エリア高さ = _CARD_H から タイトルバー・動画セクションを引いた残り
+    # （最終出力比率: 底部 ≈ 50%、動画 ≈ 32%、タイトル ≈ 18%）
+    _bottom_area_h = max(50, _CARD_H - _title_bar_h - _VIDEO_H)
+    # カード全高 ≈ _CARD_H (398px = 9:16)
+    card_h = _title_bar_h + _VIDEO_H + _bottom_area_h
 
     # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
     _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
@@ -1577,24 +1582,16 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     text-shadow:0 2px 8px rgba(0,0,0,0.40);
     word-break:break-all;
   }}
-  /* 9:16 縦型動画エリア — 16:9ソース動画はレターボックス表示 */
+  /* 16:9 動画セクション（最終出力の 1080×608 に対応） */
   .video-area {{
     width:{_PREVIEW_W}px; height:{_VIDEO_H}px;
     background:#000; overflow:hidden;
-    display:flex; align-items:center; justify-content:center;
     position:relative;
   }}
-  .video-area iframe {{ width:{_PREVIEW_W}px; height:{_IFRAME_H}px; border:none; flex-shrink:0; }}
-  /* Shorts フォーマット表示ラベル */
-  .shorts-label {{
-    position:absolute; bottom:8px; right:10px;
-    background:rgba(0,0,0,0.55); color:rgba(255,255,255,0.75);
-    font-size:9px; font-weight:700; letter-spacing:0.08em;
-    padding:2px 6px; border-radius:4px; pointer-events:none;
-  }}
-  /* 底部画像エリア */
+  .video-area iframe {{ width:{_PREVIEW_W}px; height:{_VIDEO_H}px; border:none; display:block; }}
+  /* 底部画像エリア（最終出力の残り約50%に対応） */
   .bottom-area {{
-    width:{_PREVIEW_W}px; height:{_BOTTOM_H}px;
+    width:{_PREVIEW_W}px; height:{_bottom_area_h}px;
     overflow:hidden; border-top:1px solid #e2e8f0;
   }}
 </style></head>
@@ -1608,7 +1605,6 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
       <iframe src="{embed_url}"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen></iframe>
-      <div class="shorts-label">9:16</div>
     </div>
     <div class="bottom-area">{bottom_img_html}</div>
   </div>
