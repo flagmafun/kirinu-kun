@@ -116,22 +116,28 @@ def _pkce_pair() -> tuple[str, str]:
 def get_google_oauth_url(redirect_url: str) -> tuple[str, str]:
     """
     Supabase Google OAuth の認証 URL と code_verifier を返す。
-    PKCE を自前で生成し Supabase /auth/v1/authorize に渡す。
-    コールバック時に ?code=SUPABASE_CODE が返るので、
-    保存した code_verifier を使って exchange_code_for_session() で交換する。
+    PKCE を自前で生成し、code_verifier を state パラメータに埋め込む。
+    → リダイレクト後に Python が state から verifier を読み出せるので
+      ブラウザストレージ不要（iOS Safari でも動作）。
     戻り値: (url, code_verifier) — 失敗時は ("", "")
     """
     try:
         cfg = _get_supabase_config()
         if not cfg:
             return "", ""
+        import base64 as _b64, json as _json
         from urllib.parse import urlencode
         verifier, challenge = _pkce_pair()
+        # verifier を state に JSON エンコードして埋め込む
+        state_payload = _b64.urlsafe_b64encode(
+            _json.dumps({"cv": verifier}).encode()
+        ).rstrip(b"=").decode()
         params = {
             "provider": "google",
             "redirect_to": redirect_url,
             "code_challenge": challenge,
             "code_challenge_method": "s256",
+            "state": state_payload,
         }
         base = cfg[0].rstrip("/")
         url  = f"{base}/auth/v1/authorize?{urlencode(params)}"
