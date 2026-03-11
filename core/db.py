@@ -188,3 +188,32 @@ def update_user_plan(user_id: str, plan: str, clips_limit: int):
         {"user_id": user_id, "plan": plan, "clips_limit": clips_limit},
         on_conflict="user_id",
     ).execute()
+
+
+def delete_user(user_id: str) -> None:
+    """
+    ユーザーを完全削除（管理者専用）。
+    - youtube_tokens テーブルの行を削除
+    - subscriptions テーブルの行を削除
+    - Supabase Auth からユーザーアカウントを削除
+    いずれかが失敗した場合は RuntimeError を送出。
+    """
+    from core.auth import get_supabase_admin
+    sb = get_supabase_admin()
+
+    # 関連データを先に削除（FK 制約がある場合に備える）
+    try:
+        sb.table("youtube_tokens").delete().eq("user_id", user_id).execute()
+    except Exception as e:
+        raise RuntimeError(f"YouTubeトークンの削除に失敗: {e}") from e
+
+    try:
+        sb.table("subscriptions").delete().eq("user_id", user_id).execute()
+    except Exception as e:
+        raise RuntimeError(f"サブスクリプションの削除に失敗: {e}") from e
+
+    # Supabase Auth からアカウント削除（service_role 必須）
+    try:
+        sb.auth.admin.delete_user(user_id)
+    except Exception as e:
+        raise RuntimeError(f"Authユーザーの削除に失敗: {e}") from e

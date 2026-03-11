@@ -1310,6 +1310,45 @@ def render_admin_panel():
             st.success(f"✅ {selected_email} → {_PLAN_LABELS[new_plan]} に変更しました")
             st.rerun()
 
+    st.divider()
+
+    # ── ユーザー削除 ──
+    st.markdown("### 🗑️ ユーザー削除")
+    st.markdown(
+        '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;'
+        'padding:10px 14px;margin-bottom:14px;font-size:13px;color:#b91c1c;">'
+        '⚠️ この操作は取り消せません。Auth アカウント・サブスクリプション・'
+        'YouTube トークンが完全に削除されます。</div>',
+        unsafe_allow_html=True,
+    )
+
+    del_emails = [u["email"] for u in users]
+    del_selected_email = st.selectbox(
+        "削除するユーザーを選択",
+        del_emails,
+        key="_admin_del_user_sel",
+    )
+    del_selected_user = next((u for u in users if u["email"] == del_selected_email), None)
+
+    if del_selected_user:
+        confirmed = st.checkbox(
+            f"「{del_selected_email}」を完全に削除することを確認しました",
+            key="_admin_del_confirm",
+        )
+        if st.button(
+            "🗑️ ユーザーを削除",
+            type="primary",
+            disabled=not confirmed,
+            key="_admin_del_btn",
+        ):
+            try:
+                from core.db import delete_user
+                delete_user(del_selected_user["id"])
+                st.success(f"✅ {del_selected_email} を削除しました")
+                st.rerun()
+            except Exception as _del_err:
+                st.error(f"削除エラー: {_del_err}")
+
 
 # ── ログイン / 会員登録ページ ─────────────────────────────
 def render_login_page():
