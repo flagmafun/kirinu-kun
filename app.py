@@ -530,7 +530,8 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
   font-size:14px; font-weight:700; transition:.3s;
 }
 .st-line { flex:1; height:2px; margin-bottom:22px; min-width:40px; }
-.done  .st-circle { background:#10b981; color:#fff; }
+.done  .st-circle { background:#10b981; color:#fff; cursor:pointer; transition:.15s; }
+.done  .st-circle:hover { background:#059669; transform:scale(1.1); }
 .done  .st-line   { background:#10b981; }
 .active .st-circle { background:#ea580c; color:#fff; box-shadow:0 0 14px #ea580c88; }
 .active .st-line   { background:linear-gradient(90deg,#ea580c50,#e5e7eb); }
@@ -540,6 +541,58 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
 .done  .st-label  { color:#059669; }
 .active .st-label { color:#ea580c; font-weight:700; }
 .wait  .st-label  { color:#9ca3af; }
+
+/* ── デザイン設定ページ ── */
+.design-sec {
+  background:#fff; border:1px solid #e0e7ff;
+  border-radius:18px; padding:22px 24px 18px;
+  margin:16px 0; box-shadow:0 2px 12px rgba(79,70,229,0.07);
+}
+.design-sec-hd {
+  display:flex; align-items:center; gap:14px; margin-bottom:16px;
+  padding-bottom:14px; border-bottom:1px solid #f0f0ff;
+}
+.design-sec-icon {
+  width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+}
+.design-sec-icon.purple { background:linear-gradient(135deg,#ede9fe,#ddd6fe); }
+.design-sec-icon.orange { background:linear-gradient(135deg,#fff7ed,#fed7aa); }
+.design-sec-title { font-size:17px; font-weight:800; color:#1e293b; }
+.design-sec-desc  { font-size:12px; color:#64748b; margin-top:3px; }
+.design-diagram {
+  background:linear-gradient(145deg,#f8faff,#f0f4ff);
+  border:1px solid #e0e7ff; border-radius:14px;
+  padding:14px 16px; margin-bottom:16px;
+  display:flex; align-items:flex-start; gap:16px;
+}
+.shorts-thumb {
+  width:56px; height:98px; border-radius:8px; overflow:hidden;
+  border:2px solid #c4b5fd; flex-shrink:0; position:relative;
+  background:#000;
+}
+.shorts-thumb-title {
+  position:absolute; top:0; left:0; right:0; height:40px;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  display:flex; align-items:center; justify-content:center;
+  font-size:6px; color:#fff; font-weight:700; text-align:center;
+  padding:2px;
+}
+.shorts-thumb-video {
+  position:absolute; top:40px; left:0; right:0; height:40px;
+  background:#1a1a2e; display:flex; align-items:center; justify-content:center;
+  font-size:10px; color:#666;
+}
+.shorts-thumb-bottom {
+  position:absolute; top:80px; left:0; right:0; height:18px;
+  background:#e2e8f0; display:flex; align-items:center; justify-content:center;
+  font-size:5px; color:#64748b;
+}
+.shorts-thumb-hl-title  { box-shadow:0 0 0 2.5px #f59e0b inset; }
+.shorts-thumb-hl-bottom { box-shadow:0 0 0 2.5px #10b981 inset; }
+.diagram-note { font-size:12px; color:#475569; line-height:1.7; }
+.diagram-note strong { color:#4f46e5; }
 
 /* ── コンテンツエリア ── */
 .content-area { padding:0 40px; margin-left:-40px; margin-right:-40px; padding-top:0; }
@@ -878,7 +931,7 @@ _nav_param = st.query_params.get("nav")
 if _nav_param:
     try:
         _nav_step = int(_nav_param)
-        if 1 <= _nav_step <= 4:
+        if 1 <= _nav_step <= 5:
             s.step = _nav_step
     except Exception:
         pass
@@ -961,9 +1014,10 @@ def render_stepbar(current: int):
     render_logo()
     steps = [
         (1, "URL入力"),
-        (2, "クリップ確認"),
-        (3, "スケジュール"),
-        (4, "実行"),
+        (2, "デザイン設定"),
+        (3, "クリップ確認"),
+        (4, "スケジュール"),
+        (5, "実行"),
     ]
     parts = []
     for i, (num, label) in enumerate(steps):
@@ -1621,8 +1675,300 @@ window.addEventListener('load',function(){{
         st.rerun()
 
 
+# ══════════════════════════════════════════════════════════
+# STEP 2 — タイトルデザイン設定 & 底部画像設定
+# ══════════════════════════════════════════════════════════
 def step2():
     render_stepbar(2)
+    render_video_banner()
+
+    st.markdown("""
+    <div style="padding:24px 40px 0;margin-left:-40px;margin-right:-40px;">
+      <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
+        🎨 Shorts のデザインを設定しよう
+      </div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:8px;">
+        各動画に表示されるタイトルカードと底部画像のデザインをまとめて設定します。
+        後からクリップ確認画面でも調整できます。
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    clips = s.clips
+    video_id = (s.video_info or {}).get("id", "")
+
+    # ── ペンディング処理（rerun後の適用） ────────────────────
+    if "_pending_bulk_img" in st.session_state:
+        _bpath = st.session_state.pop("_pending_bulk_img")
+        if Path(_bpath).exists():
+            for c in clips:
+                c["bottom_image"] = _bpath
+            s.clips = clips
+            _save_session(s.video_info, clips)
+
+    if "_design_pending" in st.session_state:
+        _pd = st.session_state.pop("_design_pending")
+        for _pk, _pv in _pd.items():
+            st.session_state[_pk] = _pv
+        if _pd.get("_clear_designs"):
+            st.session_state.pop("clip_designs", None)
+
+    # ══════════════════════════════════════════════════
+    # SECTION 1: タイトルデザイン設定
+    # ══════════════════════════════════════════════════
+    st.markdown("""
+    <div class="design-sec">
+      <div class="design-sec-hd">
+        <div class="design-sec-icon purple">🎨</div>
+        <div>
+          <div class="design-sec-title">タイトルカードのデザイン</div>
+          <div class="design-sec-desc">動画の冒頭に表示される「タイトルエリア」のカラー・文字サイズ・背景パターンを設定</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # どこに表示されるか図解
+    _t_preview = TITLE_THEMES.get(st.session_state.get("title_theme", "purple"), TITLE_THEMES["purple"])
+    _s_preview = TITLE_SIZES.get(st.session_state.get("title_size", "medium"), TITLE_SIZES["medium"])
+    _pc_preview = TITLE_PATTERNS.get(st.session_state.get("title_pattern", "none"), TITLE_PATTERNS["none"])["css"]
+    st.markdown(f"""
+    <div class="design-diagram">
+      <div class="shorts-thumb shorts-thumb-hl-title">
+        <div class="shorts-thumb-title" style="background:{_t_preview['bg']};">
+          TITLE<br>TEXT
+        </div>
+        <div class="shorts-thumb-video">▶</div>
+        <div class="shorts-thumb-bottom">底部画像</div>
+      </div>
+      <div class="diagram-note">
+        <strong>← タイトルカード</strong>（ここを設定）<br><br>
+        動画の一番上に表示される帯エリアです。<br>
+        カラー・文字サイズ・背景の柄を自由にカスタマイズできます。<br><br>
+        <span style="color:#94a3b8;font-size:11px;">
+          💡 下のプレビューでリアルタイムに確認できます
+        </span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── コントロール ─────────────────────────────────────
+    _ctrl_col, _prev_col = st.columns([3, 2])
+    with _ctrl_col:
+        # ランダムモード
+        st.session_state.setdefault("rand_mode_widget", False)
+        rand_mode_on = st.toggle(
+            "🎲 クリップごとにバラバラなデザイン",
+            key="rand_mode_widget",
+            help="ONにすると各クリップに異なるランダムデザインが自動割り当てされます",
+            on_change=lambda: st.session_state.pop("clip_designs", None),
+        )
+        st.session_state["rand_mode"] = rand_mode_on
+        if rand_mode_on:
+            if st.button("🔀 シャッフル（再抽選）", key="shuffle_designs2",
+                         use_container_width=True):
+                st.session_state.pop("clip_designs", None)
+                st.rerun()
+
+        # プロンプト入力
+        _pr_col2, _pb_col2 = st.columns([5, 1])
+        with _pr_col2:
+            design_prompt = st.text_input(
+                "🖊 テキストでデザインを指定",
+                key="design_prompt",
+                placeholder="例: ゴールドでドット大・文字大きめ ／ 赤でグリッド ／ ランダム",
+            )
+        with _pb_col2:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            if st.button("🎯 適用", key="apply_design_prompt2", use_container_width=True):
+                _th, _sz, _pt, _rd = _parse_design_prompt(design_prompt)
+                _pending = {}
+                if _rd:
+                    _pending["rand_mode_widget"] = True
+                    _pending["_clear_designs"]   = True
+                else:
+                    _pending["rand_mode_widget"] = False
+                    if _th: _pending["title_theme"] = _th; _pending["title_theme_sel"] = _th
+                    if _sz: _pending["title_size"]  = _sz; _pending["title_size_sel"]  = _sz
+                    if _pt: _pending["title_pattern"] = _pt; _pending["title_pattern_sel"] = _pt
+                st.session_state["_design_pending"] = _pending
+                st.rerun()
+
+        # テーマ / サイズ / 柄
+        st.session_state.setdefault("title_theme_sel",   "purple")
+        st.session_state.setdefault("title_size_sel",    "medium")
+        st.session_state.setdefault("title_pattern_sel", "none")
+        if st.session_state.get("title_theme_sel")   not in TITLE_THEMES:   st.session_state["title_theme_sel"]   = "purple"
+        if st.session_state.get("title_size_sel")    not in TITLE_SIZES:    st.session_state["title_size_sel"]    = "medium"
+        if st.session_state.get("title_pattern_sel") not in TITLE_PATTERNS: st.session_state["title_pattern_sel"] = "none"
+
+        sel_theme = st.radio(
+            "🎨 テーマカラー",
+            options=list(TITLE_THEMES.keys()),
+            format_func=lambda k: TITLE_THEMES[k]["label"],
+            horizontal=True, key="title_theme_sel", disabled=rand_mode_on,
+        )
+        st.session_state["title_theme"] = sel_theme
+
+        sel_size = st.radio(
+            "🔠 文字サイズ",
+            options=list(TITLE_SIZES.keys()),
+            format_func=lambda k: TITLE_SIZES[k]["label"],
+            horizontal=True, key="title_size_sel", disabled=rand_mode_on,
+        )
+        st.session_state["title_size"] = sel_size
+
+        sel_pattern = st.radio(
+            "🗺 背景の柄",
+            options=list(TITLE_PATTERNS.keys()),
+            format_func=lambda k: TITLE_PATTERNS[k]["label"],
+            horizontal=True, key="title_pattern_sel", disabled=rand_mode_on,
+        )
+        st.session_state["title_pattern"] = sel_pattern
+
+    with _prev_col:
+        st.markdown('<div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">リアルタイムプレビュー</div>', unsafe_allow_html=True)
+        _t  = TITLE_THEMES[st.session_state["title_theme"]]
+        _s  = TITLE_SIZES[st.session_state["title_size"]]
+        _h  = TITLE_BAR_H[st.session_state["title_size"]]
+        _pc = TITLE_PATTERNS[st.session_state.get("title_pattern", "none")]["css"]
+        st.markdown(
+            f"""<div style="background:{_t['bg']};border-radius:14px;min-height:{_h}px;
+                    position:relative;overflow:hidden;
+                    box-shadow:0 4px 20px rgba(0,0,0,0.18);">
+              <div style="position:absolute;inset:0;background:{_pc};pointer-events:none;"></div>
+              <div style="position:relative;z-index:1;padding:{_s['pad']};
+                          display:flex;flex-direction:column;justify-content:center;">
+                <div style="color:{_t['sub']};font-size:10px;font-weight:700;
+                            background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.22);
+                            display:inline-block;padding:2px 10px;border-radius:20px;
+                            margin-bottom:7px;letter-spacing:0.06em;">サンプルキャッチ✨</div>
+                <div style="color:{_t['text']};font-size:{_s['font']};font-weight:{_s['weight']};
+                            line-height:{_s['lh']};text-shadow:0 2px 8px rgba(0,0,0,0.4);">
+                  実はこれが本当のコツ！
+                </div>
+              </div>
+              <div style="position:absolute;bottom:0;left:0;right:0;height:4px;
+                          background:{_t['accent']};"></div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════
+    # SECTION 2: 底部画像設定
+    # ══════════════════════════════════════════════════
+    st.markdown("""
+    <div class="design-sec">
+      <div class="design-sec-hd">
+        <div class="design-sec-icon orange">🖼</div>
+        <div>
+          <div class="design-sec-title">底部画像（全クリップ共通）</div>
+          <div class="design-sec-desc">動画の一番下に表示するロゴ・顔写真などを全クリップに一括設定</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 底部画像の位置図解
+    _bulk_path_cur = clips[0].get("bottom_image") if clips else None
+    _all_same = (
+        _bulk_path_cur and
+        all(c.get("bottom_image") == _bulk_path_cur for c in clips) and
+        Path(_bulk_path_cur).exists()
+    )
+    st.markdown("""
+    <div class="design-diagram">
+      <div class="shorts-thumb shorts-thumb-hl-bottom">
+        <div class="shorts-thumb-title">TITLE</div>
+        <div class="shorts-thumb-video">▶</div>
+        <div class="shorts-thumb-bottom" style="background:#d1fae5;color:#065f46;font-weight:700;">
+          ← ここ
+        </div>
+      </div>
+      <div class="diagram-note">
+        <strong style="color:#059669;">← 底部画像エリア</strong>（ここを設定）<br><br>
+        動画の一番下に表示される画像エリアです。<br>
+        チャンネルのロゴ・顔写真・SNS情報などを設定すると<br>
+        ブランディングに効果的です。<br><br>
+        <span style="color:#94a3b8;font-size:11px;">💡 スキップして後から設定することもできます</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if _all_same:
+        cur_l, cur_r = st.columns([1, 3])
+        with cur_l:
+            st.image(str(_bulk_path_cur), use_container_width=True)
+        with cur_r:
+            st.markdown(
+                f'<div style="font-size:12px;color:#059669;font-weight:700;margin-top:6px;">'
+                f'✅ 現在の一括設定画像</div>'
+                f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
+                f'{Path(_bulk_path_cur).name}</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("---")
+
+    bulk_up = st.file_uploader(
+        "全クリップ共通の底部画像をアップロード（顔写真・ロゴなど）",
+        key="bulk_bottom_img2",
+        type=["png", "jpg", "jpeg"],
+        help="アップロード後「✅ 全クリップに適用」を押してください",
+    )
+    if bulk_up is not None:
+        up_l, up_r = st.columns([1, 3])
+        with up_l:
+            st.image(bulk_up, use_container_width=True)
+        with up_r:
+            st.markdown(
+                f'<div style="font-size:12px;color:#3b82f6;font-weight:700;margin-top:6px;">'
+                f'📷 アップロード済み</div>'
+                f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
+                f'{bulk_up.name} &nbsp;({bulk_up.size // 1024} KB)</div>',
+                unsafe_allow_html=True,
+            )
+
+    ap_col, cl_col = st.columns(2)
+    with ap_col:
+        if st.button("✅ 全クリップに適用", key="bulk_apply_img2",
+                     use_container_width=True, disabled=(bulk_up is None)):
+            img_dir = OUTPUT_DIR / "images"
+            img_dir.mkdir(exist_ok=True)
+            ext_b = bulk_up.name.rsplit(".", 1)[-1].lower()
+            bulk_path = img_dir / f"bulk_bottom.{ext_b}"
+            bulk_path.write_bytes(bulk_up.read())
+            st.session_state["_pending_bulk_img"] = str(bulk_path)
+            st.rerun()
+    with cl_col:
+        if st.button("🗑 底部画像を削除", key="bulk_clear_img2", use_container_width=True):
+            for c in clips:
+                c["bottom_image"] = None
+            s.clips = clips
+            _save_session(s.video_info, clips)
+            st.rerun()
+
+    # ── ナビゲーション ────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_back, col_next = st.columns([1, 3])
+    with col_back:
+        if st.button("🔄 新しい動画", key="back2"):
+            SESSION_FILE.unlink(missing_ok=True)
+            for k in ["step", "video_info", "clips", "results"]:
+                del st.session_state[k]
+            st.rerun()
+    with col_next:
+        if st.button(
+            "クリップ確認へ →",
+            type="primary", use_container_width=True,
+        ):
+            s.step = 3
+            st.rerun()
+
+
+def step3():
+    render_stepbar(3)
     render_video_banner()
 
     st.markdown("""
@@ -1704,15 +2050,7 @@ def step2():
             s.clips = clips
             _save_session(s.video_info, clips)
 
-    # ── プロンプト適用ペンディング（widget 描画前に反映） ──────
-    if "_design_pending" in st.session_state:
-        _pd = st.session_state.pop("_design_pending")
-        for _pk, _pv in _pd.items():
-            st.session_state[_pk] = _pv
-        if _pd.get("_clear_designs"):
-            st.session_state.pop("clip_designs", None)
-
-    # ── タイトルデザイン設定 UI ──────────────────────────────
+    # ── タイトルデザイン設定 UI（step2 で設定済み。ここでは省略）────────────────
     with st.expander("🎨 タイトルデザイン設定", expanded=False):
         _head_l, _head_r = st.columns([4, 3])
         with _head_l:
@@ -2036,10 +2374,8 @@ def step2():
     # ナビゲーション
     col_back, col_next = st.columns([1, 3])
     with col_back:
-        if st.button("🔄 新しい動画", key="back2"):
-            SESSION_FILE.unlink(missing_ok=True)
-            for k in ["step", "video_info", "clips", "results"]:
-                del st.session_state[k]
+        if st.button("← デザイン設定", key="back3"):
+            s.step = 2
             st.rerun()
     with col_next:
         enabled_count = sum(1 for c in clips if c.get("enabled", True))
@@ -2048,15 +2384,15 @@ def step2():
             type="primary", use_container_width=True,
             disabled=enabled_count == 0,
         ):
-            s.step = 3
+            s.step = 4
             st.rerun()
 
 
 # ══════════════════════════════════════════════════════════
-# STEP 3 — スケジュール設定
+# STEP 4 — スケジュール設定
 # ══════════════════════════════════════════════════════════
-def step3():
-    render_stepbar(3)
+def step4():
+    render_stepbar(4)
     render_video_banner()
 
     st.markdown("""
@@ -2179,21 +2515,21 @@ def step3():
     st.markdown("")
     col_back, col_next = st.columns([1, 3])
     with col_back:
-        if st.button("← 戻る", key="back3"):
-            s.step = 2
+        if st.button("← 戻る", key="back4"):
+            s.step = 3
             st.rerun()
     with col_next:
         if st.button("実行画面へ →", type="primary", use_container_width=True):
             s.schedule = sched
-            s.step = 4
+            s.step = 5
             st.rerun()
 
 
 # ══════════════════════════════════════════════════════════
-# STEP 4 — 実行
+# STEP 5 — 実行
 # ══════════════════════════════════════════════════════════
-def step4():
-    render_stepbar(4)
+def step5():
+    render_stepbar(5)
     render_video_banner()
 
     # YouTube OAuth コールバック後のメッセージ表示
@@ -2431,8 +2767,8 @@ def step4():
 
     col_back, col_run = st.columns([1, 3])
     with col_back:
-        if st.button("← 戻る", key="back4", disabled=s.running):
-            s.step = 3
+        if st.button("← 戻る", key="back5", disabled=s.running):
+            s.step = 4
             st.rerun()
     with col_run:
         if st.button(
@@ -2718,7 +3054,7 @@ if st.query_params.get("page") == "admin":
 if st.session_state.pop("_email_confirmed", False):
     st.success("✅ メールアドレスを確認しました。ようこそ切り抜きくんへ！")
 
-STEPS = {1: step1, 2: step2, 3: step3, 4: step4}
+STEPS = {1: step1, 2: step2, 3: step3, 4: step4, 5: step5}
 STEPS[s.step]()
 
 # ⑦ Cookie に refresh_token を永続化（毎レンダリング・ログイン中のみ）
