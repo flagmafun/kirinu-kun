@@ -1112,48 +1112,83 @@ if _nav_param:
 
 # ── ブランドヘッダー ──────────────────────────────────────
 def render_logo():
-    """アプリ上部にブランドヘッダー（ロゴ + サービス名 + ユーザー情報）を表示"""
-    # same-origin にすることで DOMPurify が target="_blank" を付与しない → 同タブでナビゲート
-    # /?nav=1 は Streamlit の query_params でステップ1リセットとして処理される
-    _top_url = "/?nav=1"
+    """アプリ上部にブランドヘッダー（ロゴ + サービス名 + ユーザー情報）を表示
+    ※ st.markdown の DOMPurify / React がクリックを遮断するため
+      components.html で全体を描画し window.top.location.href で確実にナビゲート。
+    """
+    _top_url = "https://kirinuki-kun.streamlit.app"
     logo_path = BASE_DIR / "assets" / "logo.png"
+    logo_src = ""
     if logo_path.exists():
-        logo_b64 = base64.b64encode(logo_path.read_bytes()).decode()
-        logo_img = (
-            f'<img src="data:image/png;base64,{logo_b64}"'
-            f' class="brand-logo" alt="切り抜きくん">'
+        logo_src = "data:image/png;base64," + base64.b64encode(logo_path.read_bytes()).decode()
+
+    if logo_src:
+        logo_inner = (
+            f'<img src="{logo_src}" alt="切り抜きくん"'
+            f' style="width:64px;height:64px;border-radius:13px;flex-shrink:0;">'
         )
     else:
-        logo_img = '<div class="brand-logo-fallback">✂️</div>'
+        logo_inner = (
+            '<div style="width:64px;height:64px;border-radius:13px;flex-shrink:0;'
+            'background:linear-gradient(135deg,#fff4ed,#ffe4d4);'
+            'display:flex;align-items:center;justify-content:center;font-size:36px;">✂️</div>'
+        )
 
-    # ロゴ＋ブランドテキストを <a href> で囲む
-    # DOMPurify は https:// の href を許可するため onclick 不要・確実に動作する
-    brand_link = (
-        f'<a href="{_top_url}" title="切り抜きくん トップへ"'
-        f' style="display:flex;align-items:center;gap:14px;text-decoration:none;flex-shrink:0;">'
-        f'{logo_img}'
-        f'<div class="brand-text">'
-        f'<div class="brand-catchcopy">動画の"おいしい瞬間"を切り抜くヒーロー</div>'
-        f'<div class="brand-name">切り抜きくん</div>'
-        f'<div class="brand-tagline">YouTube Shorts 自動作成ツール</div>'
-        f'</div>'
-        f'</a>'
-    )
-
-    # マルチユーザーモード: ユーザー情報表示
-    user_section = ""
+    user_html = ""
     if _is_multi_user_mode() and st.session_state.get("user_id"):
-        email = st.session_state.get("user_email", "")
-        user_section = f'<div class="header-user"><span class="header-user-email">{email[:28]}</span></div>'
+        email = st.session_state.get("user_email", "")[:28]
+        user_html = (
+            f'<span style="font-size:11.5px;color:#64748b;margin-right:8px;">{email}</span>'
+        )
 
-    st.markdown(f"""
-    <div class="app-header">
-      {brand_link}
-      <div class="header-divider"></div>
-      {user_section}
-      <div class="header-badge">✂️ Beta</div>
+    import streamlit.components.v1 as _ch
+    _ch.html(f"""<style>
+*{{box-sizing:border-box;margin:0;padding:0;}}
+body{{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;}}
+.hdr{{
+  display:flex;align-items:center;gap:0;
+  background:#fff;border-bottom:2px solid #f1f5f9;
+  padding:11px 16px 12px;width:100%;
+}}
+.logo-btn{{
+  display:flex;align-items:center;gap:13px;
+  cursor:pointer;border:none;background:transparent;
+  padding:0;outline:none;flex-shrink:0;border-radius:10px;
+  -webkit-tap-highlight-color:transparent;
+}}
+.logo-btn:active{{opacity:.8;}}
+.bt{{display:flex;flex-direction:column;gap:1px;text-align:left;}}
+.cc{{font-size:10px;color:#f97316;font-weight:700;}}
+.nm{{
+  font-size:22px;font-weight:900;letter-spacing:-.02em;line-height:1.15;
+  background:linear-gradient(135deg,#ea580c 0%,#dc2626 50%,#b91c1c 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}}
+.tg{{font-size:10px;color:#64748b;}}
+.sp{{flex:1;}}
+.badge{{
+  display:flex;align-items:center;gap:4px;flex-shrink:0;
+  background:linear-gradient(135deg,#fef3c7,#fde68a);
+  border:1px solid #f59e0b;border-radius:20px;
+  padding:5px 12px;font-size:12px;font-weight:700;color:#92400e;
+}}
+</style>
+<div class="hdr">
+  <button class="logo-btn"
+          onclick="window.top.location.href='{_top_url}'"
+          title="切り抜きくん トップへ">
+    {logo_inner}
+    <div class="bt">
+      <div class="cc">動画の&quot;おいしい瞬間&quot;を切り抜くヒーロー</div>
+      <div class="nm">切り抜きくん</div>
+      <div class="tg">YouTube Shorts 自動作成ツール</div>
     </div>
-    """, unsafe_allow_html=True)
+  </button>
+  <div class="sp"></div>
+  {user_html}
+  <div class="badge">✂️ Beta</div>
+</div>
+""", height=88)
 
     # ログアウト / 管理パネルボタン（マルチユーザーモード時）
     if _is_multi_user_mode() and st.session_state.get("user_id"):
