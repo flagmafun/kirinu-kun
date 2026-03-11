@@ -1083,9 +1083,12 @@ def _init():
             "start_time":    "10:00",
             "interval_hours": 24,
         },
-        "results":  [],
-        "running":  False,
-        "tmp_dir":  None,
+        "results":         [],
+        "running":         False,
+        "tmp_dir":         None,
+        "generated_clips": [],    # _generate_pipeline が設定
+        "raw_path":        None,  # 元動画パス（str）
+        "sched_pending":   None,  # _upload_pipeline で使うsched
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -3802,25 +3805,106 @@ def step5():
 
     st.markdown("")
 
-    # ── 実行ボタン ──
-    all_ready = secret_ok and token_ok and len(enabled_clips) > 0
-    if not all_ready:
-        st.warning("YouTube認証を完了してから実行してください")
+    # ── フェーズ判定 ──
+    _in_phase_b = bool(s.get("generated_clips"))
 
-    col_back, col_run = st.columns([1, 3])
-    with col_back:
-        if st.button("← 戻る", key="back5", disabled=s.running):
-            s.step = 4
-            st.rerun()
-    with col_run:
-        if st.button(
-            f"▶️  {len(enabled_clips)} 本のShortsを作成・予約投稿",
-            type="primary", use_container_width=True,
-            disabled=(not all_ready or s.running),
-        ):
-            s.running = True
-            _run_pipeline(enabled_clips, sched)
-            s.running = False
+    if not _in_phase_b:
+        # ═══ Phase A: クリップ生成ボタン ═══════════════════════════
+        gen_ready = len(enabled_clips) > 0
+        all_ready = secret_ok and token_ok and len(enabled_clips) > 0
+
+        if not gen_ready:
+            st.warning("クリップを1本以上選択してください")
+
+        col_back, col_run = st.columns([1, 3])
+        with col_back:
+            if st.button("← 戻る", key="back5", disabled=s.running):
+                s.step = 4
+                st.rerun()
+        with col_run:
+            if st.button(
+                f"▶️  {len(enabled_clips)} 本のクリップを生成",
+                type="primary", use_container_width=True,
+                disabled=(not gen_ready or s.running),
+                key="btn_generate",
+            ):
+                s.running = True
+                _generate_pipeline(enabled_clips, sched)
+                s.running = False
+                st.rerun()
+
+    else:
+        # ═══ Phase B: ダウンロード確認画面 ════════════════════════
+        all_ready = secret_ok and token_ok
+
+        st.markdown("### 📥 クリップが生成されました")
+        st.caption("各クリップをダウンロードするか、そのままYouTubeにアップロードできます。")
+
+        _generated = s.get("generated_clips", [])
+        for _clip in _generated:
+            _p = Path(_clip["shorts_path"])
+            if _p.exists():
+                with open(_p, "rb") as _f:
+                    st.download_button(
+                        label=f"⬇️ {_clip['num']}本目をダウンロード: {_clip['title'][:30]}",
+                        data=_f.read(),
+                        file_name=f"short_{_clip['index']:02d}.mp4",
+                        mime="video/mp4",
+                        key=f"dl_{_clip['index']}",
+                        use_container_width=True,
+                    )
+            else:
+                st.warning(f"⚠️ {_clip['num']}本目のファイルが見つかりません: `{_p.name}`")
+
+        st.markdown("")
+
+        if not all_ready:
+            st.warning("YouTubeにアップロードするには認証を完了してください")
+
+        col_upload, col_skip = st.columns([3, 1])
+        with col_upload:
+            if st.button(
+                "☁️ YouTubeにアップロード",
+                type="primary", use_container_width=True,
+                disabled=(not all_ready or s.running),
+                key="btn_upload",
+            ):
+                s.running = True
+                _upload_pipeline()
+                s.running = False
+                st.rerun()
+        with col_skip:
+            if st.button(
+                "スキップ",
+                use_container_width=True,
+                disabled=s.running,
+                key="btn_skip",
+            ):
+                for _c in s.get("generated_clips", []):
+                    try:
+                        Path(_c["shorts_path"]).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                _rp = s.get("raw_path")
+                if _rp:
+                    try:
+                        Path(_rp).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                s.results = [
+                    {
+                        "num":         _c["num"],
+                        "title":       _c["title"],
+                        "video_id":    None,
+                        "publish_jst": _c["publish_jst"],
+                        "status":      "ダウンロードのみ",
+                    }
+                    for _c in s.get("generated_clips", [])
+                ]
+                s["generated_clips"] = []
+                s["raw_path"]        = None
+                s["sched_pending"]   = None
+                st.rerun()
 
     # ── 結果表示 ──
     if s.results:
@@ -3841,7 +3925,8 @@ def step5():
             )
 
         if st.button("🔁 最初からやり直す"):
-            for k in ["step","video_info","clips","results","running"]:
+            for k in ["step","video_info","clips","results","running",
+                      "generated_clips","raw_path","sched_pending"]:
                 del st.session_state[k]
             st.rerun()
 
@@ -4034,6 +4119,244 @@ def _run_pipeline(clips: list, sched: dict):
                 pass
 
     s.results = results
+
+
+# ── 生成パイプライン（ダウンロード＋変換のみ、アップロードなし）──────────
+def _generate_pipeline(clips: list, sched: dict):
+    from core.downloader import download_video
+    from core.processor  import create_shorts
+
+    video_info = s.video_info
+    interval_h = int(sched["interval_hours"])
+
+    try:
+        base_dt = datetime.strptime(
+            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
+        )
+    except Exception:
+        st.error("スケジュール日時が正しくありません")
+        return
+
+    _user_id  = s.get("user_id") if _is_multi_user_mode() else None
+    _uid_slug = str(_user_id) if _user_id else "local"
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    _user_out = OUTPUT_DIR / _uid_slug
+    _user_out.mkdir(parents=True, exist_ok=True)
+
+    generated = []
+
+    with st.status("処理中...", expanded=True) as status:
+        prog = st.progress(0, text="準備中...")
+
+        st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
+        try:
+            raw_path = download_video(video_info["url"], _user_out / "raw")
+            st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+        except Exception as e:
+            err_msg = str(e)
+            st.error(f"❌ ダウンロード失敗: {err_msg}")
+            if "403" in err_msg or "IP制限" in err_msg:
+                _ck = CREDS_DIR / "cookies.txt"
+                if _ck.exists() and _ck.stat().st_size > 0:
+                    st.warning(
+                        "⚠️ **cookies は設定済みですが、まだ 403 エラーが発生しています。**\n\n"
+                        "cookiesの期限切れ・デプロイ直後・Node.jsの問題が考えられます。"
+                    )
+                else:
+                    st.info("💡 Streamlit CloudのIPがYouTube CDNにブロックされています。cookiesを設定してください。")
+            status.update(label="ダウンロード失敗", state="error")
+            return
+
+        s["raw_path"] = str(raw_path)
+
+        for i, clip in enumerate(clips):
+            pct   = (i + 1) / len(clips)
+            title = clip["title"] or f"Shorts {clip['index']}"
+            hashtags    = clip.get("hashtags", "#Shorts")
+            description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
+            tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
+
+            jst_dt = base_dt + timedelta(hours=i * interval_h)
+            utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
+
+            prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
+
+            try:
+                _rand    = st.session_state.get("rand_mode", False)
+                _designs = st.session_state.get("clip_designs", {})
+                _cidx    = clip.get("index", i)
+                if _rand and _cidx in _designs:
+                    _d           = _designs[_cidx]
+                    _theme_key   = _d["theme"]
+                    _size_key    = _d["size"]
+                    _pattern_key = _d["pattern"]
+                else:
+                    _theme_key   = st.session_state.get("title_theme",   "purple")
+                    _size_key    = st.session_state.get("title_size",    "large")
+                    _pattern_key = st.session_state.get("title_pattern", "none")
+
+                _bottom_img  = clip.get("bottom_image")
+                _bottom_path = Path(_bottom_img) if _bottom_img else None
+
+                st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
+                         f"({int(clip['start'])}s → {int(clip['end'])}s)")
+                shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
+                create_shorts(
+                    raw_path, shorts_path,
+                    max_duration=int(clip["end"] - clip["start"]),
+                    start_sec=int(clip["start"]),
+                    title=title,
+                    theme_key=_theme_key,
+                    size_key=_size_key,
+                    pattern_key=_pattern_key,
+                    themes=TITLE_THEMES,
+                    sizes=TITLE_SIZES,
+                    bottom_image_path=_bottom_path,
+                    catchphrase=clip.get("catchphrase", ""),
+                )
+
+                generated.append({
+                    "num":         i + 1,
+                    "index":       clip["index"],
+                    "title":       title,
+                    "shorts_path": str(shorts_path),
+                    "description": description,
+                    "tags":        tags,
+                    "jst_dt":      jst_dt.isoformat(),
+                    "utc_dt":      utc_dt.isoformat(),
+                    "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"),
+                })
+                st.write(f"✅ **{i+1}本目: 変換完了**")
+
+            except Exception as e:
+                st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+
+        if not generated:
+            try:
+                raw_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            s["raw_path"] = None
+            status.update(label="変換失敗", state="error")
+            return
+
+        prog.progress(1.0, text="変換完了！")
+        status.update(
+            label=f"✅ {len(generated)} 本の変換完了。ダウンロードまたはアップロードしてください。",
+            state="complete",
+        )
+
+    s["generated_clips"] = generated
+    s["sched_pending"]   = dict(sched)
+
+
+# ── アップロードパイプライン（生成済みファイルをYouTubeへ投稿）──────────
+def _upload_pipeline():
+    from core.uploader import upload_shorts
+
+    generated = s.get("generated_clips", [])
+    sched     = s.get("sched_pending", {})
+    category  = sched.get("category_id", "22")
+
+    _yt_token = None
+    _user_id  = None
+    if _is_multi_user_mode():
+        _user_id  = s.get("user_id")
+        _yt_token = s.get("yt_token")
+        if not _yt_token:
+            st.error("YouTubeチャンネルが接続されていません。認証セクションで接続してください。")
+            return
+        try:
+            from core.uploader import refresh_token_if_needed
+            from core.db import save_youtube_token
+            _yt_token = refresh_token_if_needed(_yt_token)
+            s["yt_token"] = _yt_token
+            if _user_id:
+                save_youtube_token(_user_id, _yt_token)
+        except Exception as _e:
+            st.error(f"YouTubeトークンのリフレッシュに失敗しました。再接続してください。({_e})")
+            return
+
+    results = []
+
+    with st.status("アップロード中...", expanded=True) as status:
+        prog = st.progress(0, text="アップロード準備中...")
+
+        for i, clip in enumerate(generated):
+            pct         = (i + 1) / len(generated)
+            title       = clip["title"]
+            shorts_path = Path(clip["shorts_path"])
+            description = clip["description"]
+            tags        = clip["tags"]
+            publish_jst = clip["publish_jst"]
+
+            try:
+                utc_dt = datetime.fromisoformat(clip["utc_dt"])
+            except Exception:
+                utc_dt = None
+
+            prog.progress(pct, text=f"[{i+1}/{len(generated)}] {title[:40]}")
+            st.write(f"☁️ **{i+1}本目: アップロード中** — 予約: `{publish_jst} JST`")
+
+            try:
+                video_id = upload_shorts(
+                    shorts_path, title, description, tags, utc_dt, category,
+                    playlist_id=sched.get("playlist_id"),
+                    made_for_kids=bool(sched.get("made_for_kids", False)),
+                    age_restricted=bool(sched.get("age_restricted", False)),
+                    token_json=_yt_token,
+                )
+                results.append({
+                    "num":         clip["num"],
+                    "title":       title,
+                    "video_id":    video_id,
+                    "publish_jst": publish_jst,
+                    "status":      "✅",
+                })
+                st.write(
+                    f"✅ **完了** → "
+                    f"[youtube.com/shorts/{video_id}](https://youtube.com/shorts/{video_id})"
+                )
+            except Exception as e:
+                results.append({
+                    "num":         clip["num"],
+                    "title":       title,
+                    "video_id":    None,
+                    "publish_jst": publish_jst,
+                    "status":      f"❌ {e}",
+                })
+                st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+            finally:
+                try:
+                    shorts_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        _rp = s.get("raw_path")
+        if _rp:
+            try:
+                Path(_rp).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        ok = sum(1 for r in results if r.get("video_id"))
+        prog.progress(1.0, text="アップロード完了！")
+        status.update(
+            label=f"🎉 完了！{ok}/{len(results)} 本の予約投稿が完了しました",
+            state="complete",
+        )
+
+        if _is_multi_user_mode() and _user_id and ok > 0:
+            try:
+                from core.db import increment_clips_used
+                increment_clips_used(_user_id, ok)
+            except Exception:
+                pass
+
+    s["generated_clips"] = []
+    s["raw_path"]        = None
+    s["sched_pending"]   = None
+    s.results            = results
 
 
 # ══════════════════════════════════════════════════════════
