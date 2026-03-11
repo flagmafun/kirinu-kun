@@ -1349,8 +1349,12 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Google OAuth URL を生成・キャッシュ ─────────────────
-    _google_url = st.session_state.get("_google_oauth_url", "")
+    # ── Google OAuth URL を生成（response_type=token を含む古いキャッシュは破棄）──
+    _cached_gurl = st.session_state.get("_google_oauth_url", "")
+    if "response_type" in _cached_gurl:
+        st.session_state.pop("_google_oauth_url", None)
+        _cached_gurl = ""
+    _google_url = _cached_gurl
     if not _google_url:
         try:
             from core.auth import get_google_oauth_url
