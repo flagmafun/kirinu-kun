@@ -270,7 +270,7 @@ def _handle_supabase_confirmation():
                 import base64 as _b64, json as _json
                 _parts = token.split(".")
                 if len(_parts) == 3:
-                    _pad = _parts[1] + "=" * (4 - len(_parts[1]) % 4)
+                    _pad = _parts[1] + "=" * ((4 - len(_parts[1]) % 4) % 4)
                     _data = _json.loads(_b64.urlsafe_b64decode(_pad))
                     _uid   = _data.get("sub", "")
                     _email = _data.get("email", "")
@@ -334,23 +334,27 @@ def _handle_supabase_pkce_callback() -> bool:
     if not code:
         return False
 
-    # state パラメータから code_verifier を取得（サーバーサイド・ブラウザストレージ不要）
+    # code_verifier を取得（優先順: Cookie → session_state）
+    # ※ Supabase は state パラメータを callback URL に返さないため state からは取得不可
     code_verifier = ""
-    state = st.query_params.get("state", "")
-    if state:
-        try:
-            import base64 as _b64, json as _json
-            padding = "=" * ((4 - len(state) % 4) % 4)
-            state_data = _json.loads(_b64.urlsafe_b64decode(state + padding))
-            if "cv" in state_data and "uid" not in state_data:
-                code_verifier = state_data["cv"]
-        except Exception:
-            pass
-    # フォールバック: session_state
+
+    # ① Cookie から取得（最も確実：OAuth リダイレクト後も保持される）
+    try:
+        import urllib.parse as _up
+        _cv_raw = st.context.cookies.get("_sb_pkce_cv", "")
+        if _cv_raw:
+            code_verifier = _up.unquote(_cv_raw)
+    except Exception:
+        pass
+
+    # ② フォールバック: session_state（同一セッション内の場合のみ有効）
     if not code_verifier:
         code_verifier = st.session_state.get("_google_oauth_cv", "")
+
     if not code_verifier:
-        return False
+        st.query_params.clear()
+        st.error("⚠️ Googleログインエラー: 認証情報が見つかりませんでした。ページを再読み込みしてもう一度お試しください。")
+        return True
 
     try:
         from core.auth import get_supabase
@@ -1437,9 +1441,11 @@ button[data-testid="baseButton-primary"]:disabled,
         except Exception:
             pass
     _google_url = st.session_state.get("_google_oauth_url", "")
+    _gcv        = st.session_state.get("_google_oauth_cv", "")
 
     # ── Google ボタン HTML ──────────────────────────────────────────
-    # code_verifier は state パラメータに埋め込み済み → onclick 不要
+    # onclick: Cookie に code_verifier を保存してから遷移する
+    # Cookie はドメインレベルで共有されるため OAuth リダイレクト後も Python から読み取れる
     _google_btn_html = f"""
 <div style="padding:2px 0 0;">
   <a href="{_google_url}" target="_top"
@@ -1454,7 +1460,8 @@ button[data-testid="baseButton-primary"]:disabled,
       transition:all 0.18s;
     "
     onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
-    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';">
+    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';"
+    onclick="(function(){{var v='{_gcv}';if(v){{try{{document.cookie='_sb_pkce_cv='+encodeURIComponent(v)+'; path=/; SameSite=Lax; max-age=600';}}catch(e){{}}}}return true;}})();">
     <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
