@@ -115,10 +115,12 @@ def get_transcript(url: str, work_dir: Path) -> list:
     _ensure_netscape_cookies()
     _has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
-    # web は PO token がないと自動字幕が取れないため、cookies の有無に関わらず
-    # tv_embedded / ios / mweb もフォールバックとして必ず試みる。
-    # cookies は web クライアントのみに渡す（tv_embedded 等では不要かつ副作用の恐れあり）。
-    _clients = ["web", "tv_embedded", "ios", "mweb"] if _has_cookies else ["tv_embedded", "ios", "mweb"]
+    # クライアント優先順位:
+    #   cookies あり → web (認証済み) → 以降は cookies なし系で補完
+    #   cookies なし → tv_embedded → web_embedded → android_vr → mweb
+    #   ※ ios は --write-auto-subs に非対応（"format not available"）のため除外
+    _clients = ["web", "tv_embedded", "web_embedded", "android_vr", "mweb"] \
+               if _has_cookies else ["tv_embedded", "web_embedded", "android_vr", "mweb"]
 
     for _pc in _clients:
         for _old in work_dir.glob(f"{video_id}*.json3"):
@@ -128,14 +130,16 @@ def get_transcript(url: str, work_dir: Path) -> list:
                 "--no-playlist", "--no-check-certificates",
                 "--extractor-args", f"youtube:player_client={_pc}",
             ]
-            # cookies は web クライアントのみ使用（PO token なしでも tv_embedded 等は動く）
+            # cookies は web クライアントのみ使用（tv_embedded 等では不要かつ副作用の恐れあり）
             if _has_cookies and _pc == "web":
                 _opts += ["--cookies", str(_COOKIES_PATH), "--js-runtimes", "node"]
 
             cmd = [
                 "yt-dlp", "--skip-download",
                 "--write-auto-subs", "--write-subs",
-                "--sub-langs", "all",   # 言語コードを問わず全字幕を試みる
+                # ja.*/en.* のみに限定 → 全言語(all)だと数十件のHTTPリクエストが発生し
+                # 429 Too Many Requests を招くため対象言語を絞る
+                "--sub-langs", "ja.*,en.*",
                 "--sub-format", "json3",
                 "-o", str(work_dir / "%(id)s"),
             ] + _opts + [url]
