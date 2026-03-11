@@ -1113,59 +1113,47 @@ if _nav_param:
 # ── ブランドヘッダー ──────────────────────────────────────
 def render_logo():
     """アプリ上部にブランドヘッダー（ロゴ + サービス名 + ユーザー情報）を表示"""
+    # same-origin にすることで DOMPurify が target="_blank" を付与しない → 同タブでナビゲート
+    # /?nav=1 は Streamlit の query_params でステップ1リセットとして処理される
+    _top_url = "/?nav=1"
     logo_path = BASE_DIR / "assets" / "logo.png"
     if logo_path.exists():
         logo_b64 = base64.b64encode(logo_path.read_bytes()).decode()
-        logo_html = (
+        logo_img = (
             f'<img src="data:image/png;base64,{logo_b64}"'
-            f' class="brand-logo" alt="切り抜きくん"'
-            f' onclick="window.top.location.href=\'https://kirinuki-kun.streamlit.app\'"'
-            f' style="cursor:pointer;" title="切り抜きくん トップへ">'
+            f' class="brand-logo" alt="切り抜きくん">'
         )
     else:
-        logo_html = (
-            '<div class="brand-logo-fallback"'
-            ' onclick="window.top.location.href=\'https://kirinuki-kun.streamlit.app\'"'
-            ' style="cursor:pointer;" title="切り抜きくん トップへ">✂️</div>'
-        )
+        logo_img = '<div class="brand-logo-fallback">✂️</div>'
+
+    # ロゴ＋ブランドテキストを <a href> で囲む
+    # DOMPurify は https:// の href を許可するため onclick 不要・確実に動作する
+    brand_link = (
+        f'<a href="{_top_url}" title="切り抜きくん トップへ"'
+        f' style="display:flex;align-items:center;gap:14px;text-decoration:none;flex-shrink:0;">'
+        f'{logo_img}'
+        f'<div class="brand-text">'
+        f'<div class="brand-catchcopy">動画の"おいしい瞬間"を切り抜くヒーロー</div>'
+        f'<div class="brand-name">切り抜きくん</div>'
+        f'<div class="brand-tagline">YouTube Shorts 自動作成ツール</div>'
+        f'</div>'
+        f'</a>'
+    )
 
     # マルチユーザーモード: ユーザー情報表示
     user_section = ""
     if _is_multi_user_mode() and st.session_state.get("user_id"):
         email = st.session_state.get("user_email", "")
-        # 先頭に空白・改行を入れると Markdown がコードブロックと誤認するため1行に
         user_section = f'<div class="header-user"><span class="header-user-email">{email[:28]}</span></div>'
 
     st.markdown(f"""
     <div class="app-header">
-      {logo_html}
-      <div class="brand-text">
-        <div class="brand-catchcopy">動画の"おいしい瞬間"を切り抜くヒーロー</div>
-        <div class="brand-name">切り抜きくん</div>
-        <div class="brand-tagline">YouTube Shorts 自動作成ツール</div>
-      </div>
+      {brand_link}
       <div class="header-divider"></div>
       {user_section}
       <div class="header-badge">✂️ Beta</div>
     </div>
     """, unsafe_allow_html=True)
-
-    # DOMPurify が onclick を除去するため、components.html 経由でロゴクリックを再付与
-    import streamlit.components.v1 as _c_logo
-    _c_logo.html("""<script>
-(function patch(n){
-  var d=window.parent&&window.parent.document;
-  if(!d){return;}
-  var logo=d.querySelectorAll('.brand-logo,.brand-logo-fallback');
-  if(logo.length===0&&n>0){setTimeout(function(){patch(n-1);},80);return;}
-  var go=function(){window.top.location.href='https://kirinuki-kun.streamlit.app';};
-  var ttl='切り抜きくん トップへ';
-  logo.forEach(function(el){el.style.cursor='pointer';el.title=ttl;el.onclick=go;});
-  d.querySelectorAll('.brand-text').forEach(function(el){
-    el.style.cursor='pointer';el.title=ttl;el.onclick=go;
-  });
-})(15);
-</script>""", height=1)
 
     # ログアウト / 管理パネルボタン（マルチユーザーモード時）
     if _is_multi_user_mode() and st.session_state.get("user_id"):
