@@ -1792,18 +1792,92 @@ def render_video_banner():
 # ══════════════════════════════════════════════════════════
 def step1():
     render_stepbar(1)
+
+    # ── サービス紹介セクション ──────────────────────────────────
     st.markdown("""
-    <div style="padding:28px 40px 0;margin-left:-40px;margin-right:-40px;">
-      <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
-        🎬 元動画のURLを入力
+<div style="margin:8px 0 22px;">
+
+  <!-- キャッチコピー -->
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-size:21px;font-weight:900;color:#1e293b;line-height:1.35;letter-spacing:-.02em;margin-bottom:6px;">
+      YouTube動画<span style="color:#ea580c;">1本</span>から<br>Shortsを<span style="color:#ea580c;">自動で10本</span>作成
+    </div>
+    <div style="font-size:13px;color:#64748b;font-weight:500;">
+      URLを貼るだけ。AIが編集・デザイン・投稿まで全部やります。
+    </div>
+  </div>
+
+  <!-- 機能カード 3列 -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;">
+
+    <!-- カード①: AI解析 -->
+    <div style="background:#fff;border:1.5px solid #fde8d8;border-radius:16px;
+                padding:18px 14px 16px;text-align:center;
+                box-shadow:0 2px 14px rgba(234,88,12,.08);">
+      <div style="font-size:30px;margin-bottom:8px;">🤖</div>
+      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
+        AI文字起こし<br>&amp;自動クリップ選定
       </div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px;">
-        YouTube動画を1本入力するだけで、10本のShortsを自動で作成・予約投稿します。
+      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
+        動画全体を解析し、<br>
+        スコアで<b>「バズる瞬間」</b><br>
+        だけを自動抽出します
       </div>
     </div>
-    """, unsafe_allow_html=True)
 
-    st.markdown("")
+    <!-- カード②: デザイン -->
+    <div style="background:#fff;border:1.5px solid #e0e7ff;border-radius:16px;
+                padding:18px 14px 16px;text-align:center;
+                box-shadow:0 2px 14px rgba(99,102,241,.08);">
+      <div style="font-size:30px;margin-bottom:8px;">🎨</div>
+      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
+        デザインを<br>自由にカスタマイズ
+      </div>
+      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
+        フォント・色・テロップ・<br>
+        背景を編集して<br>
+        <b>プロ仕上げ</b>の動画に
+      </div>
+    </div>
+
+    <!-- カード③: 予約投稿 -->
+    <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:16px;
+                padding:18px 14px 16px;text-align:center;
+                box-shadow:0 2px 14px rgba(16,185,129,.08);">
+      <div style="font-size:30px;margin-bottom:8px;">📅</div>
+      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
+        YouTube へ<br>予約投稿
+      </div>
+      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
+        最大10本を日時指定で<br>
+        一括スケジュール。<br>
+        <b>投稿を全自動化</b>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ステップ説明バー -->
+  <div style="background:linear-gradient(135deg,#fff7ed 0%,#fef3c7 100%);
+              border:1px solid #fed7aa;border-radius:12px;
+              padding:12px 16px;display:flex;align-items:center;gap:8px;
+              font-size:12.5px;color:#92400e;font-weight:600;">
+    <span>⚡</span>
+    <span>
+      <b>① URLを貼る</b>　→
+      <b>② AIが解析・クリップ選定</b>　→
+      <b>③ デザイン確認</b>　→
+      <b>④ YouTube予約投稿</b>
+    </span>
+  </div>
+
+</div>
+
+<!-- URL入力ラベル -->
+<div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:8px;">
+  🎬 元動画のURLを入力
+</div>
+""", unsafe_allow_html=True)
     # 前回解析したURLをデフォルト表示
     _last_url = (s.video_info or {}).get("url", "")
     url = st.text_input(
