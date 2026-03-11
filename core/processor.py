@@ -342,9 +342,9 @@ def create_frame_image(
     sub_color      = _parse_sub_color(theme.get("sub", "rgba(255,255,255,0.72)"))
 
     # ── フォントサイズ（CANVAS_W=1080px 基準 / UIの320px幅×3.375倍）────
-    # UIの font: 12px/15px/18px → 動画: 40/51/61px
-    font_s_map   = {"small": 40, "medium": 51, "large": 61}
-    font_s       = font_s_map.get(size_key, 51)
+    # UIの font: 18px/22px → 動画: 61/74px
+    font_s_map   = {"small": 40, "medium": 51, "large": 61, "xlarge": 74}
+    font_s       = font_s_map.get(size_key, 61)
     catch_font_s = int(font_s * 0.56)   # UIの10px/18px ≈ 0.56比率
 
     font       = _get_font(font_s)
@@ -537,7 +537,7 @@ def create_shorts(
     start_sec=0,
     title="",
     theme_key="purple",
-    size_key="medium",
+    size_key="large",
     pattern_key="none",
     themes=None,
     sizes=None,

@@ -361,13 +361,11 @@ TITLE_THEMES = {
 }
 
 TITLE_SIZES = {
-    "small":  {"label": "S 小",  "font": "12px", "weight": "700", "lh": "1.4", "pad": "10px 14px 14px"},
-    "medium": {"label": "M 中",  "font": "15px", "weight": "900", "lh": "1.45","pad": "14px 16px 18px"},
-    "large":  {"label": "L 大",  "font": "18px", "weight": "900", "lh": "1.5", "pad": "16px 16px 22px"},
+    "large":  {"label": "大",   "font": "18px", "weight": "900", "lh": "1.5", "pad": "16px 16px 22px"},
+    "xlarge": {"label": "特大", "font": "22px", "weight": "900", "lh": "1.5", "pad": "18px 16px 26px"},
 }
 # タイトルバー最小高さ — 実出力の最小18%(345/1920)をプレビュー幅224pxに換算
-# small=72, medium=80, large=88 (長タイトルで多少大きく)
-TITLE_BAR_H = {"small": 72, "medium": 80, "large": 88}
+TITLE_BAR_H = {"large": 88, "xlarge": 96}
 
 # タイトル背景の柄パターン
 _NOISE_CSS = (
@@ -398,9 +396,8 @@ _THEME_KEYWORDS = [
     ("pink",     ["ピンク", "pink", "桃", "ローズ"]),
 ]
 _SIZE_KEYWORDS = [
-    ("small",  ["文字小", "小さめ", "コンパクト", "小文字"]),
-    ("large",  ["文字大", "大きめ", "でかめ", "大文字"]),
-    ("medium", ["文字中", "普通サイズ", "標準"]),
+    ("large",  ["文字大", "大きめ", "大文字", "大"]),
+    ("xlarge", ["文字特大", "特大", "超大きめ", "最大文字"]),
 ]
 _PATTERN_KEYWORDS = [
     ("none",          ["なし", "シンプル", "無地", "パターンなし"]),
@@ -1479,10 +1476,10 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
         pattern_key = _d["pattern"]
     else:
         theme_key   = st.session_state.get("title_theme",   "purple")
-        size_key    = st.session_state.get("title_size",    "medium")
+        size_key    = st.session_state.get("title_size",    "large")
         pattern_key = st.session_state.get("title_pattern", "none")
     theme = TITLE_THEMES.get(theme_key, TITLE_THEMES["purple"])
-    size  = TITLE_SIZES.get(size_key,   TITLE_SIZES["medium"])
+    size  = TITLE_SIZES.get(size_key,   TITLE_SIZES["large"])
     _pat_css = TITLE_PATTERNS.get(pattern_key, TITLE_PATTERNS["none"])["css"]
     # ::before CSS ブロックを文字列として構築（f-string に直接埋め込む）
     before_css_block = (
@@ -1717,7 +1714,7 @@ def step2():
 
     # どこに表示されるか図解
     _t_preview = TITLE_THEMES.get(st.session_state.get("title_theme", "purple"), TITLE_THEMES["purple"])
-    _s_preview = TITLE_SIZES.get(st.session_state.get("title_size", "medium"), TITLE_SIZES["medium"])
+    _s_preview = TITLE_SIZES.get(st.session_state.get("title_size", "large"), TITLE_SIZES["large"])
     _pc_preview = TITLE_PATTERNS.get(st.session_state.get("title_pattern", "none"), TITLE_PATTERNS["none"])["css"]
     st.markdown(f"""
     <div class="design-diagram">
@@ -1783,10 +1780,10 @@ def step2():
 
         # テーマ / サイズ / 柄
         st.session_state.setdefault("title_theme_sel",   "purple")
-        st.session_state.setdefault("title_size_sel",    "medium")
+        st.session_state.setdefault("title_size_sel",    "large")
         st.session_state.setdefault("title_pattern_sel", "none")
         if st.session_state.get("title_theme_sel")   not in TITLE_THEMES:   st.session_state["title_theme_sel"]   = "purple"
-        if st.session_state.get("title_size_sel")    not in TITLE_SIZES:    st.session_state["title_size_sel"]    = "medium"
+        if st.session_state.get("title_size_sel")    not in TITLE_SIZES:    st.session_state["title_size_sel"]    = "large"
         if st.session_state.get("title_pattern_sel") not in TITLE_PATTERNS: st.session_state["title_pattern_sel"] = "none"
 
         sel_theme = st.radio(
@@ -2108,13 +2105,13 @@ def step3():
         with d_left:
             # setdefault でデフォルト設定（index= と session_state の二重設定警告を回避）
             st.session_state.setdefault("title_theme_sel",   "purple")
-            st.session_state.setdefault("title_size_sel",    "medium")
+            st.session_state.setdefault("title_size_sel",    "large")
             st.session_state.setdefault("title_pattern_sel", "none")
             # 無効なキー値をリセット（パターン追加後の互換性確保）
             if st.session_state.get("title_theme_sel")   not in TITLE_THEMES:
                 st.session_state["title_theme_sel"]   = "purple"
             if st.session_state.get("title_size_sel")    not in TITLE_SIZES:
-                st.session_state["title_size_sel"]    = "medium"
+                st.session_state["title_size_sel"]    = "large"
             if st.session_state.get("title_pattern_sel") not in TITLE_PATTERNS:
                 st.session_state["title_pattern_sel"] = "none"
 
@@ -2906,7 +2903,7 @@ def _run_pipeline(clips: list, sched: dict):
                     _pattern_key = _d["pattern"]
                 else:
                     _theme_key   = st.session_state.get("title_theme",   "purple")
-                    _size_key    = st.session_state.get("title_size",    "medium")
+                    _size_key    = st.session_state.get("title_size",    "large")
                     _pattern_key = st.session_state.get("title_pattern", "none")
 
                 _bottom_img = clip.get("bottom_image")
