@@ -1800,10 +1800,10 @@ def step1():
   <!-- キャッチコピー -->
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:21px;font-weight:900;color:#1e293b;line-height:1.35;letter-spacing:-.02em;margin-bottom:6px;">
-      YouTube動画<span style="color:#ea580c;">1本</span>から<br>Shortsを<span style="color:#ea580c;">自動で10本</span>作成
+      YouTube動画の<span style="color:#ea580c;">おいしい瞬間</span>を<br>Shortsに<span style="color:#ea580c;">自動で切り抜き</span>
     </div>
     <div style="font-size:13px;color:#64748b;font-weight:500;">
-      URLを貼るだけ。AIが編集・デザイン・投稿まで全部やります。
+      URLを貼るだけ。AIが解析・編集・投稿まで全自動でやります。
     </div>
   </div>
 
