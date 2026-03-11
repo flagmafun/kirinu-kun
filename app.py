@@ -3888,13 +3888,18 @@ def _run_pipeline(clips: list, sched: dict):
     results = []
     OUTPUT_DIR.mkdir(exist_ok=True)
 
+    # ユーザーIDごとのサブディレクトリ（複数ユーザー混在防止）
+    _uid_slug = str(_user_id) if _user_id else "local"
+    _user_out = OUTPUT_DIR / _uid_slug
+    _user_out.mkdir(parents=True, exist_ok=True)
+
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を1回だけダウンロード
         st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
         try:
-            raw_path = download_video(video_info["url"], OUTPUT_DIR / "raw")
+            raw_path = download_video(video_info["url"], _user_out / "raw")
             st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
         except Exception as e:
             err_msg = str(e)
@@ -3959,7 +3964,7 @@ def _run_pipeline(clips: list, sched: dict):
                 # 変換
                 st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
                          f"({int(clip['start'])}s → {int(clip['end'])}s)")
-                shorts_path = OUTPUT_DIR / "shorts" / f"short_{clip['index']:02d}.mp4"
+                shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
                 create_shorts(
                     raw_path, shorts_path,
                     max_duration=int(clip["end"] - clip["start"]),
@@ -3994,12 +3999,24 @@ def _run_pipeline(clips: list, sched: dict):
                     f"[youtube.com/shorts/{video_id}](https://youtube.com/shorts/{video_id})"
                 )
 
+                # アップロード完了後にローカルの shorts ファイルを即時削除
+                try:
+                    shorts_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
             except Exception as e:
                 results.append({
                     "num": i+1, "title": title, "video_id": None,
                     "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"), "status": f"❌ {e}"
                 })
                 st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+
+        # 全クリップ処理後に raw 動画（元ダウンロードファイル）を削除
+        try:
+            raw_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
         prog.progress(1.0, text="全処理完了！")
         ok = sum(1 for r in results if r["video_id"])
