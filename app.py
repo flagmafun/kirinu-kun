@@ -1795,87 +1795,103 @@ def step1():
 
     # ── サービス紹介セクション ──────────────────────────────────
     st.markdown("""
-<div style="margin:8px 0 22px;">
+<div style="margin:4px 0 20px;">
 
-  <!-- キャッチコピー -->
-  <div style="text-align:center;margin-bottom:20px;">
-    <div style="font-size:21px;font-weight:900;color:#1e293b;line-height:1.35;letter-spacing:-.02em;margin-bottom:6px;">
-      YouTube動画の<span style="color:#ea580c;">おいしい瞬間</span>を<br>Shortsに<span style="color:#ea580c;">自動で切り抜き</span>
-    </div>
-    <div style="font-size:13px;color:#64748b;font-weight:500;">
-      URLを貼るだけ。AIが解析・編集・投稿まで全自動でやります。
-    </div>
-  </div>
+  <!-- ダークヒーローカード -->
+  <div style="
+    background:linear-gradient(145deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);
+    border-radius:22px;padding:28px 22px 24px;text-align:center;
+    margin-bottom:14px;position:relative;overflow:hidden;">
 
-  <!-- 機能カード 3列 -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;">
+    <!-- 背景グロー -->
+    <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);
+                width:240px;height:160px;
+                background:radial-gradient(ellipse,rgba(249,115,22,.25) 0%,transparent 70%);
+                pointer-events:none;"></div>
 
-    <!-- カード①: AI解析 -->
-    <div style="background:#fff;border:1.5px solid #fde8d8;border-radius:16px;
-                padding:18px 14px 16px;text-align:center;
-                box-shadow:0 2px 14px rgba(234,88,12,.08);">
-      <div style="font-size:30px;margin-bottom:8px;">🤖</div>
-      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
-        AI文字起こし<br>&amp;自動クリップ選定
-      </div>
-      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
-        動画全体を解析し、<br>
-        スコアで<b>「バズる瞬間」</b><br>
-        だけを自動抽出します
-      </div>
+    <!-- AI POWERED バッジ -->
+    <div style="display:inline-flex;align-items:center;gap:5px;
+                background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);
+                border-radius:100px;padding:4px 12px;margin-bottom:16px;">
+      <span style="width:5px;height:5px;border-radius:50%;background:#f97316;
+                   box-shadow:0 0 6px #f97316;display:inline-block;"></span>
+      <span style="font-size:10.5px;font-weight:800;color:#fb923c;letter-spacing:.1em;">AI POWERED</span>
     </div>
 
-    <!-- カード②: デザイン -->
-    <div style="background:#fff;border:1.5px solid #e0e7ff;border-radius:16px;
-                padding:18px 14px 16px;text-align:center;
-                box-shadow:0 2px 14px rgba(99,102,241,.08);">
-      <div style="font-size:30px;margin-bottom:8px;">🎨</div>
-      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
-        デザインを<br>自由にカスタマイズ
-      </div>
-      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
-        フォント・色・テロップ・<br>
-        背景を編集して<br>
-        <b>プロ仕上げ</b>の動画に
-      </div>
+    <!-- ヘッドライン -->
+    <div style="font-size:22px;font-weight:900;color:#f8fafc;
+                line-height:1.35;letter-spacing:-.02em;margin-bottom:12px;">
+      YouTube動画の<br>
+      <span style="background:linear-gradient(90deg,#f97316 0%,#ef4444 100%);
+                   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                   background-clip:text;">おいしい瞬間</span>を<br>
+      Shortsに自動で切り抜き
     </div>
 
-    <!-- カード③: 予約投稿 -->
-    <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:16px;
-                padding:18px 14px 16px;text-align:center;
-                box-shadow:0 2px 14px rgba(16,185,129,.08);">
-      <div style="font-size:30px;margin-bottom:8px;">📅</div>
-      <div style="font-size:12.5px;font-weight:800;color:#1e293b;margin-bottom:6px;line-height:1.3;">
-        YouTube へ<br>予約投稿
-      </div>
-      <div style="font-size:11.5px;color:#64748b;line-height:1.6;">
-        最大10本を日時指定で<br>
-        一括スケジュール。<br>
-        <b>投稿を全自動化</b>
-      </div>
+    <!-- サブコピー -->
+    <div style="font-size:12.5px;color:#94a3b8;font-weight:500;line-height:1.7;">
+      URLを貼るだけ。<br>AIが解析・編集・投稿まで全自動でやります。
     </div>
 
   </div>
 
-  <!-- ステップ説明バー -->
-  <div style="background:linear-gradient(135deg,#fff7ed 0%,#fef3c7 100%);
-              border:1px solid #fed7aa;border-radius:12px;
-              padding:12px 16px;display:flex;align-items:center;gap:8px;
-              font-size:12.5px;color:#92400e;font-weight:600;">
-    <span>⚡</span>
-    <span>
-      <b>① URLを貼る</b>　→
-      <b>② AIが解析・クリップ選定</b>　→
-      <b>③ デザイン確認</b>　→
-      <b>④ YouTube予約投稿</b>
-    </span>
+  <!-- 機能3カード -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+
+    <!-- ① AI解析 -->
+    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+                text-align:center;border:1px solid #f1f5f9;
+                box-shadow:0 2px 12px rgba(15,23,42,.07);">
+      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
+                  background:linear-gradient(135deg,#fff7ed,#ffedd5);
+                  display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+      <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
+        AI文字起こし<br>&amp;自動選定
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;line-height:1.5;">
+        スコアで「バズる瞬間」を自動抽出
+      </div>
+    </div>
+
+    <!-- ② デザイン -->
+    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+                text-align:center;border:1px solid #f1f5f9;
+                box-shadow:0 2px 12px rgba(15,23,42,.07);">
+      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
+                  background:linear-gradient(135deg,#eef2ff,#e0e7ff);
+                  display:flex;align-items:center;justify-content:center;font-size:20px;">🎨</div>
+      <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
+        デザイン<br>カスタマイズ
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;line-height:1.5;">
+        フォント・色・テロップを自由編集
+      </div>
+    </div>
+
+    <!-- ③ 予約投稿 -->
+    <div style="background:#fff;border-radius:16px;padding:16px 10px 14px;
+                text-align:center;border:1px solid #f1f5f9;
+                box-shadow:0 2px 12px rgba(15,23,42,.07);">
+      <div style="width:40px;height:40px;border-radius:12px;margin:0 auto 10px;
+                  background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+                  display:flex;align-items:center;justify-content:center;font-size:20px;">📅</div>
+      <div style="font-size:11.5px;font-weight:800;color:#1e293b;line-height:1.4;margin-bottom:5px;">
+        YouTube<br>予約投稿
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;line-height:1.5;">
+        複数本を日時指定で一括スケジュール
+      </div>
+    </div>
+
   </div>
 
 </div>
 
 <!-- URL入力ラベル -->
-<div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:8px;">
-  🎬 元動画のURLを入力
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+  <div style="width:3px;height:18px;border-radius:2px;
+              background:linear-gradient(180deg,#f97316,#ef4444);flex-shrink:0;"></div>
+  <div style="font-size:14px;font-weight:800;color:#1e293b;">元動画のURLを貼ってください</div>
 </div>
 """, unsafe_allow_html=True)
     # 前回解析したURLをデフォルト表示
