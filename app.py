@@ -1150,6 +1150,22 @@ def render_logo():
     </div>
     """, unsafe_allow_html=True)
 
+    # DOMPurify が onclick を除去するため、components.html 経由でロゴクリックを再付与
+    import streamlit.components.v1 as _c_logo
+    _c_logo.html("""<script>
+(function patch(n){
+  var d=window.parent&&window.parent.document;
+  if(!d){return;}
+  var els=d.querySelectorAll('.brand-logo,.brand-logo-fallback');
+  if(els.length===0&&n>0){setTimeout(function(){patch(n-1);},80);return;}
+  els.forEach(function(el){
+    el.style.cursor='pointer';
+    el.title='ホームに戻る';
+    el.onclick=function(){window.top.location.href='/?nav=1';};
+  });
+})(15);
+</script>""", height=1)
+
     # ログアウト / 管理パネルボタン（マルチユーザーモード時）
     if _is_multi_user_mode() and st.session_state.get("user_id"):
         btn_cols = st.columns([8, 1, 1]) if _is_admin() else st.columns([10, 1])
@@ -1904,6 +1920,12 @@ def step1():
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         clip_sec = st.slider("クリップの長さ（秒）", 20, 60, 58, key="clip_sec_s1")
+        st.markdown(
+            '<p style="font-size:11px;color:#94a3b8;margin:-6px 0 0;line-height:1.5;">'
+            '💡 30秒以上・1〜2分の動画が視聴を集める傾向にあります'
+            '</p>',
+            unsafe_allow_html=True,
+        )
     with col2:
         n_clips = st.number_input("本数", 1, 10, 10, key="n_clips_s1")
     with col3:
