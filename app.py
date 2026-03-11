@@ -1441,6 +1441,7 @@ def _score_dialog(score: int, s_density: int, s_engage: int, s_complete: int):
 _PREVIEW_W = 224   # カード幅(px) — 9:16 比率の縦型プレビュー用
 _VIDEO_H   = int(_PREVIEW_W * 16 / 9)   # = 398px（9:16 縦型エリア）
 _IFRAME_H  = int(_PREVIEW_W * 9 / 16)   # = 126px（16:9 ネイティブ高さ）
+_BOTTOM_H  = 72                          # 底部画像エリアの高さ(px)
 
 
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
@@ -1530,11 +1531,11 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     _lines = max(1, (len(title[:60]) + _cpl - 1) // _cpl)
     _dyn_h = _lines * _lh + _padv + _ch
     _title_bar_h = max(TITLE_BAR_H[size_key], _dyn_h)
-    # カード全高 = タイトルバー + 9:16 縦型動画エリア
-    card_h = _title_bar_h + _VIDEO_H
+    # カード全高 = タイトルバー + 9:16 縦型動画エリア + 底部画像エリア
+    card_h = _title_bar_h + _VIDEO_H + _BOTTOM_H
 
-    # タイトル/キャッチコピーが変わったら components.html を強制再レンダリングさせる
-    _render_key = hash((title, catchphrase, theme_key, size_key))
+    # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
+    _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
 
     card_html = f"""<!DOCTYPE html>
 <html><head><style>
@@ -1591,6 +1592,11 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     font-size:9px; font-weight:700; letter-spacing:0.08em;
     padding:2px 6px; border-radius:4px; pointer-events:none;
   }}
+  /* 底部画像エリア */
+  .bottom-area {{
+    width:{_PREVIEW_W}px; height:{_BOTTOM_H}px;
+    overflow:hidden; border-top:1px solid #e2e8f0;
+  }}
 </style></head>
 <body>
   <div class="card">
@@ -1604,6 +1610,7 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
         allowfullscreen></iframe>
       <div class="shorts-label">9:16</div>
     </div>
+    <div class="bottom-area">{bottom_img_html}</div>
   </div>
 <script>
 window.addEventListener('load',function(){{
@@ -1619,32 +1626,17 @@ window.addEventListener('load',function(){{
 </body></html>"""
     components.html(card_html, height=card_h + 30, scrolling=False)
 
-    # 底部画像 — 現在の設定サムネイル
+    # 底部画像 — 削除ボタン（画像はカード内で表示済み）
     _bimg = clip.get("bottom_image")
     if _bimg and Path(_bimg).exists():
-        th_l, th_r = st.columns([1, 2])
-        with th_l:
-            st.image(str(_bimg), use_container_width=True)
-        with th_r:
-            st.markdown(
-                f'<div style="font-size:11px;color:#059669;font-weight:700;margin-top:4px;">'
-                f'✅ 設定済み</div>'
-                f'<div style="font-size:10px;color:#94a3b8;margin-top:2px;word-break:break-all;">'
-                f'{Path(_bimg).name}</div>',
-                unsafe_allow_html=True,
+        if st.button("🗑 底部画像を削除", key=f"del_img_{idx}", use_container_width=True):
+            Path(_bimg).unlink(missing_ok=True)
+            clip["bottom_image"] = None
+            _save_session(
+                st.session_state.get("video_info"),
+                st.session_state.get("clips", []),
             )
-            if st.button("🗑 削除", key=f"del_img_{idx}", use_container_width=True):
-                Path(_bimg).unlink(missing_ok=True)
-                clip["bottom_image"] = None
-                _save_session(
-                    st.session_state.get("video_info"),
-                    st.session_state.get("clips", []),
-                )
-                st.rerun()
-        st.markdown(
-            '<div style="font-size:10px;color:#94a3b8;margin:4px 0 2px;">'
-            '別の画像に変更:</div>', unsafe_allow_html=True
-        )
+            st.rerun()
     else:
         st.markdown(
             '<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">'
