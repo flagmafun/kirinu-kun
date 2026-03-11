@@ -103,40 +103,41 @@ def get_user_by_token(access_token: str):
         return None
 
 
-def get_google_oauth_url(redirect_url: str) -> str:
+def _pkce_pair() -> tuple[str, str]:
+    """PKCE code_verifier と code_challenge のペアを生成"""
+    import hashlib, secrets, base64 as _b64
+    verifier  = secrets.token_urlsafe(96)
+    challenge = _b64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode("ascii")).digest()
+    ).rstrip(b"=").decode("ascii")
+    return verifier, challenge
+
+
+def get_google_oauth_url(redirect_url: str) -> tuple[str, str]:
     """
-    Supabase 経由で Google OAuth URL を取得する。
-    PKCE を使わない implicit flow クライアントで URL を生成することで、
-    Supabase が #access_token=SUPABASE_JWT でコールバックするよう強制する。
-    ※ response_type=token を手動で付与してはいけない（Google に直接渡って
-      Supabase をスキップしてしまう）。
+    Supabase Google OAuth の認証 URL と code_verifier を返す。
+    PKCE を自前で生成し Supabase /auth/v1/authorize に渡す。
+    コールバック時に ?code=SUPABASE_CODE が返るので、
+    保存した code_verifier を使って exchange_code_for_session() で交換する。
+    戻り値: (url, code_verifier) — 失敗時は ("", "")
     """
     try:
         cfg = _get_supabase_config()
         if not cfg:
-            return ""
-        from supabase import create_client
-        # implicit flow クライアント（code_challenge を生成しない）
-        # → URL に code_challenge が含まれない → Supabase が implicit mode で動作
-        # → Supabase が #access_token=SUPABASE_JWT をアプリに返す
-        try:
-            from supabase.lib.client_options import ClientOptions
-            from gotrue.types import AuthFlowType
-            sb = create_client(cfg[0], cfg[1],
-                               options=ClientOptions(flow_type=AuthFlowType.implicit))
-        except Exception:
-            # フォールバック: デフォルトクライアント（PKCE になるが後続で処理）
-            sb = create_client(cfg[0], cfg[1])
-        res = sb.auth.sign_in_with_oauth({
+            return "", ""
+        from urllib.parse import urlencode
+        verifier, challenge = _pkce_pair()
+        params = {
             "provider": "google",
-            "options": {
-                "redirect_to": redirect_url,
-                "skip_browser_redirect": True,
-            },
-        })
-        return res.url or ""
+            "redirect_to": redirect_url,
+            "code_challenge": challenge,
+            "code_challenge_method": "s256",
+        }
+        base = cfg[0].rstrip("/")
+        url  = f"{base}/auth/v1/authorize?{urlencode(params)}"
+        return url, verifier
     except Exception:
-        return ""
+        return "", ""
 
 
 def refresh_session(refresh_token: str) -> dict | None:

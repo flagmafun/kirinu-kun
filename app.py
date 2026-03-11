@@ -162,12 +162,10 @@ def _handle_oauth_callback() -> bool:
     # state からユーザーIDと PKCE code_verifier を事前に取得
     user_id, code_verifier = _parse_oauth_state(state)
 
-    # state が YouTube OAuth 形式でない場合はスキップ
-    # （Supabase PKCE コールバック等の他プロバイダーと衝突しないよう保護）
+    # state が YouTube OAuth 形式でない場合は未処理として返す
+    # → Supabase Google OAuth の ?code= は _handle_supabase_pkce_callback() で処理
     if not user_id:
-        st.query_params.clear()
-        st.rerun()
-        return True
+        return False
 
     try:
         from core.uploader import exchange_code
@@ -325,6 +323,64 @@ def _handle_supabase_confirmation():
     except Exception as e:
         st.query_params.clear()
         st.error(f"認証エラー: {e}")
+
+
+def _handle_supabase_pkce_callback() -> bool:
+    """
+    Supabase Google OAuth の PKCE コールバック処理。
+    ?code=SUPABASE_CODE が来たとき、保存済み code_verifier で Supabase JWT に交換する。
+    """
+    code = st.query_params.get("code", "")
+    if not code:
+        return False
+
+    code_verifier = st.session_state.get("_google_oauth_cv", "")
+
+    try:
+        from core.auth import get_supabase
+        sb = get_supabase()
+
+        exchange_payload: dict = {"auth_code": code}
+        if code_verifier:
+            exchange_payload["code_verifier"] = code_verifier
+
+        session = sb.auth.exchange_code_for_session(exchange_payload)
+
+        if session and session.user:
+            st.session_state["user_id"]    = session.user.id
+            st.session_state["user_email"] = session.user.email
+            try:
+                if session.session:
+                    st.session_state["_supabase_rt"] = session.session.refresh_token
+            except Exception:
+                pass
+            # 保存済み YouTube トークンがあれば復元
+            try:
+                from core.db import get_youtube_token
+                from core.uploader import get_channel_info
+                yt = get_youtube_token(session.user.id)
+                if yt:
+                    st.session_state["yt_token"] = yt
+                    ch = get_channel_info(yt)
+                    if ch:
+                        st.session_state["yt_channel_name"]      = ch["title"]
+                        st.session_state["yt_channel_id"]        = ch["id"]
+                        st.session_state["yt_channel_thumbnail"] = ch.get("thumbnail", "")
+            except Exception:
+                pass
+            st.query_params.clear()
+            st.session_state["_email_confirmed"] = True
+            st.rerun()
+            return True
+        else:
+            st.query_params.clear()
+            st.error("Googleログインに失敗しました。もう一度お試しください。")
+            return True
+
+    except Exception as e:
+        st.query_params.clear()
+        st.error(f"Googleログインエラー: {e}")
+        return True
 
 
 def _redirect_to_url(url: str):
@@ -1349,20 +1405,18 @@ button[data-testid="baseButton-primary"]:disabled,
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Google OAuth URL を生成（response_type=token を含む古いキャッシュは破棄）──
-    _cached_gurl = st.session_state.get("_google_oauth_url", "")
-    if "response_type" in _cached_gurl:
-        st.session_state.pop("_google_oauth_url", None)
-        _cached_gurl = ""
-    _google_url = _cached_gurl
-    if not _google_url:
+    # ── Google OAuth URL を生成（古いキャッシュは破棄して毎回 PKCE ペアを再生成）──
+    # PKCE は code_verifier とセットなので URL を使いまわさない
+    if not st.session_state.get("_google_oauth_url"):
         try:
             from core.auth import get_google_oauth_url
-            _google_url = get_google_oauth_url(_get_app_url())
-            if _google_url:
-                st.session_state["_google_oauth_url"] = _google_url
+            _gurl, _gcv = get_google_oauth_url(_get_app_url())
+            if _gurl:
+                st.session_state["_google_oauth_url"] = _gurl
+                st.session_state["_google_oauth_cv"]  = _gcv
         except Exception:
-            _google_url = ""
+            pass
+    _google_url = st.session_state.get("_google_oauth_url", "")
 
     # ── Google ボタン HTML（target="_top" で top-frame ナビゲーション） ──
     _google_btn_html = f"""
@@ -3260,9 +3314,10 @@ if s.get("_clearing_cookie"):
     render_login_page()
     st.stop()
 
-# ② YouTube OAuth コールバック処理
+# ② YouTube OAuth コールバック処理 → 未処理なら Supabase PKCE として処理
 if "code" in st.query_params:
-    _handle_oauth_callback()
+    if not _handle_oauth_callback():
+        _handle_supabase_pkce_callback()
 
 # ③ Supabase メール確認トークン処理
 if "sb_access_token" in st.query_params:
