@@ -3809,12 +3809,27 @@ def step5():
     _in_phase_b = bool(s.get("generated_clips"))
 
     if not _in_phase_b:
-        # ═══ Phase A: クリップ生成ボタン ═══════════════════════════
-        gen_ready = len(enabled_clips) > 0
+        # ═══ Phase A: 実行前確認 ════════════════════════════════════
+        _want_dl  = st.checkbox(
+            "📥 生成後にスマホ・PCへダウンロードする",
+            key="want_download",
+        )
+
+        # ダウンロードしない場合はYouTube認証も必要
         all_ready = secret_ok and token_ok and len(enabled_clips) > 0
+        gen_ready = len(enabled_clips) > 0
 
         if not gen_ready:
             st.warning("クリップを1本以上選択してください")
+        elif not _want_dl and not all_ready:
+            st.warning("YouTube認証を完了してから実行してください")
+
+        _can_run = gen_ready and (_want_dl or all_ready)
+        _btn_label = (
+            f"▶️  {len(enabled_clips)} 本のクリップを生成"
+            if _want_dl
+            else f"▶️  {len(enabled_clips)} 本のShortsを作成・予約投稿"
+        )
 
         col_back, col_run = st.columns([1, 3])
         with col_back:
@@ -3823,13 +3838,16 @@ def step5():
                 st.rerun()
         with col_run:
             if st.button(
-                f"▶️  {len(enabled_clips)} 本のクリップを生成",
+                _btn_label,
                 type="primary", use_container_width=True,
-                disabled=(not gen_ready or s.running),
+                disabled=(not _can_run or s.running),
                 key="btn_generate",
             ):
                 s.running = True
-                _generate_pipeline(enabled_clips, sched)
+                if _want_dl:
+                    _generate_pipeline(enabled_clips, sched)
+                else:
+                    _run_pipeline(enabled_clips, sched)
                 s.running = False
                 st.rerun()
 
