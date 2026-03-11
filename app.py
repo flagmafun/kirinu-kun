@@ -375,7 +375,8 @@ def _handle_supabase_pkce_callback() -> bool:
         code_verifier = st.session_state.get("_google_oauth_cv", "")
 
     # ⑤ 全て失敗 → JS で localStorage/sessionStorage を読んで ?_cv= 付きでリダイレクト
-    #    （components.html 経由の JS は iframe から window.top を操作できる）
+    #    st.stop() は使わない（早期 stop は components.html を正しくフラッシュしない）
+    #    → render_login_page() まで描画を続け、ページがフル描画された後に JS が動く
     if not code_verifier:
         import streamlit.components.v1 as _comp_cv
         _comp_cv.html("""<script>
@@ -397,8 +398,7 @@ def _handle_supabase_pkce_callback() -> bool:
   }
 })();
 </script>""", height=0)
-        st.stop()
-        return True
+        return True  # ← st.stop() しない。routing を継続させ render_login_page() まで描画する
 
     try:
         from core.auth import get_supabase
@@ -1488,9 +1488,9 @@ button[data-testid="baseButton-primary"]:disabled,
     _gcv        = st.session_state.get("_google_oauth_cv", "")
 
     # ── code_verifier を localStorage/sessionStorage に保存 ─────────
-    # components.html の JS はページロード直後に実行される
-    # OAuth リダイレクト後も同一タブなら localStorage は保持される
-    if _gcv:
+    # ?code= が URL にある場合は保存しない（OAuth コールバック中の上書きを防ぐ）
+    # → コールバック時の JS リダイレクトが「ログイン前に保存した正しい verifier」を読める
+    if _gcv and "code" not in st.query_params:
         import streamlit.components.v1 as _comp_store
         _comp_store.html(
             "<script>try{var _v="
