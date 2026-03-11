@@ -1275,16 +1275,22 @@ def render_login_page():
     var top = window.top;
     var SUPABASE_URL = {json.dumps(_sb_url_js)};
     var SUPABASE_KEY = {json.dumps(_sb_key_js)};
+    var LS_KEY = '_sb_cv';
 
     // ── ① ?code= PKCE コールバック ─────────────────────────────────
     var search = top.location.search;
     if (search.indexOf('code=') !== -1 && SUPABASE_URL) {{
-      var sp  = new URLSearchParams(search);
+      var sp   = new URLSearchParams(search);
       var code = sp.get('code');
       if (code) {{
-        var cv = top.sessionStorage.getItem('_sb_cv');
+        // localStorage は同一オリジン全フレームで共有される（sessionStorage は非共有）
+        var cv = null;
+        try {{ cv = top.localStorage.getItem(LS_KEY); }} catch(e) {{}}
+        if (!cv) {{ try {{ cv = localStorage.getItem(LS_KEY); }} catch(e) {{}} }}
+
         if (cv) {{
-          top.sessionStorage.removeItem('_sb_cv');
+          try {{ top.localStorage.removeItem(LS_KEY); }} catch(e) {{}}
+          try {{ localStorage.removeItem(LS_KEY); }} catch(e) {{}}
           try {{
             var resp = await fetch(
               SUPABASE_URL.replace(/\\/+$/, '') + '/auth/v1/token?grant_type=pkce',
@@ -1302,12 +1308,20 @@ def render_login_page():
                 + '&sb_refresh_token=' + encodeURIComponent(data.refresh_token || '');
               return;
             }}
-            console.warn('sb-pkce: exchange failed', JSON.stringify(data));
-          }} catch(err) {{
-            console.warn('sb-pkce: fetch error', err);
+            // exchange 失敗 → エラー内容を Python に渡す
+            var errMsg = (data && data.error_description) ? data.error_description
+                       : (data && data.msg) ? data.msg : JSON.stringify(data);
+            top.location.href = top.location.origin + top.location.pathname
+              + '?sb_auth_error=' + encodeURIComponent('exchange_failed: ' + errMsg);
+          }} catch(fetchErr) {{
+            top.location.href = top.location.origin + top.location.pathname
+              + '?sb_auth_error=' + encodeURIComponent('fetch_error: ' + fetchErr);
           }}
+        }} else {{
+          // cv が保存されていない → エラーとして Python に通知
+          top.location.href = top.location.origin + top.location.pathname
+            + '?sb_auth_error=' + encodeURIComponent('no_verifier');
         }}
-        // cv が sessionStorage にない場合は Python 側に任せる（何もしない）
       }}
     }}
 
@@ -1490,7 +1504,7 @@ button[data-testid="baseButton-primary"]:disabled,
     "
     onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
     onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';"
-    onclick="(function(){{try{{window.top.sessionStorage.setItem('_sb_cv','{_gcv}');}}catch(e){{}}return true;}})();">
+    onclick="(function(){{var v='{_gcv}';try{{window.top.localStorage.setItem('_sb_cv',v);}}catch(e){{try{{localStorage.setItem('_sb_cv',v);}}catch(e2){{}}}}return true;}})();">
     <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -3381,6 +3395,18 @@ if "code" in st.query_params:
 # ③ Supabase メール確認トークン処理
 if "sb_access_token" in st.query_params:
     _handle_supabase_confirmation()
+
+# ③' Google OAuth JS exchange エラー表示
+if "sb_auth_error" in st.query_params:
+    _err = st.query_params.get("sb_auth_error", "")
+    st.query_params.clear()
+    if _err == "no_verifier":
+        st.error(
+            "⚠️ Googleログインに失敗しました: ブラウザの localStorage が使用できない可能性があります。"
+            "プライベートブラウジングを無効にするか、別のブラウザでお試しください。"
+        )
+    else:
+        st.error(f"⚠️ Googleログインエラー: {_err}")
 
 # ④ マルチユーザー: Cookie からセッション復元 + ログインチェック
 if _is_multi_user_mode():
