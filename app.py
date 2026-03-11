@@ -329,31 +329,75 @@ def _handle_supabase_pkce_callback() -> bool:
     """
     Supabase Google OAuth の PKCE コールバック処理。
     ?code=SUPABASE_CODE が来たとき、保存済み code_verifier で Supabase JWT に交換する。
+
+    code_verifier の取得順:
+      ① JS リダイレクト経由の ?_cv= パラメータ（localStorage/sessionStorage から JS が付加）
+      ② ?state= パラメータ（Supabase が state を callback URL に返す場合）
+      ③ Cookie _sb_pkce_cv（onclick で設定）
+      ④ session_state（同一セッションのみ）
+      ⑤ 全て失敗 → JS が localStorage/sessionStorage を読んで ?_cv= 付きでリダイレクト
     """
     code = st.query_params.get("code", "")
     if not code:
         return False
 
-    # code_verifier を取得（優先順: Cookie → session_state）
-    # ※ Supabase は state パラメータを callback URL に返さないため state からは取得不可
     code_verifier = ""
 
-    # ① Cookie から取得（最も確実：OAuth リダイレクト後も保持される）
-    try:
-        import urllib.parse as _up
-        _cv_raw = st.context.cookies.get("_sb_pkce_cv", "")
-        if _cv_raw:
-            code_verifier = _up.unquote(_cv_raw)
-    except Exception:
-        pass
+    # ① JS リダイレクトで付加された ?_cv= パラメータ（最も確実）
+    code_verifier = st.query_params.get("_cv", "")
 
-    # ② フォールバック: session_state（同一セッション内の場合のみ有効）
+    # ② state パラメータから取得（Supabase が state を callback URL に返す場合）
+    if not code_verifier:
+        _state = st.query_params.get("state", "")
+        if _state:
+            try:
+                import base64 as _b64s, json as _js2
+                _pad = (4 - len(_state) % 4) % 4
+                _decoded = _js2.loads(
+                    _b64s.urlsafe_b64decode(_state + "=" * _pad).decode()
+                )
+                code_verifier = _decoded.get("cv", "")
+            except Exception:
+                pass
+
+    # ③ Cookie から取得
+    if not code_verifier:
+        try:
+            import urllib.parse as _up
+            _cv_raw = st.context.cookies.get("_sb_pkce_cv", "")
+            if _cv_raw:
+                code_verifier = _up.unquote(_cv_raw)
+        except Exception:
+            pass
+
+    # ④ フォールバック: session_state（同一セッション内の場合のみ有効）
     if not code_verifier:
         code_verifier = st.session_state.get("_google_oauth_cv", "")
 
+    # ⑤ 全て失敗 → JS で localStorage/sessionStorage を読んで ?_cv= 付きでリダイレクト
+    #    （components.html 経由の JS は iframe から window.top を操作できる）
     if not code_verifier:
-        st.query_params.clear()
-        st.error("⚠️ Googleログインエラー: 認証情報が見つかりませんでした。ページを再読み込みしてもう一度お試しください。")
+        import streamlit.components.v1 as _comp_cv
+        _comp_cv.html("""<script>
+(function() {
+  try {
+    var cv = sessionStorage.getItem('_sb_pkce_cv') || localStorage.getItem('_sb_pkce_cv');
+    if (cv) {
+      var u = window.top.location.href;
+      u = u.replace(/[&?]_cv=[^&]*/g, '');
+      u += (u.indexOf('?') >= 0 ? '&' : '?') + '_cv=' + encodeURIComponent(cv);
+      window.top.location.href = u;
+    } else {
+      window.top.location.href = window.top.location.origin + window.top.location.pathname
+        + '?sb_auth_error=' + encodeURIComponent('認証情報が見つかりませんでした。もう一度ログインしてください。');
+    }
+  } catch(e) {
+    window.top.location.href = window.top.location.origin + window.top.location.pathname
+      + '?sb_auth_error=' + encodeURIComponent('認証エラーが発生しました。再度お試しください。');
+  }
+})();
+</script>""", height=0)
+        st.stop()
         return True
 
     try:
@@ -1443,9 +1487,21 @@ button[data-testid="baseButton-primary"]:disabled,
     _google_url = st.session_state.get("_google_oauth_url", "")
     _gcv        = st.session_state.get("_google_oauth_cv", "")
 
+    # ── code_verifier を localStorage/sessionStorage に保存 ─────────
+    # components.html の JS はページロード直後に実行される
+    # OAuth リダイレクト後も同一タブなら localStorage は保持される
+    if _gcv:
+        import streamlit.components.v1 as _comp_store
+        _comp_store.html(
+            "<script>try{var _v="
+            + json.dumps(_gcv)
+            + ";sessionStorage.setItem('_sb_pkce_cv',_v);"
+            "localStorage.setItem('_sb_pkce_cv',_v);}catch(e){}</script>",
+            height=0,
+        )
+
     # ── Google ボタン HTML ──────────────────────────────────────────
-    # onclick: Cookie に code_verifier を保存してから遷移する
-    # Cookie はドメインレベルで共有されるため OAuth リダイレクト後も Python から読み取れる
+    # onclick: Cookie にも code_verifier を保存（追加フォールバック）
     _google_btn_html = f"""
 <div style="padding:2px 0 0;">
   <a href="{_google_url}" target="_top"
