@@ -1119,14 +1119,14 @@ def render_logo():
         logo_html = (
             f'<img src="data:image/png;base64,{logo_b64}"'
             f' class="brand-logo" alt="切り抜きくん"'
-            f' onclick="window.top.location.href=\'/?nav=1\'"'
-            f' style="cursor:pointer;" title="ホームに戻る">'
+            f' onclick="window.top.location.href=\'https://kirinuki-kun.streamlit.app\'"'
+            f' style="cursor:pointer;" title="切り抜きくん トップへ">'
         )
     else:
         logo_html = (
             '<div class="brand-logo-fallback"'
-            ' onclick="window.top.location.href=\'/?nav=1\'"'
-            ' style="cursor:pointer;" title="ホームに戻る">✂️</div>'
+            ' onclick="window.top.location.href=\'https://kirinuki-kun.streamlit.app\'"'
+            ' style="cursor:pointer;" title="切り抜きくん トップへ">✂️</div>'
         )
 
     # マルチユーザーモード: ユーザー情報表示
@@ -1156,12 +1156,13 @@ def render_logo():
 (function patch(n){
   var d=window.parent&&window.parent.document;
   if(!d){return;}
-  var els=d.querySelectorAll('.brand-logo,.brand-logo-fallback');
-  if(els.length===0&&n>0){setTimeout(function(){patch(n-1);},80);return;}
-  els.forEach(function(el){
-    el.style.cursor='pointer';
-    el.title='ホームに戻る';
-    el.onclick=function(){window.top.location.href='/?nav=1';};
+  var logo=d.querySelectorAll('.brand-logo,.brand-logo-fallback');
+  if(logo.length===0&&n>0){setTimeout(function(){patch(n-1);},80);return;}
+  var go=function(){window.top.location.href='https://kirinuki-kun.streamlit.app';};
+  var ttl='切り抜きくん トップへ';
+  logo.forEach(function(el){el.style.cursor='pointer';el.title=ttl;el.onclick=go;});
+  d.querySelectorAll('.brand-text').forEach(function(el){
+    el.style.cursor='pointer';el.title=ttl;el.onclick=go;
   });
 })(15);
 </script>""", height=1)
