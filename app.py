@@ -2367,6 +2367,22 @@ def step2():
     render_stepbar(2)
     render_video_banner()
 
+    # ── ページ上部ナビゲーション ──
+    _tnc2 = st.columns([1, 3])
+    with _tnc2[0]:
+        if st.button("🔄 新しい動画", key="back2_top"):
+            SESSION_FILE.unlink(missing_ok=True)
+            for k in ["step", "video_info", "clips", "results"]:
+                del st.session_state[k]
+            st.rerun()
+    with _tnc2[1]:
+        if st.button("クリップ確認へ →", key="next2_top",
+                     type="primary", use_container_width=True):
+            s.step = 3
+            st.rerun()
+    st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
+                unsafe_allow_html=True)
+
     st.markdown("""
     <div style="padding:24px 40px 0;margin-left:-40px;margin-right:-40px;">
       <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
@@ -2690,6 +2706,25 @@ def step3():
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── ページ上部ナビゲーション ──
+    _ec_top3 = sum(1 for c in s.clips if c.get("enabled", True))
+    _tnc3 = st.columns([1, 3])
+    with _tnc3[0]:
+        if st.button("← デザイン設定", key="back3_top"):
+            s.step = 2
+            st.rerun()
+    with _tnc3[1]:
+        if st.button(
+            f"スケジュール設定へ →（{_ec_top3}本）",
+            key="next3_top",
+            type="primary", use_container_width=True,
+            disabled=_ec_top3 == 0,
+        ):
+            s.step = 4
+            st.rerun()
+    st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
+                unsafe_allow_html=True)
 
     # ── 解析ステータスバッジ ───────────────────────────────────
     _status_cols = st.columns(2)
@@ -3127,6 +3162,20 @@ def step4():
     </div>
     """, unsafe_allow_html=True)
 
+    # ── ページ上部ナビゲーション ──
+    _tnc4 = st.columns([1, 3])
+    with _tnc4[0]:
+        if st.button("← 戻る", key="back4_top"):
+            s.step = 3
+            st.rerun()
+    with _tnc4[1]:
+        if st.button("実行画面へ →", key="next4_top",
+                     type="primary", use_container_width=True):
+            s.step = 5
+            st.rerun()
+    st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
+                unsafe_allow_html=True)
+
     sched = s.schedule
     col1, col2 = st.columns(2)
     with col1:
@@ -3255,6 +3304,15 @@ def step4():
 def step5():
     render_stepbar(5)
     render_video_banner()
+
+    # ── ページ上部ナビゲーション ──
+    _tnc5, _ = st.columns([1, 3])
+    with _tnc5:
+        if st.button("← 戻る", key="back5_top", disabled=s.running):
+            s.step = 4
+            st.rerun()
+    st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
+                unsafe_allow_html=True)
 
     # YouTube OAuth コールバック後のメッセージ表示
     if st.session_state.pop("_oauth_success", False):
