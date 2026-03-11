@@ -2107,12 +2107,19 @@ def step1():
                     f'animation-delay:{round(i*0.28,2)}s"></div>'
                     for i in range(6)
                 )
-                # クリップチップ
+                # クリップチップ（最大10個表示、超過分は +N本 バッジ）
+                _show = min(_nc, 10)
                 _citems = "".join(
                     f'<div class="ci" style="animation-delay:{round(0.6+j*0.2,2)}s">'
                     f'✂ {j}本目</div>'
-                    for j in range(1, _nc + 1)
+                    for j in range(1, _show + 1)
                 )
+                if _nc > 10:
+                    _citems += (
+                        f'<div class="ci" style="animation-delay:{round(0.6+_show*0.2,2)}s;'
+                        f'background:rgba(251,191,36,.25);border-color:rgba(251,191,36,.7);">'
+                        f'+ {_nc - 10}本</div>'
+                    )
                 import streamlit.components.v1 as _cai
                 _cai.html(f"""
 <style>
