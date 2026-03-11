@@ -220,11 +220,11 @@ def _handle_oauth_callback() -> bool:
 
 def _handle_supabase_confirmation():
     """
-    Supabase メール確認リンクからのアクセストークンを処理してログインを確立する。
+    Supabase メール確認 / Google OAuth コールバックのアクセストークンを処理。
     URL fragment (#access_token=...) は JS で ?sb_access_token= に変換済み。
     """
     token         = st.query_params.get("sb_access_token", "")
-    refresh_token = st.query_params.get("sb_refresh_token", "")
+    refresh_token = st.query_params.get("sb_refresh_token", "") or ""
 
     if not token:
         st.query_params.clear()
@@ -234,21 +234,47 @@ def _handle_supabase_confirmation():
         from core.auth import get_supabase
         sb = get_supabase()
 
-        # set_session でセッションを確立（両トークン使用）
-        user = None
-        try:
-            session_resp = sb.auth.set_session(token, refresh_token)
-            if session_resp and session_resp.user:
-                user = session_resp.user
-        except Exception:
-            pass
+        user         = None
+        session_resp = None  # 必ず初期化（UnboundLocalError 防止）
 
-        # フォールバック: アクセストークンだけで検証
+        # ① set_session（refresh_token が存在する場合のみ）
+        if refresh_token:
+            try:
+                session_resp = sb.auth.set_session(token, refresh_token)
+                if session_resp and session_resp.user:
+                    user = session_resp.user
+            except Exception:
+                session_resp = None
+
+        # ② get_user(jwt) でユーザー検証（Google OAuth / メール確認どちらにも対応）
         if not user:
             try:
                 user_resp = sb.auth.get_user(token)
-                if user_resp:
+                if user_resp and user_resp.user:
                     user = user_resp.user
+                    # refresh_token があればここでセッション確立を再試行
+                    if refresh_token and not session_resp:
+                        try:
+                            session_resp = sb.auth.set_session(token, refresh_token)
+                        except Exception:
+                            session_resp = None
+            except Exception:
+                pass
+
+        # ③ JWT 直接パース（最終手段 — set_session / get_user が両方失敗した場合）
+        if not user:
+            try:
+                import base64 as _b64, json as _json
+                _parts = token.split(".")
+                if len(_parts) == 3:
+                    _pad = _parts[1] + "=" * (4 - len(_parts[1]) % 4)
+                    _data = _json.loads(_b64.urlsafe_b64decode(_pad))
+                    _uid   = _data.get("sub", "")
+                    _email = _data.get("email", "")
+                    if _uid:
+                        # session_resp から user 相当の情報を構築
+                        from types import SimpleNamespace
+                        user = SimpleNamespace(id=_uid, email=_email)
             except Exception:
                 pass
 
@@ -259,6 +285,8 @@ def _handle_supabase_confirmation():
             try:
                 if session_resp and session_resp.session:
                     st.session_state["_supabase_rt"] = session_resp.session.refresh_token
+                elif refresh_token:
+                    st.session_state["_supabase_rt"] = refresh_token
             except Exception:
                 pass
             # 保存済み YouTube トークンがあれば復元
@@ -280,7 +308,7 @@ def _handle_supabase_confirmation():
             st.rerun()
         else:
             st.query_params.clear()
-            st.warning("⚠️ メール認証リンクが無効か期限切れです。再度ログインしてください。")
+            st.warning("⚠️ ログインリンクが無効か期限切れです。もう一度お試しください。")
 
     except Exception as e:
         st.query_params.clear()
