@@ -1883,6 +1883,17 @@ def step2():
         <span style="color:#94a3b8;font-size:11px;">💡 スキップして後から設定することもできます</span>
       </div>
     </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-top:10px;">
+      <div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:8px;">📐 推奨画像サイズ</div>
+      <div style="font-size:12px;color:#166534;line-height:1.9;">
+        <span style="display:inline-block;background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 10px;font-weight:700;font-size:13px;margin-bottom:6px;">1080 × 960 px 推奨</span><br>
+        縦横比 <strong>ほぼ正方形（1:1）</strong> が最適です。<br>
+        <span style="color:#86efac;font-weight:700;">▸</span> 幅は1080pxに自動リサイズされます<br>
+        <span style="color:#86efac;font-weight:700;">▸</span> 高さはタイトル行数によって変わります<br>
+        <span style="color:#86efac;font-weight:700;">▸</span> 余白部分はテーマ色で自動補完されます<br>
+        <span style="color:#94a3b8;font-size:11px;">※ 横長（16:9）でも表示されますが上下に余白が出ます</span>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
     if _all_same:
