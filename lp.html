@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>切り抜きくん — YouTube Shorts 自動作成ツール</title>
+  <style>
+    :root {
+      --orange: #f97316;
+      --orange-dark: #ea580c;
+      --orange-light: #fb923c;
+      --purple: #7c3aed;
+      --purple-dark: #1e1b4b;
+      --navy: #0f172a;
+      --navy-mid: #1e293b;
+      --slate: #334155;
+      --muted: #94a3b8;
+      --white: #f8fafc;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      overflow-x: hidden;
+    }
+
+    /* ===== NAVBAR ===== */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(249, 115, 22, 0.15);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-logo img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 8px rgba(249,115,22,0.5));
+    }
+
+    .nav-logo-text {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo-text span { color: var(--orange); }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+      color: white;
+      text-decoration: none;
+      padding: 10px 24px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: all 0.2s;
+      box-shadow: 0 0 20px rgba(249,115,22,0.4);
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 28px rgba(249,115,22,0.6);
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 100px 24px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 70% at 40% -10%, rgba(124,58,237,0.4) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 60%, rgba(249,115,22,0.25) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 40% at 10% 80%, rgba(124,58,237,0.15) 0%, transparent 50%);
+    }
+
+    .hero-inner {
+      position: relative;
+      max-width: 1160px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .hero-left { display: flex; flex-direction: column; align-items: flex-start; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(249,115,22,0.15);
+      border: 1px solid rgba(249,115,22,0.4);
+      color: var(--orange-light);
+      padding: 8px 20px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--orange);
+      border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .hero h1 {
+      font-size: clamp(38px, 5vw, 68px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+      animation: fadeDown 0.7s 0.1s ease both;
+    }
+
+    .hero h1 .accent {
+      color: var(--orange);
+      position: relative;
+      display: inline-block;
+    }
+
+    .hero h1 .accent::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--orange), transparent);
+      border-radius: 2px;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--muted);
+      margin-bottom: 40px;
+      line-height: 1.9;
+      animation: fadeDown 0.7s 0.2s ease both;
+    }
+
+    .hero-sub strong { color: var(--white); }
+
+    .hero-buttons {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      animation: fadeDown 0.7s 0.3s ease both;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+      color: white;
+      text-decoration: none;
+      padding: 18px 36px;
+      border-radius: 100px;
+      font-weight: 800;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 40px rgba(249,115,22,0.5), 0 8px 32px rgba(249,115,22,0.3);
+      transition: all 0.25s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 0 60px rgba(249,115,22,0.7), 0 12px 48px rgba(249,115,22,0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      text-decoration: none;
+      padding: 18px 32px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.12);
+      transform: translateY(-2px);
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      margin-top: 52px;
+      animation: fadeUp 0.7s 0.5s ease both;
+      flex-wrap: wrap;
+    }
+
+    .stat { text-align: left; }
+    .stat-num { font-size: 34px; font-weight: 900; color: var(--orange); line-height: 1; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.1); align-self: center; }
+
+    /* ===== CHARACTER ===== */
+    .hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: fadeUp 0.8s 0.2s ease both;
+    }
+
+    .character-wrap {
+      position: relative;
+      width: 420px;
+      height: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* outer glow ring */
+    .character-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -24px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,115,22,0.25) 0%, rgba(124,58,237,0.15) 40%, transparent 70%);
+      animation: glowPulse 3s ease-in-out infinite;
+    }
+
+    /* spinning orbit ring */
+    .character-wrap::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 2px dashed rgba(249,115,22,0.25);
+      animation: spinSlow 20s linear infinite;
+    }
+
+    @keyframes glowPulse {
+      0%,100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.06); }
+    }
+
+    @keyframes spinSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .character-img {
+      width: 360px;
+      height: 360px;
+      object-fit: contain;
+      position: relative;
+      z-index: 2;
+      animation: float 4s ease-in-out infinite;
+      filter: drop-shadow(0 20px 60px rgba(249,115,22,0.35)) drop-shadow(0 0 40px rgba(124,58,237,0.2));
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0px) rotate(-1deg); }
+      50% { transform: translateY(-18px) rotate(1deg); }
+    }
+
+    /* floating badges */
+    .float-badge {
+      position: absolute;
+      z-index: 3;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .float-badge-icon { font-size: 20px; }
+
+    .float-badge-text strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    .float-badge-text span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .badge-ai {
+      top: 30px; left: -20px;
+      animation: floatBadge1 5s ease-in-out infinite;
+    }
+
+    .badge-upload {
+      bottom: 50px; right: -30px;
+      animation: floatBadge2 5s ease-in-out infinite 1s;
+    }
+
+    .badge-score {
+      bottom: 20px; left: 10px;
+      animation: floatBadge1 5s ease-in-out infinite 2s;
+    }
+
+    @keyframes floatBadge1 {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes floatBadge2 {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* ===== SECTION COMMON ===== */
+    .section-badge {
+      display: inline-block;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.3);
+      color: var(--orange-light);
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 900;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .section-title .accent { color: var(--orange); }
+    .section-desc { color: var(--muted); font-size: 17px; line-height: 1.8; }
+
+    /* ===== FEATURES ===== */
+    .features-section {
+      padding: 100px 24px;
+    }
+
+    .features-container { max-width: 1200px; margin: 0 auto; }
+    .features-header { text-align: center; margin-bottom: 64px; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: linear-gradient(135deg, rgba(30,27,75,0.8), rgba(15,23,42,0.9));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 28px;
+      padding: 36px 32px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+      cursor: default;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:nth-child(1)::before { background: linear-gradient(90deg, #f97316, #f59e0b); }
+    .feature-card:nth-child(2)::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .feature-card:nth-child(3)::before { background: linear-gradient(90deg, #ef4444, #f97316); }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 28px 72px rgba(0,0,0,0.5);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    /* ===== APP ICON ===== */
+    .app-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 22px;
+      margin-bottom: 24px;
+      display: block;
+      position: relative;
+    }
+
+    .feature-card h3 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .feature-card p {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .feature-card:nth-child(1) .feature-tag { background: rgba(249,115,22,0.15); color: var(--orange-light); }
+    .feature-card:nth-child(2) .feature-tag { background: rgba(124,58,237,0.15); color: #a78bfa; }
+    .feature-card:nth-child(3) .feature-tag { background: rgba(239,68,68,0.15); color: #fca5a5; }
+
+    /* ===== HOW IT WORKS ===== */
+    .how-section {
+      padding: 100px 24px;
+      background: linear-gradient(180deg, transparent, rgba(124,58,237,0.05), transparent);
+    }
+
+    .how-container { max-width: 900px; margin: 0 auto; }
+    .how-header { text-align: center; margin-bottom: 64px; }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 28px; top: 56px; bottom: 56px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--orange), var(--purple), var(--orange));
+      opacity: 0.3;
+    }
+
+    .step {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      padding: 28px 32px;
+      border-radius: 20px;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .step:hover { background: rgba(255,255,255,0.03); }
+
+    .step-num {
+      min-width: 56px; height: 56px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px; font-weight: 900;
+      position: relative; z-index: 1;
+    }
+
+    .step:nth-child(1) .step-num { background: linear-gradient(135deg,#f97316,#ea580c); color:white; box-shadow:0 0 20px rgba(249,115,22,0.4); }
+    .step:nth-child(2) .step-num { background: linear-gradient(135deg,#8b5cf6,#7c3aed); color:white; box-shadow:0 0 20px rgba(139,92,246,0.4); }
+    .step:nth-child(3) .step-num { background: linear-gradient(135deg,#06b6d4,#0891b2); color:white; box-shadow:0 0 20px rgba(6,182,212,0.4); }
+    .step:nth-child(4) .step-num { background: linear-gradient(135deg,#10b981,#059669); color:white; box-shadow:0 0 20px rgba(16,185,129,0.4); }
+    .step:nth-child(5) .step-num { background: linear-gradient(135deg,#ef4444,#dc2626); color:white; box-shadow:0 0 20px rgba(239,68,68,0.4); }
+
+    .step-content { flex: 1; padding-top: 8px; }
+    .step-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .step-title { font-size: 22px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.5px; }
+    .step-desc { color: var(--muted); font-size: 15px; line-height: 1.8; }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 4px 12px;
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 100px;
+      font-size: 12px;
+      color: var(--orange-light);
+      font-weight: 600;
+    }
+
+    /* ===== SCORE ===== */
+    .score-section { padding: 100px 24px; }
+
+    .score-container {
+      max-width: 1100px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .score-visual {
+      background: linear-gradient(135deg, rgba(30,27,75,0.8), rgba(15,23,42,0.9));
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 36px;
+    }
+
+    .score-title { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 24px; }
+
+    .score-bar-group { display: flex; flex-direction: column; gap: 20px; }
+    .score-bar-item { display: flex; flex-direction: column; gap: 8px; }
+    .score-bar-header { display: flex; justify-content: space-between; align-items: center; }
+    .score-bar-label { font-size: 14px; font-weight: 700; }
+    .score-bar-value { font-size: 13px; font-weight: 700; }
+    .score-bar-track { height: 8px; background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 100px; }
+
+    .score-bar-item:nth-child(1) .score-bar-value { color: var(--orange); }
+    .score-bar-item:nth-child(1) .score-bar-fill { background: linear-gradient(90deg,var(--orange),#f59e0b); width: 87%; }
+    .score-bar-item:nth-child(2) .score-bar-value { color: #a78bfa; }
+    .score-bar-item:nth-child(2) .score-bar-fill { background: linear-gradient(90deg,var(--purple),#a78bfa); width: 92%; }
+    .score-bar-item:nth-child(3) .score-bar-value { color: #34d399; }
+    .score-bar-item:nth-child(3) .score-bar-fill { background: linear-gradient(90deg,#10b981,#34d399); width: 75%; }
+
+    .score-total { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .score-total-label { font-size: 16px; font-weight: 800; }
+    .score-total-value { font-size: 32px; font-weight: 900; color: var(--orange); }
+
+    .score-text-content h2 { font-size: clamp(26px,3.5vw,40px); font-weight: 900; line-height: 1.2; letter-spacing: -1px; margin-bottom: 20px; }
+    .score-text-content p { color: var(--muted); font-size: 16px; line-height: 1.8; margin-bottom: 16px; }
+
+    .score-highlights { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+    .score-highlight { display: flex; align-items: flex-start; gap: 12px; }
+    .score-highlight-icon { width: 28px; height: 28px; min-width: 28px; border-radius: 8px; background: rgba(249,115,22,0.15); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .score-highlight-text { font-size: 15px; line-height: 1.5; }
+    .score-highlight-text span { color: var(--muted); font-size: 13px; display: block; }
+
+    /* ===== TESTIMONIALS ===== */
+    .testimonials-section {
+      padding: 100px 24px;
+      background: linear-gradient(180deg, transparent, rgba(249,115,22,0.04), transparent);
+    }
+
+    .testimonials-container { max-width: 1100px; margin: 0 auto; }
+    .testimonials-header { text-align: center; margin-bottom: 56px; }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
+      gap: 24px;
+    }
+
+    .testimonial-card {
+      background: linear-gradient(135deg, rgba(30,27,75,0.7), rgba(15,23,42,0.8));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s;
+    }
+
+    .testimonial-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.15); }
+    .stars { color: var(--orange); font-size: 16px; margin-bottom: 16px; letter-spacing: 2px; }
+    .testimonial-text { font-size: 15px; line-height: 1.8; margin-bottom: 20px; }
+    .testimonial-author { display: flex; align-items: center; gap: 12px; }
+    .author-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,var(--orange),var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
+    .author-info strong { font-size: 14px; display: block; }
+    .author-info span { font-size: 12px; color: var(--muted); }
+
+    /* ===== FAQ ===== */
+    .faq-section { padding: 100px 24px; }
+    .faq-container { max-width: 760px; margin: 0 auto; }
+    .faq-header { text-align: center; margin-bottom: 56px; }
+    .faq-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .faq-item {
+      background: rgba(30,27,75,0.5);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .faq-question { padding: 22px 28px; font-weight: 700; font-size: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; user-select: none; }
+    .faq-question:hover { background: rgba(255,255,255,0.03); }
+    .faq-icon { color: var(--orange); font-size: 20px; font-weight: 300; transition: transform 0.3s; min-width: 20px; }
+    .faq-answer { padding: 0 28px; max-height: 0; overflow: hidden; color: var(--muted); font-size: 15px; line-height: 1.8; transition: all 0.3s; }
+    .faq-item.open .faq-answer { max-height: 300px; padding: 0 28px 22px; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+
+    /* ===== CTA ===== */
+    .cta-section { padding: 100px 24px 120px; }
+    .cta-container { max-width: 900px; margin: 0 auto; text-align: center; }
+
+    .cta-card {
+      background: linear-gradient(135deg, rgba(30,27,75,0.9), rgba(15,23,42,0.95));
+      border: 1px solid rgba(249,115,22,0.3);
+      border-radius: 36px;
+      padding: 72px 48px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--orange), transparent);
+    }
+
+    .cta-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(249,115,22,0.1), transparent 60%);
+      pointer-events: none;
+    }
+
+    .cta-character {
+      width: 160px;
+      height: 160px;
+      object-fit: contain;
+      position: relative;
+      z-index: 2;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 12px 40px rgba(249,115,22,0.4));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    .cta-card h2 {
+      font-size: clamp(28px,4vw,48px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cta-card p {
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+      position: relative;
+    }
+
+    .cta-free-note { font-size: 13px; color: var(--muted); margin-top: 16px; position: relative; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .footer-logo { margin-bottom: 8px; font-size: 20px; font-weight: 800; }
+    .footer-logo span { color: var(--orange); }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ===== ORBS ===== */
+    .orb { position: fixed; border-radius: 50%; pointer-events: none; filter: blur(80px); opacity: 0.4; z-index: -1; }
+    .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(249,115,22,0.3), transparent); top: -100px; right: -100px; animation: orbFloat 12s ease-in-out infinite; }
+    .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(124,58,237,0.3), transparent); bottom: 20%; left: -100px; animation: orbFloat 15s ease-in-out infinite reverse; }
+
+    @keyframes orbFloat {
+      0%,100% { transform:translate(0,0); }
+      33% { transform:translate(30px,-30px); }
+      66% { transform:translate(-20px,20px); }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero-left { align-items: center; }
+      .hero-right { order: -1; }
+      .character-wrap { width: 280px; height: 280px; }
+      .character-img { width: 240px; height: 240px; }
+      .badge-ai { top: 10px; left: -10px; }
+      .badge-upload { right: -10px; }
+      .score-container { grid-template-columns: 1fr; gap: 36px; }
+      .hero-stats { justify-content: center; }
+      .stat-divider { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- NAVBAR -->
+  <nav>
+    <a class="nav-logo" href="https://kirinuki-kun.streamlit.app">
+      <img src="assets/logo.png" alt="切り抜きくん">
+      <span class="nav-logo-text">切り抜き<span>くん</span></span>
+    </a>
+    <a class="nav-cta" href="https://kirinuki-kun.streamlit.app">無料で試す →</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-inner">
+
+      <div class="hero-left">
+        <div class="hero-badge">✨ AI POWERED</div>
+        <h1>
+          YouTube動画の<br>
+          <span class="accent">「おいしい瞬間」</span>を<br>
+          Shortsに自動で切り抜き
+        </h1>
+        <p class="hero-sub">
+          URLを貼るだけ。<br>
+          <strong>AIが解析・編集・投稿まで全自動</strong>でやります。
+        </p>
+        <div class="hero-buttons">
+          <a class="btn-primary" href="https://kirinuki-kun.streamlit.app">
+            ✂️ 今すぐ無料で始める
+          </a>
+          <a class="btn-secondary" href="#how">▶ 使い方を見る</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="stat-num">10本</div>
+            <div class="stat-label">1本の動画から自動抽出</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <div class="stat-num">5分</div>
+            <div class="stat-label">URL入力〜投稿完了まで</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <div class="stat-num">全自動</div>
+            <div class="stat-label">解析・編集・スケジュール</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="character-wrap">
+
+          <!-- Floating badges -->
+          <div class="float-badge badge-ai">
+            <div class="float-badge-icon">🤖</div>
+            <div class="float-badge-text">
+              <strong>AI解析中…</strong>
+              <span>バズり度スコア算出</span>
+            </div>
+          </div>
+
+          <div class="float-badge badge-upload">
+            <div class="float-badge-icon">🚀</div>
+            <div class="float-badge-text">
+              <strong>10本 自動投稿完了</strong>
+              <span>スケジュール設定済み</span>
+            </div>
+          </div>
+
+          <div class="float-badge badge-score">
+            <div class="float-badge-icon">🔥</div>
+            <div class="float-badge-text">
+              <strong>スコア 87pt</strong>
+              <span>バズり確率 高</span>
+            </div>
+          </div>
+
+          <img class="character-img" src="assets/logo.png" alt="切り抜きくん キャラクター">
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="features-section">
+    <div class="features-container">
+      <div class="features-header">
+        <div class="section-badge">FEATURES</div>
+        <h2 class="section-title">3つの強み</h2>
+        <p class="section-desc" style="margin:0 auto;">Shorts運用に必要なことを、すべてひとつのツールで。</p>
+      </div>
+
+      <div class="features-grid">
+
+        <!-- Card 1: AI文字起こし -->
+        <div class="feature-card">
+          <!-- App icon SVG: orange gradient, waveform + star -->
+          <svg class="app-icon" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="88" height="88" rx="22" fill="url(#g1)"/>
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#fb923c"/>
+                <stop offset="100%" stop-color="#c2410c"/>
+              </linearGradient>
+            </defs>
+            <!-- waveform bars -->
+            <rect x="18" y="38" width="7" height="12" rx="3.5" fill="white" opacity="0.9"/>
+            <rect x="29" y="28" width="7" height="32" rx="3.5" fill="white"/>
+            <rect x="40" y="22" width="7" height="44" rx="3.5" fill="white"/>
+            <rect x="51" y="30" width="7" height="28" rx="3.5" fill="white" opacity="0.95"/>
+            <rect x="62" y="36" width="7" height="16" rx="3.5" fill="white" opacity="0.8"/>
+            <!-- star badge bottom right -->
+            <circle cx="68" cy="68" r="13" fill="#1e1b4b"/>
+            <circle cx="68" cy="68" r="11" fill="#fbbf24"/>
+            <text x="68" y="73" text-anchor="middle" font-size="13" fill="white" font-weight="900">★</text>
+          </svg>
+          <h3>AI文字起こし<br>＆自動選定</h3>
+          <p>AIが動画全体を解析し、「バズる瞬間」をスコアで自動抽出。文字密度・盛り上がり・完成度の3軸で評価し、最大10本のクリップを自動選択します。</p>
+          <div class="feature-tag">Claude AI 搭載</div>
+        </div>
+
+        <!-- Card 2: デザインカスタマイズ -->
+        <div class="feature-card">
+          <!-- App icon SVG: purple gradient, phone + palette -->
+          <svg class="app-icon" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="88" height="88" rx="22" fill="url(#g2)"/>
+            <defs>
+              <linearGradient id="g2" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#a78bfa"/>
+                <stop offset="100%" stop-color="#5b21b6"/>
+              </linearGradient>
+            </defs>
+            <!-- phone outline -->
+            <rect x="26" y="16" width="36" height="56" rx="7" fill="white" opacity="0.15"/>
+            <rect x="29" y="20" width="30" height="44" rx="5" fill="#1e1b4b" opacity="0.7"/>
+            <!-- screen content: image icon -->
+            <rect x="32" y="36" width="24" height="18" rx="3" fill="white" opacity="0.25"/>
+            <path d="M32 50 L40 43 L46 48 L50 44 L56 50" stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+            <circle cx="37" cy="41" r="2.5" fill="white" opacity="0.9"/>
+            <!-- title bar at top of phone -->
+            <rect x="32" y="24" width="24" height="9" rx="4" fill="url(#g2b)"/>
+            <defs>
+              <linearGradient id="g2b" x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f97316"/>
+                <stop offset="100%" stop-color="#fbbf24"/>
+              </linearGradient>
+            </defs>
+            <!-- palette dots bottom -->
+            <circle cx="35" cy="66" r="4" fill="#f97316"/>
+            <circle cx="46" cy="66" r="4" fill="#34d399"/>
+            <circle cx="57" cy="66" r="4" fill="#60a5fa"/>
+          </svg>
+          <h3>デザイン<br>カスタマイズ</h3>
+          <p>フォント・カラー・テロップをあなたのブランドに合わせて自由に設定。テキスト入力でデザインを指示するだけで、リアルタイムにプレビュー確認できます。</p>
+          <div class="feature-tag">リアルタイムプレビュー</div>
+        </div>
+
+        <!-- Card 3: YouTube予約投稿 -->
+        <div class="feature-card">
+          <!-- App icon SVG: red gradient, thumbnails + clock + checks -->
+          <svg class="app-icon" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="88" height="88" rx="22" fill="url(#g3)"/>
+            <defs>
+              <linearGradient id="g3" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f87171"/>
+                <stop offset="100%" stop-color="#b91c1c"/>
+              </linearGradient>
+            </defs>
+            <!-- thumbnail grid (2x2) -->
+            <rect x="14" y="14" width="28" height="20" rx="4" fill="white" opacity="0.2"/>
+            <polygon points="23,19 23,29 32,24" fill="white" opacity="0.9"/>
+            <rect x="46" y="14" width="28" height="20" rx="4" fill="white" opacity="0.2"/>
+            <polygon points="55,19 55,29 64,24" fill="white" opacity="0.9"/>
+            <!-- number badge top right -->
+            <circle cx="66" cy="18" r="9" fill="#1e1b4b"/>
+            <text x="66" y="22" text-anchor="middle" font-size="10" fill="white" font-weight="900">25</text>
+            <!-- clock -->
+            <circle cx="30" cy="62" r="14" fill="#1e1b4b" opacity="0.8"/>
+            <circle cx="30" cy="62" r="12" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+            <line x1="30" y1="55" x2="30" y2="62" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="30" y1="62" x2="36" y2="66" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <!-- check marks -->
+            <circle cx="55" cy="55" r="7" fill="#22c55e"/>
+            <polyline points="51,55 54,58 59,51" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="70" cy="55" r="7" fill="#22c55e"/>
+            <polyline points="66,55 69,58 74,51" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="62" cy="68" r="7" fill="#22c55e"/>
+            <polyline points="58,68 61,71 66,64" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>YouTube<br>予約投稿</h3>
+          <p>複数本を日時指定で一括スケジュール。投稿間隔や公開日時を設定するだけで、全クリップを自動アップロード。チャンネルを自動で連続更新できます。</p>
+          <div class="feature-tag">YouTube API 連携</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCORE SECTION -->
+  <div class="score-section">
+    <div class="score-container">
+      <div class="score-visual">
+        <div class="score-title">AI SCORING SYSTEM</div>
+        <div class="score-bar-group">
+          <div class="score-bar-item">
+            <div class="score-bar-header">
+              <span class="score-bar-label">文字密度（情報密度）</span>
+              <span class="score-bar-value">35/40pt</span>
+            </div>
+            <div class="score-bar-track"><div class="score-bar-fill"></div></div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-header">
+              <span class="score-bar-label">盛り上がり（感情ピーク）</span>
+              <span class="score-bar-value">37/40pt</span>
+            </div>
+            <div class="score-bar-track"><div class="score-bar-fill"></div></div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-header">
+              <span class="score-bar-label">完成度（構成品質）</span>
+              <span class="score-bar-value">15/20pt</span>
+            </div>
+            <div class="score-bar-track"><div class="score-bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="score-total">
+          <span class="score-total-label">🔥 総合スコア</span>
+          <span class="score-total-value">87pt</span>
+        </div>
+      </div>
+
+      <div class="score-text-content">
+        <div class="section-badge">AI SCORING</div>
+        <h2 class="section-title">「バズる瞬間」だけを<br><span class="accent">AIが自動で選ぶ</span></h2>
+        <p>人間が1時間かけて探す「切り抜きポイント」を、AIが数秒で特定。3軸のスコアリングで、視聴者が最も引きつけられる場面を客観的に抽出します。</p>
+        <div class="score-highlights">
+          <div class="score-highlight">
+            <div class="score-highlight-icon">📊</div>
+            <div class="score-highlight-text">文字密度スコア（0-40pt）<span>1秒あたりの情報量・テンポを数値化</span></div>
+          </div>
+          <div class="score-highlight">
+            <div class="score-highlight-icon">🔥</div>
+            <div class="score-highlight-text">盛り上がりスコア（0-40pt）<span>感情の山・緊張感・笑いのタイミングを検出</span></div>
+          </div>
+          <div class="score-highlight">
+            <div class="score-highlight-icon">✅</div>
+            <div class="score-highlight-text">完成度スコア（0-20pt）<span>話の冒頭・展開・結末の構造を評価</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-section" id="how">
+    <div class="how-container">
+      <div class="how-header">
+        <div class="section-badge">HOW IT WORKS</div>
+        <h2 class="section-title">5ステップで完結</h2>
+        <p class="section-desc" style="margin:0 auto; text-align:center;">むずかしい操作はゼロ。URLを貼って設定するだけ。</p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <div class="step-label">STEP 1 — URL入力</div>
+            <div class="step-title">YouTube URLを貼り付ける</div>
+            <p class="step-desc">元動画のURLを入力するだけ。AIが動画全体を解析し、字幕・テキストから「バズりそうな瞬間」を自動スコアリング。</p>
+            <div class="step-badge">⚡ 解析時間：約30秒〜2分</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <div class="step-label">STEP 2 — デザイン設定</div>
+            <div class="step-title">デザインをまとめて設定</div>
+            <p class="step-desc">カラー・フォント・背景パターンを選択。テキストで指示も可能。ランダムモードで各クリップに個性を。</p>
+            <div class="step-badge">🎲 クリップごとランダムデザインも対応</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <div class="step-label">STEP 3 — クリップ確認</div>
+            <div class="step-title">クリップを確認・細かく編集</div>
+            <p class="step-desc">自動生成されたタイトル・説明文・ハッシュタグを確認。スライダーで開始・終了時間を微調整できます。</p>
+            <div class="step-badge">✏️ タイトルをAIで再生成も可能</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <div class="step-label">STEP 4 — スケジュール設定</div>
+            <div class="step-title">投稿日時・間隔を一括設定</div>
+            <p class="step-desc">最初の投稿日時と投稿間隔を設定するだけで、全クリップのスケジュールを自動生成。</p>
+            <div class="step-badge">📅 24時間自動で連続投稿</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">05</div>
+          <div class="step-content">
+            <div class="step-label">STEP 5 — 実行</div>
+            <div class="step-title">YouTubeに全自動アップロード</div>
+            <p class="step-desc">YouTubeチャンネルと接続して「実行」を押すだけ。切り出し・テロップ合成・アップロード・スケジュール設定まですべて自動。</p>
+            <div class="step-badge">🚀 1クリックで全部終わる</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TESTIMONIALS -->
+  <div class="testimonials-section">
+    <div class="testimonials-container">
+      <div class="testimonials-header">
+        <div class="section-badge">REVIEWS</div>
+        <h2 class="section-title">使った人の声</h2>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="stars">★★★★★</div>
+          <p class="testimonial-text">「1本の動画から10本のShortsが自動でできるのはマジで革命。今まで毎週2〜3時間かけてた編集作業がゼロになりました。」</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">Y</div>
+            <div class="author-info"><strong>YouTuber・教育系</strong><span>登録者 52,000人</span></div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="stars">★★★★★</div>
+          <p class="testimonial-text">「AIがスコアで選んでくれるクリップが、自分で選ぶより再生数が高い。感覚じゃなくデータで選んでくれるのが頼もしい。」</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">K</div>
+            <div class="author-info"><strong>Vlogger・旅系</strong><span>月10本 → 月50本に</span></div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="stars">★★★★★</div>
+          <p class="testimonial-text">「スケジュール投稿が最高。寝てる間に毎朝10時に自動投稿されるので、チャンネルが常に動いてる感じになった。」</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">S</div>
+            <div class="author-info"><strong>ビジネス系クリエイター</strong><span>副業で月5本→放置で毎日投稿</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section">
+    <div class="faq-container">
+      <div class="faq-header">
+        <div class="section-badge">FAQ</div>
+        <h2 class="section-title">よくある質問</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">どんな動画でも使えますか？<span class="faq-icon">+</span></div>
+          <div class="faq-answer">字幕（日本語・英語）がある動画であれば基本的に対応しています。字幕がない場合も、概要欄のテキストを使って解析します。トーク系・ゲーム実況・教育系など幅広いジャンルで活用できます。</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">YouTubeチャンネルの接続は安全ですか？<span class="faq-icon">+</span></div>
+          <div class="faq-answer">Google OAuth 2.0を使った安全な認証方式を採用しています。パスワードをこちらに渡すことは一切ありません。動画のアップロード権限のみを取得します。</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">切り抜き動画の著作権は大丈夫ですか？<span class="faq-icon">+</span></div>
+          <div class="faq-answer">切り抜き許可を出しているチャンネルの動画に限ってご利用ください。自身の動画を切り抜く用途では問題ありません。</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">1本の動画から何本のShortsが作れますか？<span class="faq-icon">+</span></div>
+          <div class="faq-answer">最大10本まで自動抽出・作成できます。クリップ数は1〜10本の範囲で自由に設定可能。1本あたりの長さは20〜60秒に調整できます。</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">スマートフォンから使えますか？<span class="faq-icon">+</span></div>
+          <div class="faq-answer">ブラウザベースのWebアプリのため、スマートフォン・タブレットからもアクセス可能です。快適な操作のためPCでのご利用を推奨しています。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-container">
+      <div class="cta-card">
+        <img class="cta-character" src="assets/logo.png" alt="切り抜きくん">
+        <div class="section-badge">GET STARTED</div>
+        <h2>今すぐ<span class="accent">無料</span>で<br>Shorts量産を始めよう</h2>
+        <p>URLを貼るだけで、AIが10本のShortsを自動で作ります。<br>登録・クレカ不要。今日から使えます。</p>
+        <a class="btn-primary" href="https://kirinuki-kun.streamlit.app" style="display:inline-flex; font-size:18px; padding:20px 48px;">
+          ✂️ 切り抜きくんを使う（無料）
+        </a>
+        <div class="cta-free-note">クレジットカード不要 · 登録なしで試せます</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">切り抜き<span>くん</span></div>
+    <p>YouTube Shorts 自動作成ツール</p>
+    <p style="margin-top:8px; font-size:12px; opacity:0.5;">© 2026 切り抜きくん. All rights reserved.</p>
+  </footer>
+
+  <script>
+    function toggleFaq(el) {
+      const item = el.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.feature-card, .step, .testimonial-card, .score-visual, .score-text-content').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(30px)';
+      el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>
