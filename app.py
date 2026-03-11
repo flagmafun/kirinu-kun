@@ -1528,10 +1528,11 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
                 f'style="width:100%;height:100%;object-fit:cover;">'
             )
 
-    # タイトルバー高さ固定（サイズ設定のみで決まる・行数によらず一定）
-    _title_bar_h   = TITLE_BAR_H[size_key]
-    _bottom_area_h = _CARD_H - _title_bar_h - _VIDEO_H   # 常に固定
-    card_h         = _CARD_H                              # = 398px (9:16)
+    # カード全体を _CARD_H (398px) 固定にし flexbox で各エリアを配置
+    # タイトルバーは内容に合わせて自然に伸長、底部エリアが残りを吸収
+    _title_min_h = TITLE_BAR_H[size_key]   # 最小高さ
+    _title_max_h = int(_CARD_H * 0.50)     # 上限 50% (≈199px)
+    card_h = _CARD_H                       # = 398px (9:16 固定)
 
     # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
     _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
@@ -1540,16 +1541,20 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
 <html><head><style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{ background:transparent; font-family:-apple-system,'Hiragino Sans',sans-serif; }}
+  /* カード全体: 9:16 固定・flexbox 縦並び */
   .card {{
-    width:{_PREVIEW_W}px; background:#fff;
-    border-radius:16px; overflow:hidden;
-    border:1px solid #cbd5e1;
-    box-shadow:0 6px 28px rgba(0,0,0,0.16);
+    width:{_PREVIEW_W}px; height:{_CARD_H}px;
+    background:#fff; border-radius:16px; overflow:hidden;
+    border:1px solid #cbd5e1; box-shadow:0 6px 28px rgba(0,0,0,0.16);
+    display:flex; flex-direction:column;
   }}
+  /* タイトルバー: 内容に合わせて伸長、上限50%まで */
   .title-bar {{
     background:{theme["bg"]};
     padding:{size["pad"]};
-    height:{_title_bar_h}px;
+    flex:0 0 auto;
+    min-height:{_title_min_h}px;
+    max-height:{_title_max_h}px;
     overflow:hidden;
     display:flex; flex-direction:column; justify-content:center;
     position:relative;
@@ -1577,17 +1582,16 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     text-shadow:0 2px 8px rgba(0,0,0,0.40);
     word-break:break-all;
   }}
-  /* 16:9 動画セクション（最終出力の 1080×608 に対応） */
+  /* 動画セクション: 固定(16:9) */
   .video-area {{
     width:{_PREVIEW_W}px; height:{_VIDEO_H}px;
-    background:#000; overflow:hidden;
-    position:relative;
+    flex:0 0 {_VIDEO_H}px;
+    background:#000; overflow:hidden; position:relative;
   }}
   .video-area iframe {{ width:{_PREVIEW_W}px; height:{_VIDEO_H}px; border:none; display:block; }}
-  /* 底部画像エリア（最終出力の残り約50%に対応） */
+  /* 底部画像エリア: 残りを全て埋める */
   .bottom-area {{
-    width:{_PREVIEW_W}px; height:{_bottom_area_h}px;
-    overflow:hidden; border-top:1px solid #e2e8f0;
+    flex:1; overflow:hidden; border-top:1px solid #e2e8f0;
   }}
 </style></head>
 <body>
