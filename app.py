@@ -1438,11 +1438,13 @@ def _score_dialog(score: int, s_density: int, s_engage: int, s_complete: int):
         st.rerun()
 
 
-# ── プレビューカード定数（最終出力 1080×1920 に忠実な比率）──────
-# 最終出力レイアウト: canvas=1080×1920, video=1080×608(16:9), bottom=残り
-_PREVIEW_W = 224                              # カード幅(px)
-_CARD_H    = int(_PREVIEW_W * 1920 / 1080)   # = 398px  — 9:16 総高さ
-_VIDEO_H   = int(_PREVIEW_W * 608  / 1080)   # = 126px  — 16:9 動画セクション
+# ── プレビューカード固定レイアウト（Bバランス型）──────────────
+# タイトル 88px (22%) / 動画 126px (32%) / 底部 184px (46%)
+_PREVIEW_W = 224   # カード幅(px)
+_CARD_H    = 398   # 9:16 総高さ (224×1920/1080)
+_TITLE_H   = 88    # タイトルエリア固定高さ
+_VIDEO_H   = 126   # 動画エリア固定高さ (16:9 = 224×9/16)
+_BOTTOM_H  = _CARD_H - _TITLE_H - _VIDEO_H   # = 184px
 
 
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
@@ -1525,11 +1527,8 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
                 f'style="width:100%;height:100%;object-fit:cover;">'
             )
 
-    # カード全体を _CARD_H (398px) 固定にし flexbox で各エリアを配置
-    # タイトルバーは内容に合わせて自然に伸長、底部エリアが残りを吸収
-    _title_min_h = TITLE_BAR_H[size_key]   # 最小高さ
-    _title_max_h = int(_CARD_H * 0.50)     # 上限 50% (≈199px)
-    card_h = _CARD_H                       # = 398px (9:16 固定)
+    # 全エリア固定（Bバランス型: タイトル88px / 動画126px / 底部184px）
+    card_h = _CARD_H   # 398px 固定
 
     # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
     _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
@@ -1545,13 +1544,12 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     border:1px solid #cbd5e1; box-shadow:0 6px 28px rgba(0,0,0,0.16);
     display:flex; flex-direction:column;
   }}
-  /* タイトルバー: 内容に合わせて伸長、上限50%まで */
+  /* タイトルバー: 88px 固定 */
   .title-bar {{
     background:{theme["bg"]};
     padding:{size["pad"]};
-    flex:0 0 auto;
-    min-height:{_title_min_h}px;
-    max-height:{_title_max_h}px;
+    flex:0 0 {_TITLE_H}px;
+    height:{_TITLE_H}px;
     overflow:hidden;
     display:flex; flex-direction:column; justify-content:center;
     position:relative;
@@ -1586,9 +1584,11 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     background:#000; overflow:hidden; position:relative;
   }}
   .video-area iframe {{ width:{_PREVIEW_W}px; height:{_VIDEO_H}px; border:none; display:block; }}
-  /* 底部画像エリア: 残りを全て埋める */
+  /* 底部画像エリア: 184px 固定 */
   .bottom-area {{
-    flex:1; overflow:hidden; border-top:1px solid #e2e8f0;
+    flex:0 0 {_BOTTOM_H}px;
+    height:{_BOTTOM_H}px;
+    overflow:hidden; border-top:1px solid #e2e8f0;
   }}
 </style></head>
 <body>
