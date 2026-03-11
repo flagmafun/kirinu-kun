@@ -103,6 +103,32 @@ def get_user_by_token(access_token: str):
         return None
 
 
+def get_google_oauth_url(redirect_url: str) -> str:
+    """
+    Supabase 経由で Google OAuth URL を取得する。
+    implicit flow を強制して Streamlit との PKCE 非互換を回避。
+    Supabase ダッシュボードで Google プロバイダーを有効にしておく必要がある。
+    """
+    try:
+        sb = get_supabase()
+        res = sb.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": {
+                "redirect_to": redirect_url,
+                "skip_browser_redirect": True,
+            },
+        })
+        url = res.url or ""
+        # Supabase の設定が PKCE でも implicit flow を強制して
+        # フラグメント (#access_token=...) でコールバックさせる
+        if url and "response_type" not in url:
+            sep = "&" if "?" in url else "?"
+            url += f"{sep}response_type=token"
+        return url
+    except Exception:
+        return ""
+
+
 def refresh_session(refresh_token: str) -> dict | None:
     """refresh_token でセッションを復元し、ユーザー情報と新 refresh_token を返す"""
     try:

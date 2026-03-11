@@ -148,6 +148,8 @@ def _handle_oauth_callback() -> bool:
     """
     URL に ?code=xxx&state=yyy が含まれていれば YouTube OAuth コールバックを処理。
     処理した場合は True を返す。
+    ※ Supabase Google OAuth は implicit flow (#access_token=...) を使用するため
+       ?code= として来ることは通常ないが、万一来ても無視してリセットする。
     """
     params = st.query_params
     code = params.get("code")
@@ -159,6 +161,13 @@ def _handle_oauth_callback() -> bool:
 
     # state からユーザーIDと PKCE code_verifier を事前に取得
     user_id, code_verifier = _parse_oauth_state(state)
+
+    # state が YouTube OAuth 形式でない場合はスキップ
+    # （Supabase PKCE コールバック等の他プロバイダーと衝突しないよう保護）
+    if not user_id:
+        st.query_params.clear()
+        st.rerun()
+        return True
 
     try:
         from core.uploader import exchange_code
@@ -1146,11 +1155,11 @@ def render_admin_panel():
 
 # ── ログイン / 会員登録ページ ─────────────────────────────
 def render_login_page():
-    """マルチユーザーモード時のログイン・会員登録画面"""
-
-    # ── Supabase メール確認: #access_token fragment を ?sb_access_token= に変換 ──
-    # allow-same-origin iframe から window.top.document に <a> を注入してナビゲート
+    """マルチユーザーモード時のログイン・会員登録画面（リデザイン版）"""
     import streamlit.components.v1 as _comp
+
+    # ── Supabase メール確認 / Google OAuth コールバック:
+    #    #access_token fragment を ?sb_access_token= に変換 ──
     _comp.html("""
 <script>
 (function() {
@@ -1167,7 +1176,6 @@ def render_login_page():
             + '?sb_access_token='   + encodeURIComponent(token)
             + '&sb_refresh_token='  + encodeURIComponent(refresh)
             + '&sb_type='           + encodeURIComponent(type);
-    // <a> を parent document に注入して click → top-level ナビゲーション
     var a = window.top.document.createElement('a');
     a.href = url;
     window.top.document.body.appendChild(a);
@@ -1178,30 +1186,220 @@ def render_login_page():
 </script>
 """, height=0)
 
-    render_logo()
+    # ── パネル切替状態（"login" | "register"）──────────────
+    if "_auth_panel" not in st.session_state:
+        st.session_state["_auth_panel"] = "login"
+    panel = st.session_state["_auth_panel"]
 
-    # ※ OAuth メッセージは step4 で表示（ここでは不要）
-
+    # ── ページ全体 CSS ──────────────────────────────────────
     st.markdown("""
-    <div style="max-width:440px;margin:40px auto;padding:0 20px;">
-      <div style="font-size:22px;font-weight:800;color:#1e293b;margin-bottom:6px;text-align:center;">
-        アカウントにログイン
-      </div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:28px;text-align:center;">
-        切り抜きくんを使うにはアカウントが必要です
-      </div>
+<style>
+/* ヘッダー・ツールバー非表示 */
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+.stDeployButton { display: none !important; }
+
+/* コンテンツ中央寄せ・幅制限 */
+section.main > div.block-container {
+  max-width: 460px !important;
+  padding: 28px 20px 48px !important;
+  margin: 0 auto !important;
+}
+
+/* ── タブ切替ボタンをカード型に ── */
+div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 0 !important;
+  border: none !important;
+}
+
+/* ── 入力フィールド ── */
+.stTextInput > div > div > input {
+  border-radius: 12px !important;
+  border: 1.5px solid #e5e7eb !important;
+  padding: 13px 14px !important;
+  font-size: 14.5px !important;
+  transition: border-color 0.18s, box-shadow 0.18s !important;
+}
+.stTextInput > div > div > input:focus {
+  border-color: #ea580c !important;
+  box-shadow: 0 0 0 3px rgba(234,88,12,0.13) !important;
+}
+
+/* ── プライマリボタン（ログイン/登録） ── */
+.stButton > button[kind="primary"] {
+  background: linear-gradient(145deg, #f97316 0%, #ea580c 60%, #dc2626 100%) !important;
+  border: none !important;
+  border-radius: 14px !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  padding: 14px !important;
+  box-shadow: 0 4px 16px rgba(234,88,12,0.34) !important;
+  letter-spacing: 0.02em !important;
+  transition: all 0.2s !important;
+}
+.stButton > button[kind="primary"]:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(234,88,12,0.44) !important;
+}
+.stButton > button[kind="primary"]:disabled {
+  opacity: 0.55 !important;
+}
+
+/* ── セカンダリボタン ── */
+.stButton > button[kind="secondary"] {
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+/* ── ラベル ── */
+.stTextInput label {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #374151 !important;
+}
+
+/* ── 下余白の微調整 ── */
+.stTextInput { margin-bottom: 4px !important; }
+</style>
+""", unsafe_allow_html=True)
+
+    # ── アプリアイコン + ブランド名 ─────────────────────────
+    logo_path = BASE_DIR / "assets" / "logo.png"
+    if logo_path.exists():
+        _logo_b64 = base64.b64encode(logo_path.read_bytes()).decode()
+        _icon_html = (
+            f'<img src="data:image/png;base64,{_logo_b64}" '
+            f'style="width:72px;height:72px;object-fit:contain;border-radius:18px;">'
+        )
+    else:
+        _icon_html = (
+            '<div style="width:72px;height:72px;'
+            'background:linear-gradient(135deg,#fff4ed 0%,#fed7aa 100%);'
+            'border-radius:18px;display:flex;align-items:center;justify-content:center;'
+            'font-size:38px;box-shadow:0 6px 20px rgba(234,88,12,0.22);">✂️</div>'
+        )
+    st.markdown(f"""
+<div style="text-align:center;margin-bottom:24px;">
+  <div style="display:inline-block;margin-bottom:12px;">{_icon_html}</div>
+  <div style="font-size:22px;font-weight:900;letter-spacing:-.02em;
+              background:linear-gradient(135deg,#ea580c 0%,#dc2626 60%,#b91c1c 100%);
+              -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+              background-clip:text;margin-bottom:3px;">切り抜きくん</div>
+  <div style="font-size:12.5px;color:#94a3b8;font-weight:500;">YouTube Shorts 自動生成ツール</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── タブ切替（ログイン / 新規登録） ─────────────────────
+    # コンテナ CSS: セカンダリボタンをタブ風に見せる
+    _login_style  = "background:white;color:#111827;box-shadow:0 2px 10px rgba(0,0,0,0.10);font-weight:800;"
+    _reg_style    = "background:transparent;color:#6b7280;box-shadow:none;font-weight:600;"
+    st.markdown(f"""
+<div style="background:#f3f4f6;border-radius:14px;padding:4px;margin-bottom:6px;">
+  <div style="display:flex;gap:4px;">
+    <div style="flex:1;border-radius:10px;padding:10px 0;text-align:center;font-size:14px;
+                cursor:pointer;transition:all 0.2s;
+                {_login_style if panel == 'login' else _reg_style}">
+      {"● ログイン" if panel == "login" else "ログイン"}
     </div>
-    """, unsafe_allow_html=True)
+    <div style="flex:1;border-radius:10px;padding:10px 0;text-align:center;font-size:14px;
+                cursor:pointer;transition:all 0.2s;
+                {_reg_style if panel == 'login' else _login_style}">
+      {"新規登録" if panel == "login" else "● 新規登録"}
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+    # Streamlit ボタン（実際の切替処理。上の HTML は視覚インジケーターのみ）
+    _tc1, _tc2 = st.columns(2)
+    with _tc1:
+        if st.button("ログイン", use_container_width=True, key="_tab_login_btn",
+                     type="secondary"):
+            st.session_state["_auth_panel"] = "login"
+            st.rerun()
+    with _tc2:
+        if st.button("新規登録", use_container_width=True, key="_tab_reg_btn",
+                     type="secondary"):
+            st.session_state["_auth_panel"] = "register"
+            st.rerun()
 
-    tab_login, tab_signup = st.tabs(["🔑 ログイン", "📝 会員登録"])
+    st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
-    # ─── ログインタブ ───────────────────────────────────────
-    with tab_login:
+    # ── Google OAuth URL を生成・キャッシュ ─────────────────
+    _google_url = st.session_state.get("_google_oauth_url", "")
+    if not _google_url:
+        try:
+            from core.auth import get_google_oauth_url
+            _google_url = get_google_oauth_url(_get_app_url())
+            if _google_url:
+                st.session_state["_google_oauth_url"] = _google_url
+        except Exception:
+            _google_url = ""
+
+    # ── Google ボタン HTML（target="_top" で top-frame ナビゲーション） ──
+    _google_btn_html = f"""
+<div style="padding:2px 0 0;">
+  <a href="{_google_url}" target="_top" style="
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;padding:13px 20px;
+      border:1.5px solid #e5e7eb;border-radius:14px;
+      background:white;text-decoration:none;
+      font-size:14.5px;font-weight:700;color:#374151;
+      font-family:-apple-system,'Hiragino Sans',sans-serif;
+      box-sizing:border-box;cursor:pointer;
+      transition:all 0.18s;
+  " onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
+    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';">
+    <svg width="20" height="20" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Googleでログイン
+  </a>
+</div>
+""" if _google_url else ""
+
+    _divider_html = """
+<div style="display:flex;align-items:center;gap:10px;margin:16px 0;">
+  <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+  <span style="font-size:12px;color:#9ca3af;font-weight:500;">または</span>
+  <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+</div>
+"""
+
+    # ══════════════════════════════════════════════════════
+    # ログインパネル
+    # ══════════════════════════════════════════════════════
+    if panel == "login":
+        st.markdown("""
+<div style="text-align:center;margin-bottom:22px;">
+  <h2 style="font-size:24px;font-weight:800;color:#111827;margin:0 0 6px;letter-spacing:-.3px;">
+    おかえりなさい
+  </h2>
+  <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.6;">
+    アカウント情報を入力してログインしてください。
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+        # Google ボタン
+        if _google_btn_html:
+            _comp.html(_google_btn_html, height=56)
+            st.markdown(_divider_html, unsafe_allow_html=True)
+
+        # メール/パスワード
         email_l = st.text_input("メールアドレス", key="login_email",
                                 placeholder="you@example.com")
         pass_l  = st.text_input("パスワード", type="password", key="login_pass",
                                 placeholder="••••••••")
+
         if st.button("ログイン", type="primary", use_container_width=True,
+                     key="do_login",
                      disabled=not (email_l.strip() and pass_l)):
             try:
                 from core.auth import sign_in
@@ -1211,13 +1409,11 @@ def render_login_page():
                     st.session_state["user_id"]      = user.id
                     st.session_state["user_email"]   = user.email
                     st.session_state["_supabase_rt"] = res.session.refresh_token
-                    # Supabase から YouTube トークンを取得
                     try:
                         from core.db import get_youtube_token
                         yt = get_youtube_token(user.id)
                         if yt:
                             st.session_state["yt_token"] = yt
-                            # チャンネル情報も復元
                             try:
                                 from core.uploader import get_channel_info
                                 ch = get_channel_info(yt)
@@ -1229,37 +1425,81 @@ def render_login_page():
                                 pass
                     except Exception:
                         pass
-                    st.query_params.clear()  # ?no_auth=1 を URL から除去
+                    st.query_params.clear()
                     st.rerun()
                 else:
                     st.error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
             except Exception as e:
                 st.error(f"ログインエラー: {e}")
 
-    # ─── 会員登録タブ ───────────────────────────────────────
-    with tab_signup:
-        email_s = st.text_input("メールアドレス", key="signup_email",
-                                placeholder="you@example.com")
-        pass_s1 = st.text_input("パスワード（8文字以上）", type="password",
-                                key="signup_pass1", placeholder="••••••••")
-        pass_s2 = st.text_input("パスワード（確認）", type="password",
-                                key="signup_pass2", placeholder="••••••••")
+        # フッターリンク
+        st.markdown("""
+<div style="text-align:center;margin-top:20px;">
+  <span style="font-size:13px;color:#6b7280;">
+    アカウントをお持ちでない場合は
+    <strong style="color:#ea580c;">↑ 新規登録タブ</strong>から登録できます
+  </span>
+</div>
+""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════
+    # 新規登録パネル
+    # ══════════════════════════════════════════════════════
+    else:
+        st.markdown("""
+<div style="text-align:center;margin-bottom:22px;">
+  <h2 style="font-size:24px;font-weight:800;color:#111827;margin:0 0 6px;letter-spacing:-.3px;">
+    はじめましょう
+  </h2>
+  <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.6;">
+    無料で始められます。月10本まで利用可能。
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+        # Google ボタン（テキストを「Googleで登録」に）
+        if _google_url:
+            _google_reg_html = _google_btn_html.replace("Googleでログイン", "Googleで登録")
+            _comp.html(_google_reg_html, height=56)
+            st.markdown(_divider_html, unsafe_allow_html=True)
+
+        # 入力フォーム
+        email_s  = st.text_input("メールアドレス", key="signup_email",
+                                 placeholder="you@example.com")
+        pass_s1  = st.text_input("パスワード（8文字以上）", type="password",
+                                 key="signup_pass1", placeholder="••••••••")
+        pass_s2  = st.text_input("パスワード（確認）", type="password",
+                                 key="signup_pass2", placeholder="••••••••")
 
         pass_ok = len(pass_s1) >= 8 and pass_s1 == pass_s2
 
-        if st.button("無料登録", type="primary", use_container_width=True,
+        # バリデーションメッセージ
+        if pass_s1 and pass_s2 and not pass_ok:
+            if len(pass_s1) < 8:
+                st.markdown(
+                    '<div style="font-size:12px;color:#f97316;margin-top:-8px;margin-bottom:4px;">'
+                    '⚠️ パスワードは8文字以上で設定してください</div>',
+                    unsafe_allow_html=True,
+                )
+            elif pass_s1 != pass_s2:
+                st.markdown(
+                    '<div style="font-size:12px;color:#f97316;margin-top:-8px;margin-bottom:4px;">'
+                    '⚠️ パスワードが一致しません</div>',
+                    unsafe_allow_html=True,
+                )
+
+        if st.button("無料で登録", type="primary", use_container_width=True,
+                     key="do_register",
                      disabled=not (email_s.strip() and pass_ok)):
             try:
                 from core.auth import sign_up, sign_in
                 res = sign_up(email_s.strip(), pass_s1)
                 if res.user:
-                    # ウェルカムメール送信（失敗しても登録は続行）
                     try:
                         from core.mailer import send_welcome_email
                         send_welcome_email(email_s.strip())
                     except Exception:
                         pass
-
                     # 確認メール不要設定の場合はそのままログイン
                     try:
                         login_res = sign_in(email_s.strip(), pass_s1)
@@ -1267,34 +1507,38 @@ def render_login_page():
                             st.session_state["user_id"]      = login_res.user.id
                             st.session_state["user_email"]   = login_res.user.email
                             st.session_state["_supabase_rt"] = login_res.session.refresh_token
-                            st.query_params.clear()  # ?no_auth=1 を URL から除去
+                            st.query_params.clear()
                             st.rerun()
                             return
                     except Exception:
                         pass
-                    st.success("✅ 登録完了！確認メールを送信しました。メールを確認してからログインしてください。")
+                    st.success("✅ 登録完了！確認メールを送信しました。メールをご確認の上ログインしてください。")
                 else:
                     st.error("登録に失敗しました。")
             except Exception as e:
-                err_str = str(e)
-                if "already registered" in err_str.lower():
-                    st.error("このメールアドレスは既に登録されています。ログインしてください。")
-                elif "password" in err_str.lower():
+                err = str(e)
+                if "already registered" in err.lower():
+                    st.error("このメールアドレスは既に登録されています。")
+                elif "password" in err.lower():
                     st.error("パスワードが条件を満たしていません（8文字以上）。")
                 else:
                     st.error(f"登録エラー: {e}")
 
-        if pass_s1 and pass_s2 and not pass_ok:
-            if len(pass_s1) < 8:
-                st.caption("⚠️ パスワードは8文字以上で設定してください")
-            elif pass_s1 != pass_s2:
-                st.caption("⚠️ パスワードが一致しません")
+        st.markdown("""
+<div style="text-align:center;margin-top:20px;">
+  <span style="font-size:13px;color:#6b7280;">
+    すでにアカウントをお持ちの方は
+    <strong style="color:#ea580c;">↑ ログインタブ</strong>からどうぞ
+  </span>
+</div>
+""", unsafe_allow_html=True)
 
+    # ── フッター ────────────────────────────────────────────
     st.markdown("""
-    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:32px;">
-      ✂️ 切り抜きくん Beta &nbsp;·&nbsp; 無料プランは月10本まで利用可能
-    </div>
-    """, unsafe_allow_html=True)
+<div style="text-align:center;font-size:11px;color:#cbd5e1;margin-top:36px;line-height:2;">
+  ✂️ 切り抜きくん Beta &nbsp;·&nbsp; 無料プランは月10本まで利用可能
+</div>
+""", unsafe_allow_html=True)
 
 
 # ── 動画情報バナー（ステップ2以降で表示） ─────────────────
