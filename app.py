@@ -2625,11 +2625,24 @@ def step2():
                 f'{bulk_up.name} &nbsp;({bulk_up.size // 1024} KB)</div>',
                 unsafe_allow_html=True,
             )
+        st.markdown("""
+<div style="background:#fff7ed;border:2px solid #f97316;border-radius:10px;
+            padding:11px 15px;margin:8px 0 2px;display:flex;align-items:center;gap:10px;">
+  <div style="font-size:26px;line-height:1;">⚠️</div>
+  <div>
+    <div style="font-size:13px;font-weight:800;color:#c2410c;">あと1ステップ！</div>
+    <div style="font-size:12px;color:#9a3412;margin-top:2px;line-height:1.5;">
+      👇 下の「✅ 全クリップに適用」を押すと画像が確定されます
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
     ap_col, cl_col = st.columns(2)
     with ap_col:
         if st.button("✅ 全クリップに適用", key="bulk_apply_img2",
-                     use_container_width=True, disabled=(bulk_up is None)):
+                     use_container_width=True, disabled=(bulk_up is None),
+                     type="primary" if bulk_up is not None else "secondary"):
             img_dir = OUTPUT_DIR / "images"
             img_dir.mkdir(exist_ok=True)
             ext_b = bulk_up.name.rsplit(".", 1)[-1].lower()
@@ -2929,6 +2942,18 @@ def step3():
                     f'{bulk_up.name} &nbsp;({bulk_up.size // 1024} KB)</div>',
                     unsafe_allow_html=True,
                 )
+            st.markdown("""
+<div style="background:#fff7ed;border:2px solid #f97316;border-radius:10px;
+            padding:11px 15px;margin:8px 0 2px;display:flex;align-items:center;gap:10px;">
+  <div style="font-size:26px;line-height:1;">⚠️</div>
+  <div>
+    <div style="font-size:13px;font-weight:800;color:#c2410c;">あと1ステップ！</div>
+    <div style="font-size:12px;color:#9a3412;margin-top:2px;line-height:1.5;">
+      👇 下の「✅ 全クリップに適用」を押すと画像が確定されます
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         ap_col, cl_col = st.columns(2)
         with ap_col:
@@ -2937,6 +2962,7 @@ def step3():
                 key="bulk_apply_img",
                 use_container_width=True,
                 disabled=(bulk_up is None),
+                type="primary" if bulk_up is not None else "secondary",
             ):
                 img_dir = OUTPUT_DIR / "images"
                 img_dir.mkdir(exist_ok=True)
