@@ -659,7 +659,7 @@ div[data-testid="stButton"] button[title="ログアウトします"]:hover {
 .transcript-box {
   background: #fff; border-radius: 10px; padding: 10px 14px;
   font-size: 12px; color: #4b5563; line-height: 1.7;
-  max-height: 58px; overflow: hidden; margin-bottom: 12px;
+  margin-bottom: 12px;
   border-left: 3px solid #818cf8;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 0 0 1px #eef2ff;
 }
@@ -2306,7 +2306,7 @@ def step3():
             # 字幕プレビュー
             if clip.get("transcript"):
                 st.markdown(
-                    f'<div class="transcript-box">{clip["transcript"][:180]}...</div>',
+                    f'<div class="transcript-box">{clip["transcript"]}</div>',
                     unsafe_allow_html=True,
                 )
             else:
