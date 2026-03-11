@@ -3980,7 +3980,22 @@ def step5():
         all_ready = secret_ok and token_ok
 
         st.markdown("### 📥 クリップが生成されました")
-        st.caption("各クリップをダウンロードするか、そのままYouTubeにアップロードできます。")
+
+        import streamlit.components.v1 as _comp_dl
+        _comp_dl.html("""
+<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;
+            padding:12px 16px;margin-bottom:4px;font-family:sans-serif;">
+  <div style="font-weight:700;color:#0369a1;font-size:13px;margin-bottom:6px;">
+    💡 保存先フォルダを選びたい場合
+  </div>
+  <div style="font-size:12px;color:#0c4a6e;line-height:1.9;">
+    ブラウザの設定を変えると、ダウンロードのたびに保存先を選べます。<br>
+    <b>📱 iPhone / iPad（Safari）</b>：設定アプリ → Safari → ダウンロード → 好きな場所を選択<br>
+    <b>🤖 Android（Chrome）</b>：Chromeメニュー → 設定 → ダウンロード → ダウンロード先を変更<br>
+    <b>💻 PC（Chrome）</b>：Chrome設定 → ダウンロード →「ダウンロード前に保存場所を確認する」をオン
+  </div>
+</div>
+""", height=115)
 
         _generated = s.get("generated_clips", [])
         for _clip in _generated:
