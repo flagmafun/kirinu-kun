@@ -1472,10 +1472,12 @@ button[data-testid="baseButton-primary"]:disabled,
     _google_url = st.session_state.get("_google_oauth_url", "")
     _gcv        = st.session_state.get("_google_oauth_cv", "")
 
-    # ── Google ボタン HTML（onclick で sessionStorage に cv 保存 → top-frame ナビゲーション） ──
+    # ── Google ボタン HTML ──────────────────────────────────────────
+    # href + target="_top" でトップフレームをナビゲート（最も確実）
+    # onclick で sessionStorage に code_verifier を保存してから遷移する
     _google_btn_html = f"""
 <div style="padding:2px 0 0;">
-  <a id="_gbtn" href="javascript:void(0)"
+  <a href="{_google_url}" target="_top"
     style="
       display:flex;align-items:center;justify-content:center;gap:10px;
       width:100%;padding:13px 20px;
@@ -1488,7 +1490,7 @@ button[data-testid="baseButton-primary"]:disabled,
     "
     onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
     onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';"
-    onclick="doGoogleLogin()">
+    onclick="(function(){{try{{window.top.sessionStorage.setItem('_sb_cv','{_gcv}');}}catch(e){{}}return true;}})();">
     <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -1498,16 +1500,6 @@ button[data-testid="baseButton-primary"]:disabled,
     Googleでログイン
   </a>
 </div>
-<script>
-var _G_URL = {json.dumps(_google_url)};
-var _G_CV  = {json.dumps(_gcv)};
-function doGoogleLogin() {{
-  if (_G_CV) {{
-    try {{ window.top.sessionStorage.setItem('_sb_cv', _G_CV); }} catch(e) {{}}
-  }}
-  if (_G_URL) {{ window.top.location.href = _G_URL; }}
-}}
-</script>
 """ if _google_url else ""
 
     _divider_html = """
