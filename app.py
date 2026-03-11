@@ -235,7 +235,8 @@ def _handle_supabase_confirmation():
         sb = get_supabase()
 
         user         = None
-        session_resp = None  # 必ず初期化（UnboundLocalError 防止）
+        session_resp = None
+        _dbg: list[str] = []
 
         # ① set_session（refresh_token が存在する場合のみ）
         if refresh_token:
@@ -243,25 +244,29 @@ def _handle_supabase_confirmation():
                 session_resp = sb.auth.set_session(token, refresh_token)
                 if session_resp and session_resp.user:
                     user = session_resp.user
-            except Exception:
+            except Exception as _e1:
+                _dbg.append(f"set_session失敗: {_e1}")
                 session_resp = None
+        else:
+            _dbg.append("refresh_token なし → set_session スキップ")
 
-        # ② get_user(jwt) でユーザー検証（Google OAuth / メール確認どちらにも対応）
+        # ② get_user(jwt) でユーザー検証
         if not user:
             try:
                 user_resp = sb.auth.get_user(token)
                 if user_resp and user_resp.user:
                     user = user_resp.user
-                    # refresh_token があればここでセッション確立を再試行
                     if refresh_token and not session_resp:
                         try:
                             session_resp = sb.auth.set_session(token, refresh_token)
                         except Exception:
                             session_resp = None
-            except Exception:
-                pass
+                else:
+                    _dbg.append(f"get_user: user=None (user_resp={user_resp})")
+            except Exception as _e2:
+                _dbg.append(f"get_user失敗: {_e2}")
 
-        # ③ JWT 直接パース（最終手段 — set_session / get_user が両方失敗した場合）
+        # ③ JWT 直接パース（最終手段）
         if not user:
             try:
                 import base64 as _b64, json as _json
@@ -272,11 +277,15 @@ def _handle_supabase_confirmation():
                     _uid   = _data.get("sub", "")
                     _email = _data.get("email", "")
                     if _uid:
-                        # session_resp から user 相当の情報を構築
                         from types import SimpleNamespace
                         user = SimpleNamespace(id=_uid, email=_email)
-            except Exception:
-                pass
+                        _dbg.append(f"JWT parse成功: uid={_uid}")
+                    else:
+                        _dbg.append(f"JWT parse: subなし keys={list(_data.keys())}")
+                else:
+                    _dbg.append(f"JWTでない (parts={len(_parts)}) token先頭={token[:30]!r}")
+            except Exception as _e3:
+                _dbg.append(f"JWT parse失敗: {_e3}")
 
         if user:
             st.session_state["user_id"]    = user.id
@@ -308,7 +317,10 @@ def _handle_supabase_confirmation():
             st.rerun()
         else:
             st.query_params.clear()
-            st.warning("⚠️ ログインリンクが無効か期限切れです。もう一度お試しください。")
+            st.warning("⚠️ ログインに失敗しました。もう一度お試しください。")
+            with st.expander("🔍 詳細（開発者向け）", expanded=True):
+                for _d in _dbg:
+                    st.code(_d)
 
     except Exception as e:
         st.query_params.clear()
