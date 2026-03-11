@@ -1525,19 +1525,10 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
                 f'style="width:100%;height:100%;object-fit:cover;">'
             )
 
-    # ── タイトルバー高さ動的計算（行数推定・日本語基準、224px幅） ──
-    _cpl  = {"small": 17, "medium": 13, "large": 10}[size_key]  # 1行あたり文字数（224px幅）
-    _lh   = {"small": 17, "medium": 22, "large": 27}[size_key]  # 1行の高さ(px)
-    _padv = {"small": 24, "medium": 32, "large": 38}[size_key]  # 上下パディング合計(px)
-    _ch   = 26 if catchphrase else 0                             # キャッチコピー分(px)
-    _lines = max(1, (len(title[:60]) + _cpl - 1) // _cpl)
-    _dyn_h = _lines * _lh + _padv + _ch
-    _title_bar_h = max(TITLE_BAR_H[size_key], _dyn_h)
-    # 底部エリア高さ = _CARD_H から タイトルバー・動画セクションを引いた残り
-    # （最終出力比率: 底部 ≈ 50%、動画 ≈ 32%、タイトル ≈ 18%）
-    _bottom_area_h = max(50, _CARD_H - _title_bar_h - _VIDEO_H)
-    # カード全高 ≈ _CARD_H (398px = 9:16)
-    card_h = _title_bar_h + _VIDEO_H + _bottom_area_h
+    # タイトルバー高さ固定（サイズ設定のみで決まる・行数によらず一定）
+    _title_bar_h   = TITLE_BAR_H[size_key]
+    _bottom_area_h = _CARD_H - _title_bar_h - _VIDEO_H   # 常に固定
+    card_h         = _CARD_H                              # = 398px (9:16)
 
     # タイトル/キャッチコピー/底部画像が変わったら強制再レンダリング
     _render_key = hash((title, catchphrase, theme_key, size_key, clip.get("bottom_image", "")))
@@ -1555,7 +1546,8 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
   .title-bar {{
     background:{theme["bg"]};
     padding:{size["pad"]};
-    min-height:{_title_bar_h}px;
+    height:{_title_bar_h}px;
+    overflow:hidden;
     display:flex; flex-direction:column; justify-content:center;
     position:relative;
   }}
