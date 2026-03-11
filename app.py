@@ -1342,8 +1342,13 @@ def render_admin_panel():
             key="_admin_del_btn",
         ):
             try:
-                from core.db import delete_user
-                delete_user(del_selected_user["id"])
+                # core.db のモジュールキャッシュ問題を回避するため直接実装
+                from core.auth import get_supabase_admin as _get_sb_admin
+                _sb = _get_sb_admin()
+                _uid = del_selected_user["id"]
+                _sb.table("youtube_tokens").delete().eq("user_id", _uid).execute()
+                _sb.table("subscriptions").delete().eq("user_id", _uid).execute()
+                _sb.auth.admin.delete_user(_uid)
                 st.success(f"✅ {del_selected_email} を削除しました")
                 st.rerun()
             except Exception as _del_err:
