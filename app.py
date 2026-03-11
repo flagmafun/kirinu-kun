@@ -1186,11 +1186,6 @@ def render_login_page():
 </script>
 """, height=0)
 
-    # ── パネル切替状態（"login" | "register"）──────────────
-    if "_auth_panel" not in st.session_state:
-        st.session_state["_auth_panel"] = "login"
-    panel = st.session_state["_auth_panel"]
-
     # ── ページ全体 CSS ──────────────────────────────────────
     st.markdown("""
 <style>
@@ -1206,14 +1201,38 @@ section.main > div.block-container {
   margin: 0 auto !important;
 }
 
-/* ── タブ切替ボタンをカード型に ── */
-div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
+/* ── st.tabs スタイリング ── */
+div[data-testid="stTabs"] > div:first-child {
+  background: #f3f4f6 !important;
+  border-radius: 14px !important;
+  padding: 4px !important;
+  border-bottom: none !important;
+  gap: 4px !important;
+}
+div[data-testid="stTabs"] button[role="tab"] {
   border-radius: 10px !important;
   font-size: 14px !important;
   font-weight: 600 !important;
   padding: 10px 0 !important;
+  flex: 1 !important;
   border: none !important;
+  color: #6b7280 !important;
+  background: transparent !important;
 }
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  background: white !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important;
+  font-weight: 800 !important;
+  color: #111827 !important;
+}
+div[data-testid="stTabs"] button[role="tab"]:focus:not(:focus-visible) {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important;
+}
+/* タブの下線を非表示 */
+div[data-testid="stTabs"] > div:first-child::after,
+div[data-testid="stTabs"] > div:first-child > div::after { display:none !important; }
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display:none !important; }
+div[data-testid="stTabs"] [data-baseweb="tab-border"] { display:none !important; }
 
 /* ── 入力フィールド ── */
 .stTextInput > div > div > input {
@@ -1229,6 +1248,7 @@ div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
 }
 
 /* ── プライマリボタン（ログイン/登録） ── */
+button[data-testid="baseButton-primary"],
 .stButton > button[kind="primary"] {
   background: linear-gradient(145deg, #f97316 0%, #ea580c 60%, #dc2626 100%) !important;
   border: none !important;
@@ -1239,20 +1259,16 @@ div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
   box-shadow: 0 4px 16px rgba(234,88,12,0.34) !important;
   letter-spacing: 0.02em !important;
   transition: all 0.2s !important;
+  color: white !important;
 }
+button[data-testid="baseButton-primary"]:hover:not(:disabled),
 .stButton > button[kind="primary"]:hover:not(:disabled) {
   transform: translateY(-2px) !important;
   box-shadow: 0 8px 24px rgba(234,88,12,0.44) !important;
 }
+button[data-testid="baseButton-primary"]:disabled,
 .stButton > button[kind="primary"]:disabled {
   opacity: 0.55 !important;
-}
-
-/* ── セカンダリボタン ── */
-.stButton > button[kind="secondary"] {
-  border-radius: 12px !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
 }
 
 /* ── ラベル ── */
@@ -1292,41 +1308,6 @@ div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
   <div style="font-size:12.5px;color:#94a3b8;font-weight:500;">YouTube Shorts 自動生成ツール</div>
 </div>
 """, unsafe_allow_html=True)
-
-    # ── タブ切替（ログイン / 新規登録） ─────────────────────
-    # コンテナ CSS: セカンダリボタンをタブ風に見せる
-    _login_style  = "background:white;color:#111827;box-shadow:0 2px 10px rgba(0,0,0,0.10);font-weight:800;"
-    _reg_style    = "background:transparent;color:#6b7280;box-shadow:none;font-weight:600;"
-    st.markdown(f"""
-<div style="background:#f3f4f6;border-radius:14px;padding:4px;margin-bottom:6px;">
-  <div style="display:flex;gap:4px;">
-    <div style="flex:1;border-radius:10px;padding:10px 0;text-align:center;font-size:14px;
-                cursor:pointer;transition:all 0.2s;
-                {_login_style if panel == 'login' else _reg_style}">
-      {"● ログイン" if panel == "login" else "ログイン"}
-    </div>
-    <div style="flex:1;border-radius:10px;padding:10px 0;text-align:center;font-size:14px;
-                cursor:pointer;transition:all 0.2s;
-                {_reg_style if panel == 'login' else _login_style}">
-      {"新規登録" if panel == "login" else "● 新規登録"}
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-    # Streamlit ボタン（実際の切替処理。上の HTML は視覚インジケーターのみ）
-    _tc1, _tc2 = st.columns(2)
-    with _tc1:
-        if st.button("ログイン", use_container_width=True, key="_tab_login_btn",
-                     type="secondary"):
-            st.session_state["_auth_panel"] = "login"
-            st.rerun()
-    with _tc2:
-        if st.button("新規登録", use_container_width=True, key="_tab_reg_btn",
-                     type="secondary"):
-            st.session_state["_auth_panel"] = "register"
-            st.rerun()
-
-    st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
     # ── Google OAuth URL を生成・キャッシュ ─────────────────
     _google_url = st.session_state.get("_google_oauth_url", "")
@@ -1372,10 +1353,13 @@ div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
 </div>
 """
 
+    # ── タブ ────────────────────────────────────────────────
+    tab_login, tab_register = st.tabs(["　ログイン　", "　新規登録　"])
+
     # ══════════════════════════════════════════════════════
     # ログインパネル
     # ══════════════════════════════════════════════════════
-    if panel == "login":
+    with tab_login:
         st.markdown("""
 <div style="text-align:center;margin-bottom:22px;">
   <h2 style="font-size:24px;font-weight:800;color:#111827;margin:0 0 6px;letter-spacing:-.3px;">
@@ -1445,7 +1429,7 @@ div[data-testid="stHorizontalBlock"].login-tabs .stButton > button {
     # ══════════════════════════════════════════════════════
     # 新規登録パネル
     # ══════════════════════════════════════════════════════
-    else:
+    with tab_register:
         st.markdown("""
 <div style="text-align:center;margin-bottom:22px;">
   <h2 style="font-size:24px;font-weight:800;color:#111827;margin:0 0 6px;letter-spacing:-.3px;">
