@@ -335,16 +335,17 @@ def _handle_supabase_pkce_callback() -> bool:
         return False
 
     code_verifier = st.session_state.get("_google_oauth_cv", "")
+    if not code_verifier:
+        # session_state はリダイレクト後に消えるので JS (sessionStorage) に任せる
+        return False
 
     try:
         from core.auth import get_supabase
         sb = get_supabase()
 
-        exchange_payload: dict = {"auth_code": code}
-        if code_verifier:
-            exchange_payload["code_verifier"] = code_verifier
-
-        session = sb.auth.exchange_code_for_session(exchange_payload)
+        session = sb.auth.exchange_code_for_session(
+            {"auth_code": code, "code_verifier": code_verifier}
+        )
 
         if session and session.user:
             st.session_state["user_id"]    = session.user.id
@@ -1254,31 +1255,83 @@ def render_login_page():
     """マルチユーザーモード時のログイン・会員登録画面（リデザイン版）"""
     import streamlit.components.v1 as _comp
 
-    # ── Supabase メール確認 / Google OAuth コールバック:
-    #    #access_token fragment を ?sb_access_token= に変換 ──
-    _comp.html("""
+    # ── Supabase 認証コールバック処理 JS ──────────────────────────────
+    # ① ?code= (Google PKCE): sessionStorage から cv を読んで Supabase API でトークン交換
+    # ② #access_token (メール確認): fragment を ?sb_access_token= に変換
+    _sb_url_js = ""
+    _sb_key_js = ""
+    try:
+        from core.auth import _get_supabase_config as _sbcfg
+        _sbcfg_val = _sbcfg()
+        if _sbcfg_val:
+            _sb_url_js, _sb_key_js = _sbcfg_val
+    except Exception:
+        pass
+
+    _comp.html(f"""
 <script>
-(function() {
-  try {
-    var hash = window.top.location.hash;
-    if (!hash || hash.indexOf('access_token') === -1) return;
-    var params = new URLSearchParams(hash.substring(1));
-    var token   = params.get('access_token');
-    var refresh = params.get('refresh_token') || '';
-    var type    = params.get('type') || 'signup';
-    if (!token) return;
-    var loc = window.top.location;
-    var url = loc.origin + loc.pathname
-            + '?sb_access_token='   + encodeURIComponent(token)
-            + '&sb_refresh_token='  + encodeURIComponent(refresh)
-            + '&sb_type='           + encodeURIComponent(type);
-    var a = window.top.document.createElement('a');
-    a.href = url;
-    window.top.document.body.appendChild(a);
-    a.click();
-    window.top.document.body.removeChild(a);
-  } catch(e) { console.warn('sb-fragment-redirect:', e); }
-})();
+(async function() {{
+  try {{
+    var top = window.top;
+    var SUPABASE_URL = {json.dumps(_sb_url_js)};
+    var SUPABASE_KEY = {json.dumps(_sb_key_js)};
+
+    // ── ① ?code= PKCE コールバック ─────────────────────────────────
+    var search = top.location.search;
+    if (search.indexOf('code=') !== -1 && SUPABASE_URL) {{
+      var sp  = new URLSearchParams(search);
+      var code = sp.get('code');
+      if (code) {{
+        var cv = top.sessionStorage.getItem('_sb_cv');
+        if (cv) {{
+          top.sessionStorage.removeItem('_sb_cv');
+          try {{
+            var resp = await fetch(
+              SUPABASE_URL.replace(/\\/+$/, '') + '/auth/v1/token?grant_type=pkce',
+              {{
+                method:  'POST',
+                headers: {{ 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY }},
+                body:    JSON.stringify({{ auth_code: code, code_verifier: cv }})
+              }}
+            );
+            var data = await resp.json();
+            if (data && data.access_token) {{
+              var loc = top.location;
+              top.location.href = loc.origin + loc.pathname
+                + '?sb_access_token='  + encodeURIComponent(data.access_token)
+                + '&sb_refresh_token=' + encodeURIComponent(data.refresh_token || '');
+              return;
+            }}
+            console.warn('sb-pkce: exchange failed', JSON.stringify(data));
+          }} catch(err) {{
+            console.warn('sb-pkce: fetch error', err);
+          }}
+        }}
+        // cv が sessionStorage にない場合は Python 側に任せる（何もしない）
+      }}
+    }}
+
+    // ── ② #access_token fragment (メール確認) ──────────────────────
+    var hash = top.location.hash;
+    if (hash && hash.indexOf('access_token') !== -1) {{
+      var params  = new URLSearchParams(hash.substring(1));
+      var token   = params.get('access_token');
+      var refresh = params.get('refresh_token') || '';
+      var type    = params.get('type') || 'signup';
+      if (!token) return;
+      var loc = top.location;
+      var url = loc.origin + loc.pathname
+              + '?sb_access_token='   + encodeURIComponent(token)
+              + '&sb_refresh_token='  + encodeURIComponent(refresh)
+              + '&sb_type='           + encodeURIComponent(type);
+      var a = top.document.createElement('a');
+      a.href = url;
+      top.document.body.appendChild(a);
+      a.click();
+      top.document.body.removeChild(a);
+    }}
+  }} catch(e) {{ console.warn('sb-auth:', e); }}
+}})();
 </script>
 """, height=0)
 
@@ -1417,11 +1470,13 @@ button[data-testid="baseButton-primary"]:disabled,
         except Exception:
             pass
     _google_url = st.session_state.get("_google_oauth_url", "")
+    _gcv        = st.session_state.get("_google_oauth_cv", "")
 
-    # ── Google ボタン HTML（target="_top" で top-frame ナビゲーション） ──
+    # ── Google ボタン HTML（onclick で sessionStorage に cv 保存 → top-frame ナビゲーション） ──
     _google_btn_html = f"""
 <div style="padding:2px 0 0;">
-  <a href="{_google_url}" target="_top" style="
+  <a id="_gbtn" href="javascript:void(0)"
+    style="
       display:flex;align-items:center;justify-content:center;gap:10px;
       width:100%;padding:13px 20px;
       border:1.5px solid #e5e7eb;border-radius:14px;
@@ -1430,8 +1485,10 @@ button[data-testid="baseButton-primary"]:disabled,
       font-family:-apple-system,'Hiragino Sans',sans-serif;
       box-sizing:border-box;cursor:pointer;
       transition:all 0.18s;
-  " onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
-    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';">
+    "
+    onmouseover="this.style.borderColor='#d1d5db';this.style.background='#fafafa';this.style.transform='translateY(-1px)';"
+    onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';this.style.transform='none';"
+    onclick="doGoogleLogin()">
     <svg width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -1441,6 +1498,16 @@ button[data-testid="baseButton-primary"]:disabled,
     Googleでログイン
   </a>
 </div>
+<script>
+var _G_URL = {json.dumps(_google_url)};
+var _G_CV  = {json.dumps(_gcv)};
+function doGoogleLogin() {{
+  if (_G_CV) {{
+    try {{ window.top.sessionStorage.setItem('_sb_cv', _G_CV); }} catch(e) {{}}
+  }}
+  if (_G_URL) {{ window.top.location.href = _G_URL; }}
+}}
+</script>
 """ if _google_url else ""
 
     _divider_html = """
