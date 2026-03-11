@@ -172,8 +172,12 @@ def _handle_oauth_callback() -> bool:
         token_json_str = exchange_code(code, redirect_uri, code_verifier=code_verifier)
         token_data = json.loads(token_json_str)
         if user_id and _is_multi_user_mode():
-            from core.db import save_youtube_token
+            from core.db import save_youtube_token, set_youtube_approved
             save_youtube_token(user_id, token_json_str)
+            try:
+                set_youtube_approved(user_id, True)
+            except Exception:
+                pass
             st.session_state["user_id"]  = user_id
             st.session_state["yt_token"] = token_data
             # user_email を Supabase から復元
@@ -1301,6 +1305,67 @@ def render_admin_panel():
 
     st.divider()
 
+    # ── YouTube 接続申請（承認待ち） ──────────────────────────────
+    yt_pending = [u for u in users
+                  if u.get("youtube_request_email") and not u.get("youtube_approved")]
+
+    st.markdown("### 🎬 YouTube接続申請")
+
+    if not yt_pending:
+        st.markdown(
+            '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;'
+            'padding:10px 14px;font-size:13px;color:#166534;">✅ 承認待ちの申請はありません</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;'
+            f'padding:10px 14px;margin-bottom:16px;font-size:14px;font-weight:700;color:#991b1b;">'
+            f'🔔 承認待ち {len(yt_pending)} 件</div>',
+            unsafe_allow_html=True,
+        )
+
+        # 承認手順の説明
+        st.markdown(
+            '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;'
+            'padding:14px 18px;margin-bottom:16px;">'
+            '<div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:10px;">📋 承認手順（1件につき3ステップ）</div>'
+            '<div style="font-size:13px;color:#1e3a8a;line-height:2;">'
+            '<b>① 下の表で申請者の「Google メール」をコピー</b><br>'
+            '<b>② <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank"'
+            ' style="color:#1d4ed8;">Google Cloud Console → OAuth同意画面 → テストユーザー</a>'
+            ' に追加して保存</b><br>'
+            '<b>③ 下の「✅ 承認」ボタンをクリック → お客さんにメールで連絡</b>'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+
+        # 申請一覧
+        ph = st.columns([3, 3, 1.5])
+        ph[0].markdown("**アカウント（アプリ）**")
+        ph[1].markdown("**① コピーするGoogleメール**")
+        ph[2].markdown("**③ 承認**")
+        st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
+
+        for _req in yt_pending:
+            rc = st.columns([3, 3, 1.5])
+            rc[0].write(_req["email"])
+            rc[1].code(_req["youtube_request_email"], language=None)
+            if rc[2].button("✅ 承認", key=f"_yt_approve_{_req['id']}"):
+                try:
+                    from core.db import set_youtube_approved as _set_yt_ok
+                    _set_yt_ok(_req["id"], True)
+                    st.success(
+                        f"✅ {_req['email']} を承認しました。"
+                        f"「{_req['youtube_request_email']}」をGoogle Cloud Consoleに追加済みか確認し、"
+                        f"お客さんに「YouTube接続できます」とメールしてください。"
+                    )
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"承認エラー: {_e}")
+
+    st.divider()
+
     # ── ユーザー一覧テーブル ──
     st.markdown("### 👥 ユーザー一覧")
 
@@ -1313,7 +1378,7 @@ def render_admin_panel():
 
     # ヘッダー行
     hcols = st.columns([3, 1.5, 1, 1, 1, 1.5, 1.5])
-    for col, label in zip(hcols, ["メール", "プラン", "今月使用", "上限", "YT接続", "登録日", "最終ログイン"]):
+    for col, label in zip(hcols, ["メール", "プラン", "今月使用", "上限", "YT", "登録日", "最終ログイン"]):
         col.markdown(f"**{label}**")
     st.markdown('<hr style="margin:4px 0;">', unsafe_allow_html=True)
 
@@ -1323,9 +1388,16 @@ def render_admin_panel():
         row[1].write(_PLAN_LABELS.get(user["plan"], user["plan"]))
         row[2].write(str(user["clips_used"]))
         row[3].write(str(user["clips_limit"]))
-        row[4].write("✅" if user["youtube_connected"] else "❌")
+        _yt_status = (
+            "🔗" if user["youtube_connected"]
+            else "✅" if user.get("youtube_approved")
+            else "📩" if user.get("youtube_request_email")
+            else "—"
+        )
+        row[4].write(_yt_status)
         row[5].write(user["created_at"])
         row[6].write(user["last_sign_in"])
+    st.caption("🔗 接続中　✅ 承認済（未接続）　📩 申請中　— 未申請")
 
     st.divider()
 
@@ -3637,22 +3709,74 @@ def step5():
                     st.warning("⚠️ 認証トークンが期限切れです。再接続してください。")
 
             # ── 接続 / 再接続ボタン ─────────────────────────────
-            if not token_ok:
-                st.markdown(
-                    '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">'
-                    '📺 自分の YouTube チャンネルを接続して動画を自動アップロードしましょう</div>',
-                    unsafe_allow_html=True,
-                )
+            # 承認状態を確認（既存トークン保持者は自動承認扱い）
+            _yt_approved  = bool(yt_token)
+            _yt_req_email = ""
+            if not _yt_approved and s.get("user_id"):
+                from core.db import get_subscription as _get_sub_yt
+                _yt_sub       = _get_sub_yt(s["user_id"])
+                _yt_approved  = bool(_yt_sub.get("youtube_approved"))
+                _yt_req_email = _yt_sub.get("youtube_request_email") or ""
 
-            col_conn, col_disc = st.columns([3, 1])
-            with col_conn:
-                # ── 認証URL生成済みなら「クリックして認証」リンクを表示 ──
-                _pending_url = s.get("_yt_oauth_url")
-                if _pending_url:
-                    import html as _html
-                    import streamlit.components.v1 as _comp
-                    _escaped_url = _html.escape(_pending_url, quote=True)
-                    _comp.html(f"""
+            if not token_ok and not _yt_approved:
+                # ── 未承認: 申請フォーム ────────────────────────────
+                if _yt_req_email:
+                    st.markdown(
+                        '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;'
+                        'padding:14px 18px;margin-bottom:12px;">'
+                        '<div style="font-weight:700;color:#166534;font-size:14px;">📩 申請受付済み</div>'
+                        '<div style="color:#15803d;font-size:13px;margin-top:4px;">'
+                        '担当者がアクセスを設定します。承認後にメールでお知らせします。</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;'
+                        'padding:14px 18px;margin-bottom:12px;">'
+                        '<div style="font-weight:700;color:#92400e;font-size:14px;">📺 YouTubeチャンネルを接続する</div>'
+                        '<div style="color:#78716c;font-size:12px;margin-top:6px;">'
+                        'セキュリティのため、接続前に申請が必要です。'
+                        'YouTubeへの接続に使用するGoogleアカウントのメールアドレスを入力してください。</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    _req_input = st.text_input(
+                        "Googleアカウントのメールアドレス",
+                        placeholder="example@gmail.com",
+                        key="_yt_req_email_input",
+                    )
+                    if st.button(
+                        "📩 接続を申請する",
+                        type="primary",
+                        disabled=not (_req_input or "").strip(),
+                        use_container_width=True,
+                        key="_yt_req_submit",
+                    ):
+                        try:
+                            from core.db import submit_youtube_request as _submit_req
+                            _submit_req(s["user_id"], _req_input.strip())
+                            st.success("✅ 申請しました！担当者が確認後、メールでお知らせします。")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"申請エラー: {_e}")
+            else:
+                if not token_ok:
+                    st.markdown(
+                        '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">'
+                        '📺 自分の YouTube チャンネルを接続して動画を自動アップロードしましょう</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                col_conn, col_disc = st.columns([3, 1])
+                with col_conn:
+                    # ── 認証URL生成済みなら「クリックして認証」リンクを表示 ──
+                    _pending_url = s.get("_yt_oauth_url")
+                    if _pending_url:
+                        import html as _html
+                        import streamlit.components.v1 as _comp
+                        _escaped_url = _html.escape(_pending_url, quote=True)
+                        _comp.html(f"""
 <a id="yt-oauth-btn" href="{_escaped_url}" data-url="{_escaped_url}"
    onclick="
      var url=this.getAttribute('data-url');
@@ -3673,36 +3797,36 @@ def step5():
   &#9654;&#65039; クリックして Google 認証を完了する
 </a>
 """, height=60)
-                    if st.button("↩ キャンセル", use_container_width=True, key="_yt_cancel"):
-                        s.pop("_yt_oauth_url", None)
-                        st.rerun()
-                else:
-                    # ── 通常: 接続ボタン → URL生成 → リンク表示へ ──
-                    btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
-                    if st.button(btn_lbl,
-                                 type="secondary" if token_ok else "primary",
-                                 use_container_width=True):
-                        try:
-                            import secrets as _sec
-                            from core.uploader import get_auth_url as _gau
-                            _user_id      = s.get("user_id", "anon")
-                            _code_verifier = _sec.token_urlsafe(96)  # PKCE code_verifier
-                            _state        = _make_oauth_state(_user_id, _code_verifier)
-                            _auth_url, _  = _gau(_get_app_url(), state=_state, code_verifier=_code_verifier)
-                            s["_yt_oauth_url"] = _auth_url
+                        if st.button("↩ キャンセル", use_container_width=True, key="_yt_cancel"):
+                            s.pop("_yt_oauth_url", None)
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"認証URL生成エラー: {e}")
-            with col_disc:
-                if token_ok and st.button("🗑 接続解除", use_container_width=True):
-                    if s.get("user_id"):
-                        from core.db import delete_youtube_token
-                        delete_youtube_token(s["user_id"])
-                    s.pop("yt_token", None)
-                    s.pop("yt_channel_name", None)
-                    s.pop("yt_channel_id", None)
-                    s.pop("yt_channel_thumbnail", None)
-                    st.rerun()
+                    else:
+                        # ── 通常: 接続ボタン → URL生成 → リンク表示へ ──
+                        btn_lbl = "🔄 YouTubeを再接続する" if token_ok else "▶️ YouTubeチャンネルを接続する"
+                        if st.button(btn_lbl,
+                                     type="secondary" if token_ok else "primary",
+                                     use_container_width=True):
+                            try:
+                                import secrets as _sec
+                                from core.uploader import get_auth_url as _gau
+                                _user_id       = s.get("user_id", "anon")
+                                _code_verifier = _sec.token_urlsafe(96)
+                                _state         = _make_oauth_state(_user_id, _code_verifier)
+                                _auth_url, _   = _gau(_get_app_url(), state=_state, code_verifier=_code_verifier)
+                                s["_yt_oauth_url"] = _auth_url
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"認証URL生成エラー: {e}")
+                with col_disc:
+                    if token_ok and st.button("🗑 接続解除", use_container_width=True):
+                        if s.get("user_id"):
+                            from core.db import delete_youtube_token
+                            delete_youtube_token(s["user_id"])
+                        s.pop("yt_token", None)
+                        s.pop("yt_channel_name", None)
+                        s.pop("yt_channel_id", None)
+                        s.pop("yt_channel_thumbnail", None)
+                        st.rerun()
 
     else:
         # ─── シングルユーザーモード: ファイルベース（既存） ────────────

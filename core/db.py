@@ -65,6 +65,29 @@ def delete_youtube_token(user_id: str):
         pass
 
 
+def submit_youtube_request(user_id: str, google_email: str):
+    """YouTube接続申請を保存（Googleアカウントメールを subscriptions に記録）"""
+    try:
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
+        sb.table("subscriptions").upsert(
+            {"user_id": user_id, "youtube_request_email": google_email},
+            on_conflict="user_id",
+        ).execute()
+    except Exception as e:
+        raise RuntimeError(f"申請の保存に失敗しました: {e}") from e
+
+
+def set_youtube_approved(user_id: str, approved: bool = True):
+    """YouTube接続承認フラグを設定（管理者専用）"""
+    from core.auth import get_supabase_admin
+    sb = get_supabase_admin()
+    sb.table("subscriptions").upsert(
+        {"user_id": user_id, "youtube_approved": approved},
+        on_conflict="user_id",
+    ).execute()
+
+
 # ─────────────────────────────────────────────
 # サブスクリプション / 使用量
 # ─────────────────────────────────────────────
@@ -172,7 +195,9 @@ def get_all_users_with_stats() -> list:
             "plan":             sub.get("plan", "free"),
             "clips_limit":      sub.get("clips_limit", 10),
             "clips_used":       sub.get("clips_used_this_month", 0),
-            "youtube_connected": uid in token_uids,
+            "youtube_connected":      uid in token_uids,
+            "youtube_approved":       bool(sub.get("youtube_approved", False)),
+            "youtube_request_email":  sub.get("youtube_request_email") or "",
         })
 
     # 登録日降順
