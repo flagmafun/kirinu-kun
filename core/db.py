@@ -242,3 +242,48 @@ def delete_user(user_id: str) -> None:
         sb.auth.admin.delete_user(user_id)
     except Exception as e:
         raise RuntimeError(f"Authユーザーの削除に失敗: {e}") from e
+
+
+
+# ─────────────────────────────────────────────
+# サイト設定（管理者専用）
+# ─────────────────────────────────────────────
+
+def get_site_setting(key: str) -> str | None:
+    """site_settings テーブルから値を取得。なければ None。"""
+    try:
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
+        if not sb:
+            return None
+        res = sb.table("site_settings").select("value").eq("key", key).execute()
+        return res.data[0]["value"] if res.data else None
+    except Exception:
+        return None
+
+
+def set_site_setting(key: str, value: str, updated_by: str = "") -> None:
+    """site_settings テーブルに値を upsert。"""
+    from core.auth import get_supabase_admin
+    sb = get_supabase_admin()
+    if not sb:
+        raise RuntimeError("Supabase admin client が利用できません")
+    sb.table("site_settings").upsert({
+        "key": key,
+        "value": value,
+        "updated_at": "now()",
+        "updated_by": updated_by,
+    }).execute()
+
+
+def get_site_setting_meta(key: str) -> dict | None:
+    """site_settings の value 以外のメタ情報（updated_at, updated_by）を取得。"""
+    try:
+        from core.auth import get_supabase_admin
+        sb = get_supabase_admin()
+        if not sb:
+            return None
+        res = sb.table("site_settings").select("updated_at,updated_by").eq("key", key).execute()
+        return res.data[0] if res.data else None
+    except Exception:
+        return None

@@ -190,3 +190,33 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
         f"ダウンロードファイルが見つかりません: {video_id}\n"
         f"output_dir内のファイル: {existing}"
     )
+
+
+def check_cookies_validity(
+    test_url: str = "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+) -> tuple[bool, str]:
+    """
+    cookies が有効かを軽量チェック（yt-dlp --print id のみ）。
+    Returns: (is_valid: bool, message: str)
+    """
+    _ensure_netscape_cookies()
+    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    if not has_cookies:
+        return False, "cookies が設定されていません"
+
+    base = _get_ytdlp_base(use_cookies=True)
+    try:
+        result = subprocess.run(
+            ["yt-dlp", "--print", "id"] + base + [test_url],
+            capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "タイムアウト（30秒）"
+
+    if result.returncode == 0 and result.stdout.strip():
+        return True, "✅ cookies は有効です"
+
+    stderr = (result.stderr or result.stdout or "").strip()
+    if _cookies_expired_in_stderr(stderr):
+        return False, "❌ cookies が期限切れです（YouTube がローテーション済み）"
+    return False, f"❌ 確認失敗: {stderr[-200:]}"

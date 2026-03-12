@@ -65,10 +65,20 @@ def _restore_credentials():
     # cookies.txt — YouTube ダウンロード用（Netscape 形式）
     ck_path = CREDS_DIR / "cookies.txt"
     raw_ck = None
+
+    # 優先順位1: Supabase site_settings（管理パネルから再起動なしで更新可能）
     try:
-        raw_ck = st.secrets["youtube"]["cookies"]
+        from core.db import get_site_setting as _gss
+        raw_ck = _gss("youtube_cookies")
     except Exception:
-        raw_ck = os.environ.get("YOUTUBE_COOKIES")
+        pass
+
+    # 優先順位2: Streamlit Secrets（初期設定 / フォールバック）
+    if not raw_ck:
+        try:
+            raw_ck = st.secrets["youtube"]["cookies"]
+        except Exception:
+            raw_ck = os.environ.get("YOUTUBE_COOKIES")
     if raw_ck:
         raw_ck = raw_ck.strip()
         # JSON形式（ブラウザ開発者ツールからのエクスポート等）→ Netscape形式に変換
@@ -1474,6 +1484,68 @@ def render_admin_panel():
                 st.rerun()
             except Exception as _del_err:
                 st.error(f"削除エラー: {_del_err}")
+
+    # ═══ 🍪 YouTube Cookies 管理 ══════════════════════════════
+    st.divider()
+    st.subheader("🍪 YouTube Cookies 管理")
+    st.caption("cookies は YouTube の IP 制限を回避するために必要です。期限切れになると動画のダウンロードが失敗します（目安: 1〜4週間ごとに更新）。")
+
+    _col_meta, _col_check = st.columns([3, 1])
+    with _col_meta:
+        try:
+            from core.db import get_site_setting_meta
+            _meta = get_site_setting_meta("youtube_cookies")
+            if _meta:
+                _upd_at = (_meta.get("updated_at") or "")[:16].replace("T", " ")
+                _upd_by = _meta.get("updated_by") or "不明"
+                st.caption(f"最終更新: {_upd_at}  by {_upd_by}  （Supabase）")
+            else:
+                st.caption("Supabase 未設定 — Streamlit Secrets の cookies を使用中")
+        except Exception:
+            st.caption("（取得エラー）")
+    with _col_check:
+        if st.button("🔍 有効性チェック", key="admin_check_cookies_btn"):
+            with st.spinner("確認中（最大30秒）…"):
+                from core.downloader import check_cookies_validity
+                _ck_ok, _ck_msg = check_cookies_validity()
+            if _ck_ok:
+                st.success(_ck_msg)
+            else:
+                st.error(_ck_msg)
+
+    with st.expander("🔄 Cookies を更新する", expanded=False):
+        st.markdown(
+            "**手順:**\n"
+            "1. Chrome で **YouTube にログイン** した状態で\n"
+            "2. 「[Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)」拡張をクリック → **Export** → `youtube.com` のみ保存\n"
+            "3. 保存したファイルの**中身**を下記テキストエリアに貼り付けて保存\n\n"
+            "💡 保存後はアプリ再起動なしで即時反映されます。"
+        )
+        _new_ck = st.text_area(
+            "cookies.txt の中身を貼り付け",
+            height=180,
+            placeholder="# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t...",
+            key="admin_cookies_textarea",
+        )
+        if st.button("💾 Supabase に保存して即時適用", key="admin_save_cookies_btn"):
+            _ck_stripped = (_new_ck or "").strip()
+            if not _ck_stripped:
+                st.error("cookies の内容が空です")
+            elif (
+                "Netscape HTTP Cookie File" not in _ck_stripped
+                and not _ck_stripped.startswith(".")
+                and not _ck_stripped.startswith("[")
+            ):
+                st.warning("⚠️ Netscape 形式（`# Netscape HTTP Cookie File` から始まる）か JSON 形式を貼り付けてください。")
+            else:
+                try:
+                    from core.db import set_site_setting
+                    set_site_setting("youtube_cookies", _ck_stripped, updated_by=s.get("user_email", ""))
+                    _restore_credentials()   # 即時適用
+                    st.success("✅ 保存完了。次のパイプライン実行から新しい cookies が使われます。")
+                    st.rerun()
+                except Exception as _ck_err:
+                    st.error(f"保存失敗: {_ck_err}")
 
 
 # ── ログイン / 会員登録ページ ─────────────────────────────
@@ -3983,6 +4055,18 @@ def step5():
 
     if not _in_phase_b:
         # ═══ Phase A: 実行前確認 ════════════════════════════════════
+
+        # cookies 期限切れ警告
+        _prev_err = s.get("pipeline_error") or ""
+        if "cookies が期限切れ" in _prev_err or "cookies を再エクスポート" in _prev_err:
+            if _is_admin():
+                st.warning(
+                    "🍪 **cookies が期限切れです。** 管理パネルの「YouTube Cookies 管理」から更新してください。",
+                    icon="⚠️",
+                )
+            else:
+                st.warning("🍪 **cookies が期限切れです。** 管理者に連絡してください。", icon="⚠️")
+
         _want_dl  = st.checkbox(
             "📥 生成後にスマホ・PCへダウンロードする",
             key="want_download",
@@ -3996,16 +4080,16 @@ def step5():
   <div style="font-weight:700;color:#166534;font-size:13px;margin-bottom:6px;">
     📥 チェックON：生成 → ダウンロード → アップロードの順で進みます
   </div>
-  <div style="font-size:12px;color:#14532d;line-height:1.9;">
+  <div style="font-size:12px;color:#14532d;line-height:2.0;">
     クリップが生成されたあと、ダウンロード画面が表示されます。<br>
     各クリップを端末に保存してから、YouTubeへアップロードするか選べます。<br>
-    <b>💡 保存先フォルダを選びたい場合：</b><br>
-    　📱 iPhone（Safari）: 設定 → Safari → ダウンロード → 好きな場所を選択<br>
-    　🤖 Android（Chrome）: Chromeメニュー → 設定 → ダウンロード先を変更<br>
-    　💻 PC（Chrome）: Chrome設定 → ダウンロード →「保存場所を毎回確認する」をオン
+    <b>💡 保存先フォルダを選びたい場合</b>（ブラウザ設定を変えるとダウンロードのたびに保存先を選べます）：<br>
+    　📱 iPhone / iPad（Safari）：設定アプリ → Safari → ダウンロード → 好きな場所を選択<br>
+    　🤖 Android（Chrome）：Chromeメニュー → 設定 → ダウンロード → ダウンロード先を変更<br>
+    　💻 PC（Chrome）：Chrome設定 → ダウンロード →「ダウンロード前に保存場所を確認する」をオン
   </div>
 </div>
-""", height=145)
+""", height=230)
         else:
             import streamlit.components.v1 as _comp_hint
             _comp_hint.html("""
