@@ -3664,13 +3664,12 @@ def step5():
         except BaseException as _e:
             import traceback as _tb
             _ename = type(_e).__name__
-            # Streamlit 内部例外は再 raise（止めると rerun が壊れる）
-            if _ename in ("RerunException", "StopException", "RerunData"):
-                print(f"[STEP5] Streamlit内部例外を再raise: {_ename}", flush=True)
-                raise
-            print(f"[STEP5] 予期しないエラー [{_ename}]: {_e}", flush=True)
-            print(_tb.format_exc(), flush=True)
-            s["pipeline_error"] = f"[{_ename}] {_e}\n\n{_tb.format_exc()}"
+            _etb  = _tb.format_exc()
+            print(f"[STEP5] 例外キャッチ [{_ename}]: {_e}", flush=True)
+            print(_etb, flush=True)
+            # RerunException を re-raise すると _pipeline_ran="done" が記録されず
+            # ループに入るため、Streamlit 内部例外も含めてすべてキャプチャして続行する
+            s["pipeline_error"] = f"[{_ename}] {_e}\n\n{_etb}"
         s["_pipeline_ran"] = "done"  # 完走マーク
         print("[STEP5] パイプライン完了 → st.rerun()", flush=True)
         st.rerun()
