@@ -108,6 +108,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
     base = _get_ytdlp_base()
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    _cookies_expired_fallback = False  # 期限切れで android_vr にフォールバックしたか
 
     # video_id取得（cookies 期限切れ時は android_vr にフォールバック）
     id_result = subprocess.run(
@@ -120,6 +121,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             # cookies 期限切れ → android_vr でリトライ
             base = _get_ytdlp_base(use_cookies=False)
             has_cookies = False
+            _cookies_expired_fallback = True
             id_result = subprocess.run(
                 ["yt-dlp", "--print", "id"] + base + [url],
                 capture_output=True, text=True
@@ -153,6 +155,16 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
         if "HTTP Error 403" in err or "403: Forbidden" in err:
+            if _cookies_expired_fallback:
+                raise RuntimeError(
+                    "cookies が期限切れのため、android_vr フォールバックでもダウンロードできませんでした。\n\n"
+                    "📋 **解決方法: cookies を再エクスポートしてください**\n"
+                    "1. Chromeに「Get cookies.txt LOCALLY」拡張をインストール\n"
+                    "2. YouTubeにログインした状態で拡張をクリック → Export → youtube.com のみ保存\n"
+                    "3. Streamlit Cloud → Settings → Secrets の [youtube] セクションの cookies を更新\n"
+                    "4. Save → アプリが自動再起動\n\n"
+                    f"詳細: {err[-300:]}"
+                )
             raise RuntimeError(
                 "YouTube CDN 403エラー（IP制限）\n\n"
                 "Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
