@@ -1090,9 +1090,15 @@ def _init():
         "results":         [],
         "running":         False,
         "tmp_dir":         None,
-        "generated_clips": [],    # _generate_pipeline が設定
-        "raw_path":        None,  # 元動画パス（str）
-        "sched_pending":   None,  # _upload_pipeline で使うsched
+        "generated_clips":   [],    # _generate_pipeline が設定
+        "raw_path":          None,  # 元動画パス（str）
+        "sched_pending":     None,  # _upload_pipeline で使うsched
+        "pipeline_error":    None,  # エラーメッセージ（rerun後も保持）
+        "_pipeline_pending": False, # パイプライン実行待ちフラグ
+        "_pipeline_ran":     None,  # パイプライン完走フラグ（デバッグ用）
+        "_pipeline_want_dl": True,  # ダウンロードフラグ保存
+        "_pipeline_clips":   [],    # 実行対象クリップ保存
+        "_pipeline_sched":   {},    # sched保存
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -3637,8 +3643,52 @@ def step4():
 # STEP 5 — 実行
 # ══════════════════════════════════════════════════════════
 def step5():
+    # ── Streamlit推奨パターン: パイプラインをメインフローで実行 ──────────
+    # ボタンのcallback内でst.status()等を呼ぶとRerunException(BaseException)が
+    # 発生してエラーが捕捉できないため、フラグ経由でメインフローに移して実行する
+    if s.get("_pipeline_pending"):
+        print("[STEP5] _pipeline_pending 検知 → パイプライン開始", flush=True)
+        s["_pipeline_pending"] = False
+        s["_pipeline_ran"]     = None  # リセット
+        _ppl_want_dl = s.get("_pipeline_want_dl", True)
+        _ppl_clips   = s.get("_pipeline_clips", [])
+        _ppl_sched   = s.get("_pipeline_sched", {})
+        s["_pipeline_clips"] = []
+        s["_pipeline_sched"] = {}
+        print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
+        try:
+            if _ppl_want_dl:
+                _generate_pipeline(_ppl_clips, _ppl_sched)
+            else:
+                _run_pipeline(_ppl_clips, _ppl_sched)
+        except BaseException as _e:
+            import traceback as _tb
+            _ename = type(_e).__name__
+            # Streamlit 内部例外は再 raise（止めると rerun が壊れる）
+            if _ename in ("RerunException", "StopException", "RerunData"):
+                print(f"[STEP5] Streamlit内部例外を再raise: {_ename}", flush=True)
+                raise
+            print(f"[STEP5] 予期しないエラー [{_ename}]: {_e}", flush=True)
+            print(_tb.format_exc(), flush=True)
+            s["pipeline_error"] = f"[{_ename}] {_e}\n\n{_tb.format_exc()}"
+        s["_pipeline_ran"] = "done"  # 完走マーク
+        print("[STEP5] パイプライン完了 → st.rerun()", flush=True)
+        st.rerun()
+        return
+
     render_stepbar(5)
     render_video_banner()
+
+    # ──── DEBUGパネル（確認後に削除） ────────────────────────────────────
+    with st.expander("🐛 デバッグ情報（確認したら削除）", expanded=True):
+        st.json({
+            "_pipeline_pending": s.get("_pipeline_pending"),
+            "_pipeline_ran":     s.get("_pipeline_ran"),
+            "pipeline_error":    s.get("pipeline_error"),
+            "generated_clips":   len(s.get("generated_clips", [])),
+            "_pipeline_clips":   len(s.get("_pipeline_clips", [])),
+        })
+    # ────────────────────────────────────────────────────────────────────
 
     # ── ページ上部ナビゲーション ──
     _tnc5, _ = st.columns([1, 3])
@@ -3976,6 +4026,14 @@ def step5():
         all_ready = secret_ok and token_ok and len(enabled_clips) > 0
         gen_ready = len(enabled_clips) > 0
 
+        if s.get("pipeline_error"):
+            _err_full = s["pipeline_error"]
+            _err_head = _err_full.split("\n")[0]
+            st.error(f"❌ {_err_head}")
+            if "\n" in _err_full:
+                with st.expander("🔍 詳細エラー（クリックで展開）", expanded=False):
+                    st.code(_err_full, language="")
+
         if not gen_ready:
             st.warning("クリップを1本以上選択してください")
         elif not _want_dl and not all_ready:
@@ -3997,15 +4055,17 @@ def step5():
             if st.button(
                 _btn_label,
                 type="primary", use_container_width=True,
-                disabled=(not _can_run or s.running),
+                disabled=(not _can_run or s.get("_pipeline_pending", False)),
                 key="btn_generate",
             ):
-                s.running = True
-                if _want_dl:
-                    _generate_pipeline(enabled_clips, sched)
-                else:
-                    _run_pipeline(enabled_clips, sched)
-                s.running = False
+                # フラグを立てて即rerun → パイプラインはstep5()先頭のメインフローで実行
+                print(f"[BTN] クリック: want_dl={_want_dl}, clips={len(enabled_clips)}", flush=True)
+                s["_pipeline_pending"] = True
+                s["_pipeline_ran"]     = None
+                s["_pipeline_want_dl"] = _want_dl
+                s["_pipeline_clips"]   = enabled_clips
+                s["_pipeline_sched"]   = dict(sched)
+                s["pipeline_error"]    = None
                 st.rerun()
 
     else:
@@ -4116,7 +4176,9 @@ def step5():
 
         if st.button("🔁 最初からやり直す"):
             for k in ["step","video_info","clips","results","running",
-                      "generated_clips","raw_path","sched_pending"]:
+                      "generated_clips","raw_path","sched_pending",
+                      "pipeline_error","_pipeline_pending","_pipeline_ran",
+                      "_pipeline_clips","_pipeline_sched","_pipeline_want_dl"]:
                 del st.session_state[k]
             st.rerun()
 
@@ -4313,8 +4375,11 @@ def _run_pipeline(clips: list, sched: dict):
 
 # ── 生成パイプライン（ダウンロード＋変換のみ、アップロードなし）──────────
 def _generate_pipeline(clips: list, sched: dict):
+    print(f"[PIPELINE] _generate_pipeline 開始: clips={len(clips)}", flush=True)
     from core.downloader import download_video
     from core.processor  import create_shorts
+
+    s["pipeline_error"] = None  # 前回エラーをクリア
 
     video_info = s.video_info
     interval_h = int(sched["interval_hours"])
@@ -4324,7 +4389,7 @@ def _generate_pipeline(clips: list, sched: dict):
             f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
         )
     except Exception:
-        st.error("スケジュール日時が正しくありません")
+        s["pipeline_error"] = "スケジュール日時が正しくありません"
         return
 
     _user_id  = s.get("user_id") if _is_multi_user_mode() else None
@@ -4334,6 +4399,7 @@ def _generate_pipeline(clips: list, sched: dict):
     _user_out.mkdir(parents=True, exist_ok=True)
 
     generated = []
+    _dl_ok    = False  # ダウンロード成功フラグ（with内でreturnしないための制御変数）
 
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
@@ -4341,103 +4407,109 @@ def _generate_pipeline(clips: list, sched: dict):
         st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
         try:
             raw_path = download_video(video_info["url"], _user_out / "raw")
+            print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
             st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+            _dl_ok = True
         except Exception as e:
+            print(f"[PIPELINE] ダウンロード失敗: {e}", flush=True)
             err_msg = str(e)
-            st.error(f"❌ ダウンロード失敗: {err_msg}")
+            hint = ""
             if "403" in err_msg or "IP制限" in err_msg:
                 _ck = CREDS_DIR / "cookies.txt"
                 if _ck.exists() and _ck.stat().st_size > 0:
-                    st.warning(
-                        "⚠️ **cookies は設定済みですが、まだ 403 エラーが発生しています。**\n\n"
-                        "cookiesの期限切れ・デプロイ直後・Node.jsの問題が考えられます。"
-                    )
+                    hint = "\n\n⚠️ cookiesは設定済みですが403エラーが発生しています。cookiesの期限切れ・Node.jsの問題が考えられます。"
                 else:
-                    st.info("💡 Streamlit CloudのIPがYouTube CDNにブロックされています。cookiesを設定してください。")
+                    hint = "\n\n💡 StreamlitクラウドのIPがYouTube CDNにブロックされています。cookiesを設定してください。"
+            s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
             status.update(label="ダウンロード失敗", state="error")
-            return
+            # ← return しない：with ブロックを自然に終了させる
 
-        s["raw_path"] = str(raw_path)
+        if _dl_ok:
+            s["raw_path"] = str(raw_path)
 
-        for i, clip in enumerate(clips):
-            pct   = (i + 1) / len(clips)
-            title = clip["title"] or f"Shorts {clip['index']}"
-            hashtags    = clip.get("hashtags", "#Shorts")
-            description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
-            tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
+            for i, clip in enumerate(clips):
+                pct   = (i + 1) / len(clips)
+                title = clip["title"] or f"Shorts {clip['index']}"
+                hashtags    = clip.get("hashtags", "#Shorts")
+                description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
+                tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
-            jst_dt = base_dt + timedelta(hours=i * interval_h)
-            utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
+                jst_dt = base_dt + timedelta(hours=i * interval_h)
+                utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
 
-            prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
+                prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
 
-            try:
-                _rand    = st.session_state.get("rand_mode", False)
-                _designs = st.session_state.get("clip_designs", {})
-                _cidx    = clip.get("index", i)
-                if _rand and _cidx in _designs:
-                    _d           = _designs[_cidx]
-                    _theme_key   = _d["theme"]
-                    _size_key    = _d["size"]
-                    _pattern_key = _d["pattern"]
-                else:
-                    _theme_key   = st.session_state.get("title_theme",   "purple")
-                    _size_key    = st.session_state.get("title_size",    "large")
-                    _pattern_key = st.session_state.get("title_pattern", "none")
+                print(f"[PIPELINE] クリップ {i+1}/{len(clips)} 変換開始: {title[:40]}", flush=True)
+                try:
+                    _rand    = st.session_state.get("rand_mode", False)
+                    _designs = st.session_state.get("clip_designs", {})
+                    _cidx    = clip.get("index", i)
+                    if _rand and _cidx in _designs:
+                        _d           = _designs[_cidx]
+                        _theme_key   = _d["theme"]
+                        _size_key    = _d["size"]
+                        _pattern_key = _d["pattern"]
+                    else:
+                        _theme_key   = st.session_state.get("title_theme",   "purple")
+                        _size_key    = st.session_state.get("title_size",    "large")
+                        _pattern_key = st.session_state.get("title_pattern", "none")
 
-                _bottom_img  = clip.get("bottom_image")
-                _bottom_path = Path(_bottom_img) if _bottom_img else None
+                    _bottom_img  = clip.get("bottom_image")
+                    _bottom_path = Path(_bottom_img) if _bottom_img else None
 
-                st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
-                         f"({int(clip['start'])}s → {int(clip['end'])}s)")
-                shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
-                create_shorts(
-                    raw_path, shorts_path,
-                    max_duration=int(clip["end"] - clip["start"]),
-                    start_sec=int(clip["start"]),
-                    title=title,
-                    theme_key=_theme_key,
-                    size_key=_size_key,
-                    pattern_key=_pattern_key,
-                    themes=TITLE_THEMES,
-                    sizes=TITLE_SIZES,
-                    bottom_image_path=_bottom_path,
-                    catchphrase=clip.get("catchphrase", ""),
+                    st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
+                             f"({int(clip['start'])}s → {int(clip['end'])}s)")
+                    shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
+                    create_shorts(
+                        raw_path, shorts_path,
+                        max_duration=int(clip["end"] - clip["start"]),
+                        start_sec=int(clip["start"]),
+                        title=title,
+                        theme_key=_theme_key,
+                        size_key=_size_key,
+                        pattern_key=_pattern_key,
+                        themes=TITLE_THEMES,
+                        sizes=TITLE_SIZES,
+                        bottom_image_path=_bottom_path,
+                        catchphrase=clip.get("catchphrase", ""),
+                    )
+
+                    generated.append({
+                        "num":         i + 1,
+                        "index":       clip["index"],
+                        "title":       title,
+                        "shorts_path": str(shorts_path),
+                        "description": description,
+                        "tags":        tags,
+                        "jst_dt":      jst_dt.isoformat(),
+                        "utc_dt":      utc_dt.isoformat(),
+                        "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"),
+                    })
+                    st.write(f"✅ **{i+1}本目: 変換完了**")
+
+                except Exception as e:
+                    st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+
+            if not generated:
+                try:
+                    raw_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                s["raw_path"] = None
+                s["pipeline_error"] = "すべてのクリップの変換に失敗しました"
+                status.update(label="変換失敗", state="error")
+                # ← return しない：with ブロックを自然に終了させる
+            else:
+                prog.progress(1.0, text="変換完了！")
+                status.update(
+                    label=f"✅ {len(generated)} 本の変換完了。ダウンロードまたはアップロードしてください。",
+                    state="complete",
                 )
 
-                generated.append({
-                    "num":         i + 1,
-                    "index":       clip["index"],
-                    "title":       title,
-                    "shorts_path": str(shorts_path),
-                    "description": description,
-                    "tags":        tags,
-                    "jst_dt":      jst_dt.isoformat(),
-                    "utc_dt":      utc_dt.isoformat(),
-                    "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"),
-                })
-                st.write(f"✅ **{i+1}本目: 変換完了**")
-
-            except Exception as e:
-                st.write(f"❌ **エラー [{i+1}本目]**: {e}")
-
-        if not generated:
-            try:
-                raw_path.unlink(missing_ok=True)
-            except Exception:
-                pass
-            s["raw_path"] = None
-            status.update(label="変換失敗", state="error")
-            return
-
-        prog.progress(1.0, text="変換完了！")
-        status.update(
-            label=f"✅ {len(generated)} 本の変換完了。ダウンロードまたはアップロードしてください。",
-            state="complete",
-        )
-
-    s["generated_clips"] = generated
-    s["sched_pending"]   = dict(sched)
+    # with ブロックの外：正常完了時のみセッション状態を更新
+    if _dl_ok and generated:
+        s["generated_clips"] = generated
+        s["sched_pending"]   = dict(sched)
 
 
 # ── アップロードパイプライン（生成済みファイルをYouTubeへ投稿）──────────
