@@ -104,8 +104,13 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     # video_id取得
     id_result = subprocess.run(
         ["yt-dlp", "--print", "id"] + base + [url],
-        capture_output=True, text=True, check=True
+        capture_output=True, text=True
     )
+    if id_result.returncode != 0:
+        _stderr = (id_result.stderr or id_result.stdout or "").strip()
+        raise RuntimeError(
+            f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+        )
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 

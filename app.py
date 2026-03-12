@@ -4197,7 +4197,7 @@ def _run_pipeline(clips: list, sched: dict):
             f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
         )
     except Exception:
-        st.error("スケジュール日時が正しくありません")
+        s["pipeline_error"] = "スケジュール日時が正しくありません"
         return
 
     # ── マルチユーザー: YouTube トークン取得＆リフレッシュ ──
@@ -4207,7 +4207,7 @@ def _run_pipeline(clips: list, sched: dict):
         _user_id  = s.get("user_id")
         _yt_token = s.get("yt_token")
         if not _yt_token:
-            st.error("YouTubeチャンネルが接続されていません。認証セクションで接続してください。")
+            s["pipeline_error"] = "YouTubeチャンネルが接続されていません。認証セクションで接続してください。"
             return
         # 事前にトークンをリフレッシュ（1時間の有効期限対策）
         try:
@@ -4218,7 +4218,7 @@ def _run_pipeline(clips: list, sched: dict):
             if _user_id:
                 save_youtube_token(_user_id, _yt_token)
         except Exception as _e:
-            st.error(f"YouTubeトークンのリフレッシュに失敗しました。再接続してください。({_e})")
+            s["pipeline_error"] = f"YouTubeトークンのリフレッシュに失敗しました。再接続してください。({_e})"
             return
 
     results = []
@@ -4229,6 +4229,8 @@ def _run_pipeline(clips: list, sched: dict):
     _user_out = OUTPUT_DIR / _uid_slug
     _user_out.mkdir(parents=True, exist_ok=True)
 
+    _dl_ok   = False
+    raw_path = None
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
@@ -4237,37 +4239,29 @@ def _run_pipeline(clips: list, sched: dict):
         try:
             raw_path = download_video(video_info["url"], _user_out / "raw")
             st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+            _dl_ok = True
         except Exception as e:
             err_msg = str(e)
-            st.error(f"❌ ダウンロード失敗: {err_msg}")
+            hint = ""
             if "403" in err_msg or "IP制限" in err_msg:
                 _ck = CREDS_DIR / "cookies.txt"
                 _has_cookies = _ck.exists() and _ck.stat().st_size > 0
                 if _has_cookies:
-                    st.warning(
-                        "⚠️ **cookies は設定済みですが、まだ 403 エラーが発生しています。**\n\n"
-                        "考えられる原因:\n"
-                        "- **cookiesの期限切れ**: YouTubeに再ログインして新しいcookiesを取得してください\n"
-                        "- **デプロイ直後**: 新バージョンの反映に数分かかります。少し待ってから再試行してください\n"
-                        "- **n-challenge解決の失敗**: Node.jsが正常に動作していない可能性があります\n\n"
-                        "cookiesを再取得する場合は、`Get cookies.txt LOCALLY` 拡張でエクスポートし直してSecretsを更新してください。"
+                    hint = (
+                        "\n\n⚠️ cookies は設定済みですが、まだ 403 が発生しています。\n"
+                        "cookiesの期限切れか Node.js の問題の可能性があります。\n"
+                        "`Get cookies.txt LOCALLY` 拡張で再エクスポートし、Secrets を更新してください。"
                     )
                 else:
-                    st.info(
-                        "💡 **解決方法**: Streamlit CloudのIPがYouTube CDNにブロックされています。\n\n"
-                        "**手順:**\n"
-                        "1. Chromeに [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 拡張をインストール\n"
-                        "2. YouTubeにログインした状態で拡張をクリック → `Export` → `youtube.com` のみを選択して保存\n"
-                        "3. Streamlit Cloud の **Settings → Secrets** を開く\n"
-                        "4. `[youtube]` セクションに以下を追加:\n"
-                        "```toml\n[youtube]\ncookies = \"\"\"\n# Netscape HTTP Cookie File\n（ここにcookies.txtの中身をペースト）\n\"\"\"\n```\n"
-                        "5. Save → アプリが自動的に再起動します"
+                    hint = (
+                        "\n\n💡 Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
+                        "Streamlit Secrets の [youtube] セクションに cookies を設定してください。"
                     )
+            s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
             status.update(label="ダウンロード失敗", state="error")
-            return
 
-        # ② 各クリップを処理
-        for i, clip in enumerate(clips):
+        # ② 各クリップを処理（ダウンロード成功時のみ）
+        for i, clip in (enumerate(clips) if _dl_ok else ()):
             pct  = (i + 1) / len(clips)
             title = clip["title"] or f"Shorts {clip['index']}"
             hashtags = clip.get("hashtags", "#Shorts")
@@ -4348,26 +4342,27 @@ def _run_pipeline(clips: list, sched: dict):
                 })
                 st.write(f"❌ **エラー [{i+1}本目]**: {e}")
 
-        # 全クリップ処理後に raw 動画（元ダウンロードファイル）を削除
-        try:
-            raw_path.unlink(missing_ok=True)
-        except Exception:
-            pass
-
-        prog.progress(1.0, text="全処理完了！")
-        ok = sum(1 for r in results if r["video_id"])
-        status.update(
-            label=f"🎉 完了！{ok}/{len(results)} 本の予約投稿が完了しました",
-            state="complete",
-        )
-
-        # マルチユーザー: 使用量を更新
-        if _is_multi_user_mode() and _user_id and ok > 0:
+        if _dl_ok:
+            # 全クリップ処理後に raw 動画（元ダウンロードファイル）を削除
             try:
-                from core.db import increment_clips_used
-                increment_clips_used(_user_id, ok)
+                raw_path.unlink(missing_ok=True)
             except Exception:
                 pass
+
+            prog.progress(1.0, text="全処理完了！")
+            ok = sum(1 for r in results if r["video_id"])
+            status.update(
+                label=f"🎉 完了！{ok}/{len(results)} 本の予約投稿が完了しました",
+                state="complete",
+            )
+
+            # マルチユーザー: 使用量を更新
+            if _is_multi_user_mode() and _user_id and ok > 0:
+                try:
+                    from core.db import increment_clips_used
+                    increment_clips_used(_user_id, ok)
+                except Exception:
+                    pass
 
     s.results = results
 
