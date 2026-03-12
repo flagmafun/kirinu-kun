@@ -64,6 +64,9 @@ _COOKIES_EXPIRED_HINTS = (
     "no longer valid",
     "cookies are no longer valid",
     "have likely been rotated",
+    # YouTube が IP 検知 or セッション失効でリロード要求する場合
+    "the page needs to be reloaded",
+    "page needs to be reloaded",
 )
 
 def _cookies_expired_in_stderr(stderr: str) -> bool:
@@ -78,9 +81,9 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # Cookieあり: mwebクライアント（Node.js不要、cookies対応、web系で最もブロックされにくい）
+        # Cookieあり: webクライアント（PO token対応・詳細なエラーメッセージ、Node.js不要）
         opts += [
-            "--extractor-args", "youtube:player_client=mweb",
+            "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
         ]
     else:
@@ -128,8 +131,9 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             if id_result.returncode != 0:
                 _stderr2 = (id_result.stderr or id_result.stdout or "").strip()
                 raise RuntimeError(
-                    "cookies が期限切れで、android_vr フォールバックも失敗しました。\n"
-                    "YouTubeの cookies を再エクスポートして Streamlit Secrets を更新してください。\n\n"
+                    "cookies が期限切れ（またはセッション失効）のため、フォールバックも失敗しました。\n\n"
+                    "📋 **解決方法: cookies を再エクスポートしてください**\n"
+                    "管理パネルの「🍪 YouTube Cookies 管理」から更新できます。\n\n"
                     f"詳細: {_stderr2[-400:]}"
                 )
         else:
