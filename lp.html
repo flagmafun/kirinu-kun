@@ -611,7 +611,7 @@
     .stars { color: var(--orange); font-size: 16px; margin-bottom: 16px; letter-spacing: 2px; }
     .testimonial-text { font-size: 15px; line-height: 1.8; margin-bottom: 20px; }
     .testimonial-author { display: flex; align-items: center; gap: 12px; }
-    .author-avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .author-avatar { width: 64px; height: 64px; border-radius: 14px; overflow: hidden; flex-shrink: 0; }
     .author-info strong { font-size: 14px; display: block; }
     .author-info span { font-size: 12px; color: var(--muted); }
 
@@ -1198,57 +1198,45 @@
           <div class="stars">★★★★★</div>
           <p class="testimonial-text">「1本の動画から10本のショートが自動でできるのはマジで革命。今まで毎週2〜3時間かけてた編集作業がゼロになりました。」</p>
           <div class="testimonial-author">
-            <!-- Avatar 1: 教育系YouTuber 男性 -->
-            <svg class="author-avatar" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Scene 1: ノートPCで動画編集中のクリエイター -->
+            <svg class="author-avatar" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <linearGradient id="av1bg" x1="0" y1="0" x2="56" y2="56"><stop stop-color="#fde8d0"/><stop offset="1" stop-color="#f5cba7"/></linearGradient>
-                <radialGradient id="av1face" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#fce0bc"/><stop offset="100%" stop-color="#e8b88a"/></radialGradient>
-                <radialGradient id="av1cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#f4a27d" stop-opacity="0.5"/><stop offset="100%" stop-color="#f4a27d" stop-opacity="0"/></radialGradient>
-                <clipPath id="av1clip"><rect width="56" height="56" rx="28"/></clipPath>
+                <linearGradient id="s1bg" x1="0" y1="0" x2="64" y2="64"><stop stop-color="#1e1b4b"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+                <radialGradient id="s1glow" cx="50%" cy="60%" r="45%"><stop stop-color="#6366f1" stop-opacity="0.35"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
               </defs>
-              <rect width="56" height="56" rx="28" fill="#dbeafe"/>
-              <g clip-path="url(#av1clip)">
-                <!-- 背景 -->
-                <rect width="56" height="56" fill="#dbeafe"/>
-                <!-- 体・シャツ -->
-                <rect x="10" y="38" width="36" height="24" rx="10" fill="#2563eb"/>
-                <!-- カラー白 -->
-                <path d="M21 38 L28 44 L35 38" fill="white"/>
-                <!-- ネクタイ -->
-                <path d="M26.5 38 L28 41 L29.5 38Z" fill="#1d4ed8"/>
-                <path d="M27.2 41 L28 47 L28.8 41Z" fill="#1d4ed8"/>
-                <!-- 首 -->
-                <rect x="24" y="33" width="8" height="7" rx="3" fill="#e8b88a"/>
-                <!-- 頭 -->
-                <ellipse cx="28" cy="24" rx="12" ry="13" fill="url(#av1face)"/>
-                <!-- 頬 -->
-                <ellipse cx="19" cy="27" rx="4" ry="3" fill="url(#av1cheek)"/>
-                <ellipse cx="37" cy="27" rx="4" ry="3" fill="url(#av1cheek)"/>
-                <!-- 髪 -->
-                <path d="M16 20 Q16 10 28 10 Q40 10 40 20 Q39 14 28 14 Q17 14 16 20Z" fill="#2d1b0e"/>
-                <path d="M16 20 Q14 25 15 28 Q16 23 17 21Z" fill="#2d1b0e"/>
-                <path d="M40 20 Q42 25 41 28 Q40 23 39 21Z" fill="#2d1b0e"/>
-                <!-- 眉毛 -->
-                <path d="M21 19.5 Q24 18 27 19.5" stroke="#2d1b0e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-                <path d="M29 19.5 Q32 18 35 19.5" stroke="#2d1b0e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-                <!-- 目の白目 -->
-                <ellipse cx="24" cy="24" rx="3" ry="2.5" fill="white"/>
-                <ellipse cx="32" cy="24" rx="3" ry="2.5" fill="white"/>
-                <!-- 虹彩 -->
-                <circle cx="24" cy="24.3" r="1.8" fill="#5c3d1e"/>
-                <circle cx="32" cy="24.3" r="1.8" fill="#5c3d1e"/>
-                <!-- 瞳 -->
-                <circle cx="24.3" cy="24.3" r="1" fill="#1a0a00"/>
-                <circle cx="32.3" cy="24.3" r="1" fill="#1a0a00"/>
-                <!-- ハイライト -->
-                <circle cx="24.9" cy="23.6" r="0.5" fill="white"/>
-                <circle cx="32.9" cy="23.6" r="0.5" fill="white"/>
-                <!-- 鼻 -->
-                <path d="M27 27 Q28 28.5 29 27" stroke="#c8935a" stroke-width="0.8" fill="none" stroke-linecap="round"/>
-                <!-- 口 -->
-                <path d="M24.5 30.5 Q28 33 31.5 30.5" stroke="#c07040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-                <path d="M25.5 30.5 Q28 31.5 30.5 30.5" fill="#e07060" opacity="0.4"/>
-              </g>
+              <rect width="64" height="64" rx="14" fill="url(#s1bg)"/>
+              <ellipse cx="32" cy="46" rx="24" ry="14" fill="url(#s1glow)"/>
+              <!-- desk surface -->
+              <rect x="0" y="52" width="64" height="12" fill="#1a1740"/>
+              <!-- laptop base -->
+              <rect x="8" y="50" width="48" height="4" rx="2" fill="#312e81"/>
+              <!-- laptop screen -->
+              <rect x="10" y="18" width="44" height="34" rx="4" fill="#312e81"/>
+              <rect x="11" y="19" width="42" height="32" rx="3" fill="#1e1b4b"/>
+              <rect x="12" y="20" width="40" height="30" rx="2" fill="#0d0c24"/>
+              <!-- video player -->
+              <rect x="14" y="22" width="36" height="21" rx="2" fill="#151438"/>
+              <!-- play circle -->
+              <circle cx="32" cy="31" r="6" fill="rgba(99,102,241,0.35)"/>
+              <circle cx="32" cy="31" r="6" stroke="#818cf8" stroke-width="1"/>
+              <path d="M30 28 L36 31 L30 34Z" fill="#e0e7ff"/>
+              <!-- progress bar -->
+              <rect x="15" y="40" width="34" height="1.5" rx="0.75" fill="#2d2b6e"/>
+              <rect x="15" y="40" width="15" height="1.5" rx="0.75" fill="#818cf8"/>
+              <circle cx="30" cy="40.75" r="1.8" fill="#a5b4fc"/>
+              <!-- waveform bars bottom -->
+              <rect x="15" y="44" width="2" height="4" rx="0.5" fill="#4f46e5" opacity="0.7"/>
+              <rect x="19" y="43" width="2" height="5" rx="0.5" fill="#6366f1" opacity="0.7"/>
+              <rect x="23" y="44.5" width="2" height="3.5" rx="0.5" fill="#4f46e5" opacity="0.7"/>
+              <rect x="27" y="42.5" width="2" height="5.5" rx="0.5" fill="#f97316"/>
+              <rect x="31" y="43.5" width="2" height="4.5" rx="0.5" fill="#6366f1" opacity="0.7"/>
+              <rect x="35" y="44" width="2" height="4" rx="0.5" fill="#4f46e5" opacity="0.7"/>
+              <rect x="39" y="43" width="2" height="5" rx="0.5" fill="#6366f1" opacity="0.7"/>
+              <rect x="43" y="44.5" width="2" height="3.5" rx="0.5" fill="#f97316" opacity="0.8"/>
+              <!-- headphones icon (top-right corner) -->
+              <path d="M50 12 Q50 8 55 8 Q60 8 60 12" stroke="#6366f1" stroke-width="1.5" fill="none"/>
+              <rect x="48.5" y="11.5" width="3" height="4" rx="1.5" fill="#818cf8"/>
+              <rect x="58.5" y="11.5" width="3" height="4" rx="1.5" fill="#818cf8"/>
             </svg>
             <div class="author-info"><strong>YouTuber・教育系</strong><span>登録者 52,000人</span></div>
           </div>
@@ -1257,57 +1245,45 @@
           <div class="stars">★★★★★</div>
           <p class="testimonial-text">「AIがスコアで選んでくれるクリップが、自分で選ぶより再生数が高い。感覚じゃなくデータで選んでくれるのが頼もしい。」</p>
           <div class="testimonial-author">
-            <!-- Avatar 2: 旅系Vlogger 女性 -->
-            <svg class="author-avatar" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Scene 2: スマートフォンで撮影中のVlogger -->
+            <svg class="author-avatar" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <radialGradient id="av2face" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#fde3c8"/><stop offset="100%" stop-color="#f0c090"/></radialGradient>
-                <radialGradient id="av2cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#f9a0a0" stop-opacity="0.55"/><stop offset="100%" stop-color="#f9a0a0" stop-opacity="0"/></radialGradient>
-                <clipPath id="av2clip"><rect width="56" height="56" rx="28"/></clipPath>
+                <linearGradient id="s2bg" x1="0" y1="0" x2="64" y2="64"><stop stop-color="#0c4a6e"/><stop offset="1" stop-color="#1e1050"/></linearGradient>
+                <linearGradient id="s2sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f97316"/><stop offset="1" stop-color="#ec4899"/></linearGradient>
+                <radialGradient id="s2glow" cx="50%" cy="40%" r="50%"><stop stop-color="#f97316" stop-opacity="0.25"/><stop offset="1" stop-color="#f97316" stop-opacity="0"/></radialGradient>
               </defs>
-              <rect width="56" height="56" rx="28" fill="#fce7f3"/>
-              <g clip-path="url(#av2clip)">
-                <rect width="56" height="56" fill="#fce7f3"/>
-                <!-- 体 -->
-                <rect x="10" y="38" width="36" height="24" rx="10" fill="#db2777"/>
-                <!-- 首 -->
-                <rect x="24" y="33" width="8" height="7" rx="3" fill="#f0c090"/>
-                <!-- 頭 -->
-                <ellipse cx="28" cy="23" rx="12" ry="13" fill="url(#av2face)"/>
-                <!-- 頬 -->
-                <ellipse cx="19.5" cy="26" rx="4" ry="3" fill="url(#av2cheek)"/>
-                <ellipse cx="36.5" cy="26" rx="4" ry="3" fill="url(#av2cheek)"/>
-                <!-- 後ろ髪 -->
-                <path d="M16 19 Q15 30 16 38 Q18 34 18 28 Q17 24 17 19Z" fill="#7c3f1e"/>
-                <path d="M40 19 Q41 30 40 38 Q38 34 38 28 Q39 24 39 19Z" fill="#7c3f1e"/>
-                <!-- 前髪・頭髪 -->
-                <path d="M16 19 Q16 9 28 9 Q40 9 40 19 Q38 13 28 13 Q18 13 16 19Z" fill="#9b4f1e"/>
-                <path d="M16 18 Q17 14 22 13 Q19 16 19 19Z" fill="#7c3f1e"/>
-                <!-- 前髪たれ -->
-                <path d="M17 17 Q20 12 26 13 Q22 14 20 18Z" fill="#7c3f1e"/>
-                <!-- 眉毛 -->
-                <path d="M21.5 18.5 Q24.5 17.5 27 18.5" stroke="#6b3010" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-                <path d="M29 18.5 Q31.5 17.5 34.5 18.5" stroke="#6b3010" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-                <!-- 白目 -->
-                <ellipse cx="24" cy="23" rx="3" ry="2.5" fill="white"/>
-                <ellipse cx="32" cy="23" rx="3" ry="2.5" fill="white"/>
-                <!-- 虹彩 -->
-                <circle cx="24" cy="23.3" r="1.9" fill="#4a2800"/>
-                <circle cx="32" cy="23.3" r="1.9" fill="#4a2800"/>
-                <!-- 瞳 -->
-                <circle cx="24.2" cy="23.3" r="1.1" fill="#1a0800"/>
-                <circle cx="32.2" cy="23.3" r="1.1" fill="#1a0800"/>
-                <!-- まつ毛 -->
-                <path d="M21.2 20.8 L20.5 19.8M22.5 20.2 L22.2 19M24 20 L24 18.9M25.5 20.2 L26 19.1M26.7 20.8 L27.4 19.9" stroke="#1a0800" stroke-width="0.6" stroke-linecap="round"/>
-                <path d="M29.3 20.8 L28.6 19.9M30.5 20.2 L30 19.1M32 20 L32 18.9M33.5 20.2 L33.8 19.1M34.8 20.8 L35.5 19.8" stroke="#1a0800" stroke-width="0.6" stroke-linecap="round"/>
-                <!-- ハイライト -->
-                <circle cx="24.8" cy="22.6" r="0.5" fill="white"/>
-                <circle cx="32.8" cy="22.6" r="0.5" fill="white"/>
-                <!-- 鼻 -->
-                <path d="M27 26 Q28 27.5 29 26" stroke="#c08060" stroke-width="0.8" fill="none" stroke-linecap="round"/>
-                <!-- 口 -->
-                <path d="M24.5 29.5 Q28 32.5 31.5 29.5" stroke="#c05060" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-                <path d="M25.5 29.8 Q28 31.5 30.5 29.8" fill="#e87080" opacity="0.5"/>
-              </g>
+              <rect width="64" height="64" rx="14" fill="url(#s2bg)"/>
+              <ellipse cx="32" cy="28" rx="28" ry="22" fill="url(#s2glow)"/>
+              <!-- phone body -->
+              <rect x="20" y="8" width="24" height="42" rx="4" fill="#1f2937"/>
+              <rect x="21" y="9" width="22" height="40" rx="3" fill="#111827"/>
+              <!-- phone screen - outdoor scene -->
+              <rect x="22" y="10" width="20" height="36" rx="2.5" fill="#0c4a6e"/>
+              <!-- sky gradient in phone -->
+              <rect x="22" y="10" width="20" height="18" rx="2.5" fill="#1d4ed8" opacity="0.6"/>
+              <!-- horizon / landscape -->
+              <ellipse cx="32" cy="28" rx="10" ry="5" fill="#166534" opacity="0.7"/>
+              <!-- record button (red circle) -->
+              <circle cx="32" cy="38" r="4" fill="rgba(239,68,68,0.3)"/>
+              <circle cx="32" cy="38" r="4" stroke="#ef4444" stroke-width="1.2"/>
+              <circle cx="32" cy="38" r="2.5" fill="#ef4444"/>
+              <!-- REC indicator -->
+              <circle cx="24" cy="13" r="1.5" fill="#ef4444"/>
+              <circle cx="24" cy="13" r="1.5" fill="#ef4444" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <!-- grid overlay lines on screen -->
+              <line x1="29" y1="10" x2="29" y2="46" stroke="white" stroke-width="0.3" opacity="0.2"/>
+              <line x1="35" y1="10" x2="35" y2="46" stroke="white" stroke-width="0.3" opacity="0.2"/>
+              <line x1="22" y1="22" x2="42" y2="22" stroke="white" stroke-width="0.3" opacity="0.2"/>
+              <line x1="22" y1="34" x2="42" y2="34" stroke="white" stroke-width="0.3" opacity="0.2"/>
+              <!-- phone buttons -->
+              <rect x="19" y="18" width="1.5" height="6" rx="0.75" fill="#374151"/>
+              <rect x="19" y="26" width="1.5" height="6" rx="0.75" fill="#374151"/>
+              <rect x="43.5" y="22" width="1.5" height="8" rx="0.75" fill="#374151"/>
+              <!-- location pin above phone -->
+              <path d="M32 4 Q35 4 35 7 Q35 10 32 12 Q29 10 29 7 Q29 4 32 4Z" fill="#f97316"/>
+              <circle cx="32" cy="7.5" r="1.5" fill="white"/>
             </svg>
             <div class="author-info"><strong>Vlogger・旅系</strong><span>月10本 → 月50本に</span></div>
           </div>
@@ -1316,64 +1292,44 @@
           <div class="stars">★★★★★</div>
           <p class="testimonial-text">「スケジュール投稿が最高。寝てる間に毎朝10時に自動投稿されるので、チャンネルが常に動いてる感じになった。」</p>
           <div class="testimonial-author">
-            <!-- Avatar 3: ビジネス系 男性・メガネ -->
-            <svg class="author-avatar" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Scene 3: ビジネスダッシュボードを確認中 -->
+            <svg class="author-avatar" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <radialGradient id="av3face" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#fad5a5"/><stop offset="100%" stop-color="#e0a060"/></radialGradient>
-                <radialGradient id="av3cheek" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#e08060" stop-opacity="0.35"/><stop offset="100%" stop-color="#e08060" stop-opacity="0"/></radialGradient>
-                <clipPath id="av3clip"><rect width="56" height="56" rx="28"/></clipPath>
+                <linearGradient id="s3bg" x1="0" y1="0" x2="64" y2="64"><stop stop-color="#052e16"/><stop offset="1" stop-color="#0a1628"/></linearGradient>
+                <radialGradient id="s3glow" cx="50%" cy="50%" r="50%"><stop stop-color="#34d399" stop-opacity="0.2"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></radialGradient>
               </defs>
-              <rect width="56" height="56" rx="28" fill="#d1fae5"/>
-              <g clip-path="url(#av3clip)">
-                <rect width="56" height="56" fill="#d1fae5"/>
-                <!-- スーツ -->
-                <rect x="9" y="38" width="38" height="24" rx="10" fill="#1e293b"/>
-                <!-- ワイシャツ -->
-                <path d="M22 38 L28 44 L34 38 L31 38 L28 42 L25 38Z" fill="white"/>
-                <!-- ネクタイ -->
-                <path d="M26.5 38 L28 41.5 L29.5 38Z" fill="#0ea5e9"/>
-                <path d="M27.2 41.5 L28 48 L28.8 41.5Z" fill="#0ea5e9"/>
-                <!-- 首 -->
-                <rect x="24" y="33" width="8" height="7" rx="3" fill="#e0a060"/>
-                <!-- 頭 -->
-                <ellipse cx="28" cy="23" rx="12" ry="13" fill="url(#av3face)"/>
-                <!-- 頬 -->
-                <ellipse cx="19" cy="26" rx="4" ry="3" fill="url(#av3cheek)"/>
-                <ellipse cx="37" cy="26" rx="4" ry="3" fill="url(#av3cheek)"/>
-                <!-- 髪（短め・ビジネス） -->
-                <path d="M16 19 Q16 9 28 9 Q40 9 40 19 Q39 12 28 12 Q17 12 16 19Z" fill="#1a0a00"/>
-                <path d="M16 18 Q15 22 16 25 Q17 21 17 18Z" fill="#1a0a00"/>
-                <path d="M40 18 Q41 22 40 25 Q39 21 39 18Z" fill="#1a0a00"/>
-                <!-- もみあげ -->
-                <path d="M16 22 Q15 27 16 30 Q17 26 17 23Z" fill="#1a0a00"/>
-                <path d="M40 22 Q41 27 40 30 Q39 26 39 23Z" fill="#1a0a00"/>
-                <!-- 眉毛 -->
-                <path d="M20.5 18 Q23.5 17 26.5 18" stroke="#1a0a00" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-                <path d="M29.5 18 Q32.5 17 35.5 18" stroke="#1a0a00" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-                <!-- 白目 -->
-                <ellipse cx="23.5" cy="23" rx="3.2" ry="2.6" fill="white"/>
-                <ellipse cx="32.5" cy="23" rx="3.2" ry="2.6" fill="white"/>
-                <!-- 虹彩 -->
-                <circle cx="23.5" cy="23.3" r="2" fill="#3d2000"/>
-                <circle cx="32.5" cy="23.3" r="2" fill="#3d2000"/>
-                <!-- 瞳 -->
-                <circle cx="23.7" cy="23.3" r="1.1" fill="#0d0600"/>
-                <circle cx="32.7" cy="23.3" r="1.1" fill="#0d0600"/>
-                <!-- ハイライト -->
-                <circle cx="24.4" cy="22.6" r="0.5" fill="white"/>
-                <circle cx="33.4" cy="22.6" r="0.5" fill="white"/>
-                <!-- メガネフレーム -->
-                <rect x="19.5" y="20.5" width="7" height="5.5" rx="2.5" fill="none" stroke="#374151" stroke-width="1.3"/>
-                <rect x="29.5" y="20.5" width="7" height="5.5" rx="2.5" fill="none" stroke="#374151" stroke-width="1.3"/>
-                <line x1="26.5" y1="23.2" x2="29.5" y2="23.2" stroke="#374151" stroke-width="1.1"/>
-                <line x1="16.5" y1="22" x2="19.5" y2="22.5" stroke="#374151" stroke-width="1.1"/>
-                <line x1="36.5" y1="22" x2="39.5" y2="22.5" stroke="#374151" stroke-width="1.1"/>
-                <!-- 鼻 -->
-                <path d="M26.5 26.5 Q28 28 29.5 26.5" stroke="#b07030" stroke-width="0.8" fill="none" stroke-linecap="round"/>
-                <!-- 口 -->
-                <path d="M24.5 30 Q28 32.5 31.5 30" stroke="#b06030" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-                <path d="M25.5 30.2 Q28 31.5 30.5 30.2" fill="#d07050" opacity="0.4"/>
-              </g>
+              <rect width="64" height="64" rx="14" fill="url(#s3bg)"/>
+              <ellipse cx="32" cy="36" rx="26" ry="18" fill="url(#s3glow)"/>
+              <!-- monitor stand -->
+              <rect x="28" y="50" width="8" height="4" rx="1" fill="#1f2937"/>
+              <rect x="22" y="53" width="20" height="2" rx="1" fill="#374151"/>
+              <!-- monitor body -->
+              <rect x="8" y="12" width="48" height="40" rx="4" fill="#1f2937"/>
+              <rect x="9" y="13" width="46" height="38" rx="3" fill="#111827"/>
+              <!-- screen -->
+              <rect x="10" y="14" width="44" height="36" rx="2" fill="#071a0f"/>
+              <!-- header bar -->
+              <rect x="10" y="14" width="44" height="7" rx="2" fill="#0d2818"/>
+              <text x="14" y="20" font-size="4" fill="#34d399" font-family="monospace">ANALYTICS</text>
+              <circle cx="49" cy="17.5" r="1.5" fill="#34d399" opacity="0.8"/>
+              <!-- bar chart area -->
+              <!-- x-axis -->
+              <line x1="14" y1="44" x2="52" y2="44" stroke="#1f4030" stroke-width="0.8"/>
+              <!-- bars -->
+              <rect x="16" y="36" width="4" height="8" rx="1" fill="#059669" opacity="0.7"/>
+              <rect x="22" y="32" width="4" height="12" rx="1" fill="#059669" opacity="0.8"/>
+              <rect x="28" y="28" width="4" height="16" rx="1" fill="#10b981"/>
+              <rect x="34" y="30" width="4" height="14" rx="1" fill="#34d399"/>
+              <rect x="40" y="26" width="4" height="18" rx="1" fill="#34d399"/>
+              <rect x="46" y="24" width="4" height="20" rx="1" fill="#6ee7b7"/>
+              <!-- trend line -->
+              <polyline points="18,35 24,31 30,27 36,29 42,25 50,22" stroke="#f97316" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <!-- trend dots -->
+              <circle cx="18" cy="35" r="1.5" fill="#f97316"/>
+              <circle cx="50" cy="22" r="1.5" fill="#f97316"/>
+              <!-- KPI chips top right of screen -->
+              <rect x="36" y="22" width="16" height="5" rx="1.5" fill="rgba(52,211,153,0.15)"/>
+              <text x="38" y="26" font-size="3.5" fill="#34d399" font-family="monospace">+247%</text>
             </svg>
             <div class="author-info"><strong>ビジネス系クリエイター</strong><span>副業で月5本→放置で毎日投稿</span></div>
           </div>
