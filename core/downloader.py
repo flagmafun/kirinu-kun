@@ -164,8 +164,8 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 "YouTube SABR エラー（非認証セッション）\n\n"
                 "YouTube が SABR-only streaming を適用しています。\n"
                 "有効な cookies を設定すると回避できます。\n\n"
-                _COOKIES_UPDATE_MSG +
-                f"\n詳細: {err[-300:]}"
+                + _COOKIES_UPDATE_MSG
+                + f"\n詳細: {err[-300:]}"
             )
         if "HTTP Error 403" in err or "403: Forbidden" in err:
             if has_cookies:
