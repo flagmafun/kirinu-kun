@@ -60,24 +60,32 @@ def _ensure_netscape_cookies() -> None:
         pass
 
 
-def _get_ytdlp_base() -> list[str]:
-    """yt-dlp共通オプションを返す。"""
+_COOKIES_EXPIRED_HINTS = (
+    "no longer valid",
+    "cookies are no longer valid",
+    "have likely been rotated",
+)
+
+def _cookies_expired_in_stderr(stderr: str) -> bool:
+    s = stderr.lower()
+    return any(h in s for h in _COOKIES_EXPIRED_HINTS)
+
+
+def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
+    """yt-dlp共通オプションを返す。use_cookies=False で android_vr 強制。"""
     _ensure_netscape_cookies()
-    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    has_cookies = use_cookies and _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
         # Cookieあり: webクライアント + Node.jsでn-challenge解決
-        # requirements.txtの nodejs-wheel がNode.js 22.6+ をpip経由で提供
-        # yt-dlp-ejs がEJSスクリプト配布を担当
-        # yt-dlp 2026.03以降はDenoがデフォルトなので --js-runtimes node を明示
         opts += [
             "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
             "--js-runtimes", "node",
         ]
     else:
-        # Cookieなし: android_vrクライアント（ratebypass=yes, n-challenge不要）
+        # Cookieなし / 期限切れフォールバック: android_vrクライアント
         opts += ["--extractor-args", "youtube:player_client=android_vr"]
 
     return opts
@@ -101,22 +109,38 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     base = _get_ytdlp_base()
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
-    # video_id取得
+    # video_id取得（cookies 期限切れ時は android_vr にフォールバック）
     id_result = subprocess.run(
         ["yt-dlp", "--print", "id"] + base + [url],
         capture_output=True, text=True
     )
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
-        raise RuntimeError(
-            f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
-        )
+        if has_cookies and _cookies_expired_in_stderr(_stderr):
+            # cookies 期限切れ → android_vr でリトライ
+            base = _get_ytdlp_base(use_cookies=False)
+            has_cookies = False
+            id_result = subprocess.run(
+                ["yt-dlp", "--print", "id"] + base + [url],
+                capture_output=True, text=True
+            )
+            if id_result.returncode != 0:
+                _stderr2 = (id_result.stderr or id_result.stdout or "").strip()
+                raise RuntimeError(
+                    "cookies が期限切れで、android_vr フォールバックも失敗しました。\n"
+                    "YouTubeの cookies を再エクスポートして Streamlit Secrets を更新してください。\n\n"
+                    f"詳細: {_stderr2[-400:]}"
+                )
+        else:
+            raise RuntimeError(
+                f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+            )
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
     # フォーマット選択:
     #   Cookieあり（web + node）: 720p DASH + audio も取れる（認証済みCDN）
-    #   Cookieなし（android_vr）: format 18のみ安全（ratebypass=yes, n不要）
+    #   Cookieなし / フォールバック（android_vr）: format 18のみ安全
     if has_cookies:
         fmt = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/18/best"
     else:
