@@ -4332,14 +4332,14 @@ def _run_pipeline(clips: list, sched: dict):
                 _has_cookies = _ck.exists() and _ck.stat().st_size > 0
                 if _has_cookies:
                     hint = (
-                        "\n\n⚠️ cookies は設定済みですが、まだ 403 が発生しています。\n"
-                        "cookiesの期限切れか Node.js の問題の可能性があります。\n"
-                        "`Get cookies.txt LOCALLY` 拡張で再エクスポートし、Secrets を更新してください。"
+                        "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。\n"
+                        "cookies が期限切れの可能性があります。\n"
+                        "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。"
                     )
                 else:
                     hint = (
-                        "\n\n💡 Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
-                        "Streamlit Secrets の [youtube] セクションに cookies を設定してください。"
+                        "\n\n💡 cookies が設定されていません。\n"
+                        "管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
                     )
             s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
             status.update(label="ダウンロード失敗", state="error")
@@ -4495,9 +4495,9 @@ def _generate_pipeline(clips: list, sched: dict):
             if "403" in err_msg or "IP制限" in err_msg:
                 _ck = CREDS_DIR / "cookies.txt"
                 if _ck.exists() and _ck.stat().st_size > 0:
-                    hint = "\n\n⚠️ cookiesは設定済みですが403エラーが発生しています。cookiesの期限切れ・Node.jsの問題が考えられます。"
+                    hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。cookies が期限切れの可能性があります。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
                 else:
-                    hint = "\n\n💡 StreamlitクラウドのIPがYouTube CDNにブロックされています。cookiesを設定してください。"
+                    hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
             s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
             status.update(label="ダウンロード失敗", state="error")
             # ← return しない：with ブロックを自然に終了させる

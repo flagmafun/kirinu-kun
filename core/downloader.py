@@ -78,11 +78,10 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # Cookieあり: webクライアント + Node.jsでn-challenge解決
+        # Cookieあり: androidクライアント（Node.js不要でCDN 403を回避）
         opts += [
-            "--extractor-args", "youtube:player_client=web",
+            "--extractor-args", "youtube:player_client=android",
             "--cookies", str(_COOKIES_PATH),
-            "--js-runtimes", "node",
         ]
     else:
         # Cookieなし / 期限切れフォールバック: android_vrクライアント
@@ -141,7 +140,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
     # フォーマット選択:
-    #   Cookieあり（web + node）: 720p DASH + audio も取れる（認証済みCDN）
+    #   Cookieあり（android）: 720p DASH + audio も取れる（認証済みCDN）
     #   Cookieなし / フォールバック（android_vr）: format 18のみ安全
     if has_cookies:
         fmt = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/18/best"
@@ -166,9 +165,9 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                     f"詳細: {err[-300:]}"
                 )
             raise RuntimeError(
-                "YouTube CDN 403エラー（IP制限）\n\n"
-                "Streamlit CloudのIPがYouTube CDNにブロックされています。\n"
-                "Streamlit Secrets の [youtube] セクションにcookiesを設定してください。\n\n"
+                "YouTube CDN 403エラー\n\n"
+                "cookies が期限切れか無効の可能性があります。\n"
+                "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。\n\n"
                 f"詳細: {err[-300:]}"
             )
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
