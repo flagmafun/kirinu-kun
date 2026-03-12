@@ -4,8 +4,10 @@
 
   [Cookie あり]  web + cookies
     - web クライアント: cookies 対応（REQUIRE_JS_PLAYER=True）
-    - n-challenge は yt-dlp 組み込み jsinterp が解決（Node.js 不要）
-      nodejs-wheel が requirements.txt にあるため Node.js も利用可能
+    - n-challenge は yt-dlp 2026 EJS システムが Node.js を使って解決
+    - nodejs-wheel がバイナリを持つが PATH に出ないため、
+      _setup_js_runtime() で site-packages/nodejs_wheel/bin/node を探して
+      os.environ["PATH"] に追加する → yt-dlp subprocess が継承して発見
     - cookies による認証済みセッション → SABR 実験を回避
       （SABR は非認証セッションに強制適用される: yt-dlp/yt-dlp#12482）
     ★ ios / android + cookies は NG:
@@ -18,10 +20,78 @@
     - n-challenge 不要・cookies 不要
     - 非認証のため SABR が適用される場合があり 403 になることも
 """
+import os
+import shutil
 import subprocess
 import json
 import re
 from pathlib import Path
+
+
+# ── JS ランタイム（yt-dlp EJS n-challenge 解決用）────────────────────────────
+
+def _find_node_binary() -> str:
+    """node バイナリの絶対パスを返す。見つからなければ空文字。
+
+    nodejs-wheel は site-packages/nodejs_wheel/bin/node にバイナリを置くが
+    console_scripts エントリポイントを作らないため venv/bin に node が現れない。
+    Python API 経由でパッケージディレクトリを特定して探す。
+    """
+    # 1. すでに PATH にある場合はそのまま使う
+    node = shutil.which("node")
+    if node:
+        return node
+
+    # 2. nodejs_wheel パッケージディレクトリから探す
+    try:
+        import nodejs_wheel as _nw
+        pkg_dir = Path(_nw.__file__).parent
+        for rel in ("bin/node", "node", ".bin/node"):
+            p = pkg_dir / rel
+            if p.is_file() and os.access(p, os.X_OK):
+                return str(p)
+    except ImportError:
+        pass
+
+    # 3. site-packages 以下を直接検索（フォールバック）
+    try:
+        import site
+        dirs = []
+        try:
+            dirs += site.getsitepackages()
+        except AttributeError:
+            pass
+        try:
+            dirs.append(site.getusersitepackages())
+        except AttributeError:
+            pass
+        for sp in dirs:
+            for rel in ("nodejs_wheel/bin/node", "nodejs/bin/node"):
+                p = Path(sp) / rel
+                if p.is_file() and os.access(p, os.X_OK):
+                    return str(p)
+    except Exception:
+        pass
+
+    return ""
+
+
+def _setup_js_runtime() -> None:
+    """nodejs-wheel の node を PATH に追加して yt-dlp EJS が使えるようにする。
+
+    モジュール import 時に一度だけ呼び出す。
+    設定後は subprocess で起動した yt-dlp が PATH を継承して node を発見できる。
+    """
+    node = _find_node_binary()
+    if not node:
+        return
+    node_dir = str(Path(node).parent)
+    current = os.environ.get("PATH", "")
+    if node_dir not in current.split(os.pathsep):
+        os.environ["PATH"] = node_dir + os.pathsep + current
+
+
+_setup_js_runtime()  # モジュール import 時に一度だけ実行
 
 
 def _clean_url(url: str) -> str:
