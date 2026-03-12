@@ -1,16 +1,18 @@
 """YouTube動画ダウンローダー (yt-dlp)
 
-クライアント選択戦略:
-  Cookieあり → web クライアント + --js-runtimes node
-    - Node.jsがn-challengeを解決（requirements.txt の nodejs-wheel を使用）
-    - yt-dlp 2026.03以降はDenoがデフォルト → 明示的に node を指定
-    - 認証済みCDN URLでデータセンターIPブロックを回避
-    - yt-dlp-ejs (pip) がEJSスクリプト配布を担当
-    - nodejs-wheel (pip) がNode.js 22.6+ バイナリを提供（packages.txt 不要）
-  Cookieなし → android_vr クライアント
-    - ratebypass=yes → n-challenge不要・Deno不要
-    - PO Token不要
-    - ただしStreamlit CloudのデータセンターIPはCDNにブロックされる場合あり
+クライアント選択戦略（Streamlit Cloud 向け）:
+  Streamlit Cloud には Node.js がないため、web/mweb クライアントの
+  n-challenge（CDN URL 署名）が解決できず動画フォーマットが取得できない。
+
+  唯一動作するのは android_vr クライアント:
+    - n-challenge 不要（ratebypass=yes）
+    - cookies 不要（Android アプリ型 API）
+    - PO Token 不要
+    - ただし一部の動画でCDN 403（IP制限）が発生する場合あり
+
+  cookies の使途:
+    - ダウンロードには使えない（android_vr は cookies 非対応）
+    - 有効性チェック用として保管しておく（将来対応クライアントが増えた場合）
 """
 import subprocess
 import json
@@ -60,36 +62,15 @@ def _ensure_netscape_cookies() -> None:
         pass
 
 
-_COOKIES_EXPIRED_HINTS = (
-    "no longer valid",
-    "cookies are no longer valid",
-    "have likely been rotated",
-    # YouTube が IP 検知 or セッション失効でリロード要求する場合
-    "the page needs to be reloaded",
-    "page needs to be reloaded",
-)
-
-def _cookies_expired_in_stderr(stderr: str) -> bool:
-    s = stderr.lower()
-    return any(h in s for h in _COOKIES_EXPIRED_HINTS)
-
-
 def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
-    """yt-dlp共通オプションを返す。use_cookies=False で android_vr 強制。"""
+    """yt-dlp共通オプションを返す。
+    Streamlit Cloud では常に android_vr（n-challenge不要）を使用。
+    use_cookies 引数は互換性のため残しているが動作に影響しない。
+    """
     _ensure_netscape_cookies()
-    has_cookies = use_cookies and _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
     opts = ["--no-playlist", "--no-check-certificates"]
-
-    if has_cookies:
-        # Cookieあり: webクライアント（PO token対応・詳細なエラーメッセージ、Node.js不要）
-        opts += [
-            "--extractor-args", "youtube:player_client=web",
-            "--cookies", str(_COOKIES_PATH),
-        ]
-    else:
-        # Cookieなし / 期限切れフォールバック: android_vrクライアント
-        opts += ["--extractor-args", "youtube:player_client=android_vr"]
-
+    # android_vr: n-challenge不要・cookies不要・PO Token不要
+    opts += ["--extractor-args", "youtube:player_client=android_vr"]
     return opts
 
 
@@ -104,52 +85,27 @@ def get_video_info(url: str) -> dict:
 
 
 def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
-    """YouTube動画をmp4でダウンロードして返す"""
+    """YouTube動画をmp4でダウンロードして返す（android_vrクライアント使用）"""
     url = _clean_url(url)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base = _get_ytdlp_base()
-    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
-    _cookies_expired_fallback = False  # 期限切れで android_vr にフォールバックしたか
 
-    # video_id取得（cookies 期限切れ時は android_vr にフォールバック）
+    # video_id 取得
     id_result = subprocess.run(
         ["yt-dlp", "--print", "id"] + base + [url],
         capture_output=True, text=True
     )
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
-        if has_cookies and _cookies_expired_in_stderr(_stderr):
-            # cookies 期限切れ → android_vr でリトライ
-            base = _get_ytdlp_base(use_cookies=False)
-            has_cookies = False
-            _cookies_expired_fallback = True
-            id_result = subprocess.run(
-                ["yt-dlp", "--print", "id"] + base + [url],
-                capture_output=True, text=True
-            )
-            if id_result.returncode != 0:
-                _stderr2 = (id_result.stderr or id_result.stdout or "").strip()
-                raise RuntimeError(
-                    "cookies が期限切れ（またはセッション失効）のため、フォールバックも失敗しました。\n\n"
-                    "📋 **解決方法: cookies を再エクスポートしてください**\n"
-                    "管理パネルの「🍪 YouTube Cookies 管理」から更新できます。\n\n"
-                    f"詳細: {_stderr2[-400:]}"
-                )
-        else:
-            raise RuntimeError(
-                f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
-            )
+        raise RuntimeError(
+            f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+        )
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
-    # フォーマット選択:
-    #   Cookieあり（mweb）: 720p DASH + audio も取れる（認証済みCDN）
-    #   Cookieなし / フォールバック（android_vr）: format 18のみ安全
-    if has_cookies:
-        fmt = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/18/best"
-    else:
-        fmt = "18/best"
+    # android_vr: 22(720p progressive) → 18(360p) → best の順で試す
+    fmt = "22/18/best"
 
     cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
            "-o", output_template] + base + [url]
@@ -158,20 +114,10 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
         if "HTTP Error 403" in err or "403: Forbidden" in err:
-            if _cookies_expired_fallback:
-                raise RuntimeError(
-                    "cookies が期限切れのため、android_vr フォールバックでもダウンロードできませんでした。\n\n"
-                    "📋 **解決方法: cookies を再エクスポートしてください**\n"
-                    "1. Chromeに「Get cookies.txt LOCALLY」拡張をインストール\n"
-                    "2. YouTubeにログインした状態で拡張をクリック → Export → youtube.com のみ保存\n"
-                    "3. Streamlit Cloud → Settings → Secrets の [youtube] セクションの cookies を更新\n"
-                    "4. Save → アプリが自動再起動\n\n"
-                    f"詳細: {err[-300:]}"
-                )
             raise RuntimeError(
-                "YouTube CDN 403エラー\n\n"
-                "cookies が期限切れか無効の可能性があります。\n"
-                "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。\n\n"
+                "YouTube CDN 403エラー（IP制限）\n\n"
+                "Streamlit Cloud のIPがYouTube CDNにブロックされています。\n"
+                "この動画はStreamlit Cloudからダウンロードできない可能性があります。\n\n"
                 f"詳細: {err[-300:]}"
             )
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
@@ -199,27 +145,31 @@ def check_cookies_validity(
     test_url: str = "https://www.youtube.com/watch?v=jNQXAC9IVRw",
 ) -> tuple[bool, str]:
     """
-    cookies が有効かを軽量チェック（yt-dlp --print id のみ）。
-    Returns: (is_valid: bool, message: str)
+    YouTube へのアクセス可否と cookies ファイルの設定状況を確認。
+    android_vr クライアントで軽量テスト（n-challenge不要・30秒タイムアウト）。
+    Returns: (is_ok: bool, message: str)
     """
     _ensure_netscape_cookies()
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
-    if not has_cookies:
-        return False, "cookies が設定されていません"
 
-    base = _get_ytdlp_base(use_cookies=True)
+    # android_vr で YouTube アクセステスト
     try:
         result = subprocess.run(
-            ["yt-dlp", "--print", "id"] + base + [test_url],
+            ["yt-dlp", "--print", "id", "--no-playlist", "--no-check-certificates",
+             "--extractor-args", "youtube:player_client=android_vr", test_url],
             capture_output=True, text=True, timeout=30,
         )
     except subprocess.TimeoutExpired:
         return False, "タイムアウト（30秒）"
 
     if result.returncode == 0 and result.stdout.strip():
-        return True, "✅ cookies は有効です"
+        if has_cookies:
+            return True, "✅ YouTube アクセス可能、cookies ファイルも設定されています"
+        return True, "⚠️ YouTube アクセス可能ですが cookies が設定されていません"
 
     stderr = (result.stderr or result.stdout or "").strip()
-    if _cookies_expired_in_stderr(stderr):
-        return False, "❌ cookies が期限切れです（YouTube がローテーション済み）"
-    return False, f"❌ 確認失敗: {stderr[-200:]}"
+    if "403" in stderr or "Forbidden" in stderr:
+        if has_cookies:
+            return False, "❌ YouTube CDN にブロックされています（IP制限）。cookies は設定されています。"
+        return False, "❌ YouTube CDN にブロックされています（IP制限）"
+    return False, f"❌ アクセス失敗: {stderr[-200:]}"
