@@ -2,14 +2,17 @@
 
 クライアント選択戦略:
 
-  [Cookie あり]  ios + cookies
-    - iOS API クライアント: JavaScript 不要 → Node.js 不要
-    - n-challenge が存在しないため CDN URL を直接取得できる
+  [Cookie あり]  web + cookies
+    - web クライアント: cookies 対応（REQUIRE_JS_PLAYER=True）
+    - n-challenge は yt-dlp 組み込み jsinterp が解決（Node.js 不要）
+      nodejs-wheel が requirements.txt にあるため Node.js も利用可能
     - cookies による認証済みセッション → SABR 実験を回避
       （SABR は非認証セッションに強制適用される: yt-dlp/yt-dlp#12482）
+    ★ ios / android + cookies は NG:
+      これらのクライアントは cookies 非対応のため yt-dlp がスキップし
+      フォールバック先が画像のみになる（"Only images available"）
     ★ web + player_skip=js は NG:
-      player_skip=js はフォーマット抽出まで無効化するため
-      "Only images are available" になる
+      player_skip=js はフォーマット抽出まで無効化するため同様に失敗
 
   [Cookie なし]  android_vr（最終手段）
     - n-challenge 不要・cookies 不要
@@ -89,7 +92,8 @@ def _cookies_expired_in_stderr(stderr: str) -> bool:
 def _get_ytdlp_base(use_cookies: bool = True) -> list:
     """yt-dlp共通オプションを返す。
 
-    Cookieあり:   ios クライアント（JavaScript不要、認証済みセッション）
+    Cookieあり:   web クライアント + cookies
+                  n-challenge は jsinterp（組み込み）または nodejs-wheel で解決
     Cookieなし:   android_vr（n-challenge 不要、ただし SABR の影響あり）
     """
     _ensure_netscape_cookies()
@@ -97,12 +101,13 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list:
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # ios クライアント:
-        #   - JavaScript 不要（n-challenge なし）→ Node.js 不要
-        #   - cookies による認証で SABR を回避
-        #   - 完全なフォーマット一覧を返す
+        # web クライアント + cookies:
+        #   - cookies 対応（ios/android は cookies 非対応で yt-dlp がスキップしてしまう）
+        #   - n-challenge: yt-dlp 組み込み jsinterp または nodejs-wheel が解決
+        #   - 認証済みセッションにより SABR を回避
+        #   ※ player_skip=js は NG（フォーマット抽出まで壊れる）
         opts += [
-            "--extractor-args", "youtube:player_client=ios",
+            "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
         ]
     else:
@@ -207,7 +212,7 @@ def check_cookies_validity(
     test_url: str = "https://www.youtube.com/watch?v=jNQXAC9IVRw",
 ) -> tuple:
     """
-    cookies の有効性を確認（ios クライアントで --print id テスト）。
+    cookies の有効性を確認（web クライアントで --print id テスト）。
     Returns: (is_valid: bool, message: str)
     """
     _ensure_netscape_cookies()
