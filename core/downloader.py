@@ -78,9 +78,9 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # Cookieあり: androidクライアント（Node.js不要でCDN 403を回避）
+        # Cookieあり: mwebクライアント（Node.js不要、cookies対応、web系で最もブロックされにくい）
         opts += [
-            "--extractor-args", "youtube:player_client=android",
+            "--extractor-args", "youtube:player_client=mweb",
             "--cookies", str(_COOKIES_PATH),
         ]
     else:
@@ -140,7 +140,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
     # フォーマット選択:
-    #   Cookieあり（android）: 720p DASH + audio も取れる（認証済みCDN）
+    #   Cookieあり（mweb）: 720p DASH + audio も取れる（認証済みCDN）
     #   Cookieなし / フォールバック（android_vr）: format 18のみ安全
     if has_cookies:
         fmt = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/18/best"
