@@ -2,14 +2,14 @@
 
 クライアント選択戦略:
 
-  [Cookie あり]  web + player_skip=js + cookies
-    - player_skip=js: n-challenge（JavaScript）を完全スキップ → Node.js 不要
-    - 認証済みセッション → YouTube が SABR 実験を適用しない
+  [Cookie あり]  ios + cookies
+    - iOS API クライアント: JavaScript 不要 → Node.js 不要
+    - n-challenge が存在しないため CDN URL を直接取得できる
+    - cookies による認証済みセッション → SABR 実験を回避
       （SABR は非認証セッションに強制適用される: yt-dlp/yt-dlp#12482）
-    - cookies で CDN URL に認証が乗るため 403 を回避できる
-    ★ cookies が期限切れの場合 → android_vr へのフォールバックはしない
-      （android_vr は非認証 → SABR → 403 で必ず失敗するため）
-      cookies 更新を促すエラーを返す
+    ★ web + player_skip=js は NG:
+      player_skip=js はフォーマット抽出まで無効化するため
+      "Only images are available" になる
 
   [Cookie なし]  android_vr（最終手段）
     - n-challenge 不要・cookies 不要
@@ -86,10 +86,10 @@ def _cookies_expired_in_stderr(stderr: str) -> bool:
     return any(h in s for h in _COOKIES_EXPIRED_HINTS)
 
 
-def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
+def _get_ytdlp_base(use_cookies: bool = True) -> list:
     """yt-dlp共通オプションを返す。
 
-    Cookieあり:   web + player_skip=js（n-challenge スキップ、認証済みセッション）
+    Cookieあり:   ios クライアント（JavaScript不要、認証済みセッション）
     Cookieなし:   android_vr（n-challenge 不要、ただし SABR の影響あり）
     """
     _ensure_netscape_cookies()
@@ -97,11 +97,12 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
     opts = ["--no-playlist", "--no-check-certificates"]
 
     if has_cookies:
-        # web + player_skip=js:
-        #   - n-challenge（JS 署名）を完全スキップ → Node.js 不要
-        #   - 認証済みセッションにより SABR 実験を回避
+        # ios クライアント:
+        #   - JavaScript 不要（n-challenge なし）→ Node.js 不要
+        #   - cookies による認証で SABR を回避
+        #   - 完全なフォーマット一覧を返す
         opts += [
-            "--extractor-args", "youtube:player_client=web;player_skip=js",
+            "--extractor-args", "youtube:player_client=ios",
             "--cookies", str(_COOKIES_PATH),
         ]
     else:
@@ -148,9 +149,9 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
-    # n-challenge なしで安全に取得できるプログレッシブ形式を優先
+    # ios クライアントで取得可能なフォーマット（プログレッシブ MP4 優先）
     # 22: 720p mp4 (video+audio), 18: 360p mp4 (video+audio)
-    fmt = "22/18/best"
+    fmt = "22/18/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
 
     cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
            "-o", output_template] + base + [url]
@@ -172,8 +173,8 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 raise RuntimeError(
                     "YouTube CDN 403エラー\n\n"
                     "cookies が期限切れか無効の可能性があります。\n"
-                    + _COOKIES_UPDATE_MSG +
-                    f"\n詳細: {err[-300:]}"
+                    + _COOKIES_UPDATE_MSG
+                    + f"\n詳細: {err[-300:]}"
                 )
             raise RuntimeError(
                 "YouTube CDN 403エラー（IP制限）\n\n"
@@ -204,9 +205,9 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
 
 def check_cookies_validity(
     test_url: str = "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-) -> tuple[bool, str]:
+) -> tuple:
     """
-    cookies の有効性を確認（web + player_skip=js で --print id テスト）。
+    cookies の有効性を確認（ios クライアントで --print id テスト）。
     Returns: (is_valid: bool, message: str)
     """
     _ensure_netscape_cookies()
