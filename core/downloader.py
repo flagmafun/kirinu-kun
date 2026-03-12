@@ -4,13 +4,16 @@
 
   [Cookie あり]  web + player_skip=js + cookies
     - player_skip=js: n-challenge（JavaScript）を完全スキップ → Node.js 不要
-    - 認証済みセッション → YouTube が SABR 実験を適用しにくい
-    - cookies で CDN URL に認証が乗るため 403 を回避できる可能性が高い
-    - SABR issue: https://github.com/yt-dlp/yt-dlp/issues/12482
+    - 認証済みセッション → YouTube が SABR 実験を適用しない
+      （SABR は非認証セッションに強制適用される: yt-dlp/yt-dlp#12482）
+    - cookies で CDN URL に認証が乗るため 403 を回避できる
+    ★ cookies が期限切れの場合 → android_vr へのフォールバックはしない
+      （android_vr は非認証 → SABR → 403 で必ず失敗するため）
+      cookies 更新を促すエラーを返す
 
-  [Cookie なし / 期限切れフォールバック]  android_vr
+  [Cookie なし]  android_vr（最終手段）
     - n-challenge 不要・cookies 不要
-    - 非認証セッションのため SABR が適用される場合があり 403 になることも
+    - 非認証のため SABR が適用される場合があり 403 になることも
 """
 import subprocess
 import json
@@ -69,6 +72,14 @@ _COOKIES_EXPIRED_HINTS = (
     "page needs to be reloaded",
 )
 
+_COOKIES_UPDATE_MSG = (
+    "cookies が期限切れまたはセッションが失効しています。\n\n"
+    "📋 **解決方法: cookies を再エクスポートしてください**\n"
+    "1. Chrome で YouTube にログインした状態で\n"
+    "2. 「Get cookies.txt LOCALLY」拡張 → Export → youtube.com のみ保存\n"
+    "3. 管理パネルの「🍪 YouTube Cookies 管理」→ 貼り付けて保存\n"
+)
+
 
 def _cookies_expired_in_stderr(stderr: str) -> bool:
     s = stderr.lower()
@@ -89,7 +100,6 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list[str]:
         # web + player_skip=js:
         #   - n-challenge（JS 署名）を完全スキップ → Node.js 不要
         #   - 認証済みセッションにより SABR 実験を回避
-        #   - cookies で CDN URL に認証が乗る
         opts += [
             "--extractor-args", "youtube:player_client=web;player_skip=js",
             "--cookies", str(_COOKIES_PATH),
@@ -119,7 +129,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     base = _get_ytdlp_base()
     has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
 
-    # video_id 取得（cookies 失効時は android_vr にフォールバック）
+    # video_id 取得
     id_result = subprocess.run(
         ["yt-dlp", "--print", "id"] + base + [url],
         capture_output=True, text=True
@@ -127,24 +137,14 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
         if has_cookies and _cookies_expired_in_stderr(_stderr):
-            # cookies 失効 → android_vr でリトライ
-            base = _get_ytdlp_base(use_cookies=False)
-            has_cookies = False
-            id_result = subprocess.run(
-                ["yt-dlp", "--print", "id"] + base + [url],
-                capture_output=True, text=True
-            )
-            if id_result.returncode != 0:
-                _stderr2 = (id_result.stderr or id_result.stdout or "").strip()
-                raise RuntimeError(
-                    "cookies が期限切れ（またはセッション失効）のため、フォールバックも失敗しました。\n\n"
-                    "📋 管理パネルの「🍪 YouTube Cookies 管理」から cookies を更新してください。\n\n"
-                    f"詳細: {_stderr2[-400:]}"
-                )
-        else:
+            # cookies 期限切れ/セッション失効
+            # ★ android_vr フォールバックはしない（SABR で必ず失敗するため）
             raise RuntimeError(
-                f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+                _COOKIES_UPDATE_MSG + f"\n詳細: {_stderr[-400:]}"
             )
+        raise RuntimeError(
+            f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+        )
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
@@ -158,17 +158,26 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
+        # SABR 検出
+        if "sabr" in err.lower() or "missing a url" in err.lower():
+            raise RuntimeError(
+                "YouTube SABR エラー（非認証セッション）\n\n"
+                "YouTube が SABR-only streaming を適用しています。\n"
+                "有効な cookies を設定すると回避できます。\n\n"
+                _COOKIES_UPDATE_MSG +
+                f"\n詳細: {err[-300:]}"
+            )
         if "HTTP Error 403" in err or "403: Forbidden" in err:
             if has_cookies:
                 raise RuntimeError(
                     "YouTube CDN 403エラー\n\n"
                     "cookies が期限切れか無効の可能性があります。\n"
-                    "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。\n\n"
-                    f"詳細: {err[-300:]}"
+                    + _COOKIES_UPDATE_MSG +
+                    f"\n詳細: {err[-300:]}"
                 )
             raise RuntimeError(
                 "YouTube CDN 403エラー（IP制限）\n\n"
-                "Streamlit Cloud のIPがYouTube CDNにブロックされています。\n"
+                "Streamlit Cloud のIPがブロックされています。\n"
                 "cookies を設定することで回避できる場合があります。\n\n"
                 f"詳細: {err[-300:]}"
             )
@@ -219,5 +228,5 @@ def check_cookies_validity(
 
     stderr = (result.stderr or result.stdout or "").strip()
     if _cookies_expired_in_stderr(stderr):
-        return False, "❌ cookies が期限切れです（YouTubeがセッションを無効化しました）"
+        return False, "❌ cookies が期限切れです（再エクスポートが必要）"
     return False, f"❌ 確認失敗: {stderr[-200:]}"
