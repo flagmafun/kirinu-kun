@@ -274,19 +274,16 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
-        # ① n-challenge 失敗を最初に検査（HTTP 403 か否かにかかわらず発生する）
-        # "Sign in to confirm you're not a bot" は n-challenge 失敗の結果として出ることがある
-        if _nchallenge_failed_in_stderr(err):
-            import importlib.util as _ilu
-            _node = _find_node_binary() or "未検出"
-            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
-            raise RuntimeError(
-                f"ダウンロード失敗: n-challenge 解決失敗\n\n"
-                f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
-                f"詳細: {err[-400:]}"
-            )
-        # ② SABR 検出
-        if "sabr" in err.lower() or "missing a url" in err.lower():
+        err_l = err.lower()
+
+        # ── エラー種別を判定 ──────────────────────────────────────────
+        _ejs_fail  = _nchallenge_failed_in_stderr(err)
+        _is_403    = "http error 403" in err_l or "403: forbidden" in err_l
+        _sign_in   = "sign in to confirm" in err_l
+        _is_sabr   = "sabr" in err_l or "missing a url" in err_l
+
+        # ① SABR（cookies なしの場合の特有エラー）
+        if _is_sabr:
             raise RuntimeError(
                 "YouTube SABR エラー（非認証セッション）\n\n"
                 "YouTube が SABR-only streaming を適用しています。\n"
@@ -294,62 +291,78 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 + _COOKIES_UPDATE_MSG
                 + f"\n詳細: {err[-300:]}"
             )
-        if "HTTP Error 403" in err or "403: Forbidden" in err:
-            # n-challenge が未解決で 403 になっているケースを先にチェック
-            if _nchallenge_failed_in_stderr(err):
-                import importlib.util as _ilu
-                _node = _find_node_binary() or "未検出"
-                _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
-                raise RuntimeError(
-                    f"YouTube 403エラー（n-challenge 未解決が原因）\n\n"
-                    f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
-                    f"詳細: {err[-600:]}"
+
+        # ② EJS / Sign-in / CDN 403 → 全て同じフォールバックチェーンへ
+        #    ios と android_vr は n-challenge 不要なので EJS が壊れていても動く可能性がある
+        if _ejs_fail or _sign_in or _is_403:
+            import importlib.util as _ilu
+            _node = _find_node_binary() or "未検出"
+            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+            if _ejs_fail:
+                print(
+                    f"[DL] n-challenge 失敗 → フォールバック試行 "
+                    f"Node={_node} yt-dlp-ejs={'✅' if _has_ejs else '❌'}",
+                    flush=True,
                 )
-            # CDN 403（n-challenge は正常）→ フォールバッククライアントで順番に試す
-            # web: Streamlit Cloud IP でブロックされる / PO Token 問題が発生することがある
-            # tv_embedded: PO Token 不要・別 CDN → 最初に試す
-            # ios + cookies: tv_embedded がダメなら試す
-            _err_web = err
+
+            _err_web  = err
             _node_bin = _find_node_binary()
-            _js_opts = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
-            _ck_opts = ["--cookies", str(_COOKIES_PATH)] if has_cookies else []
+            _js_opts  = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
+            _ck_opts  = ["--cookies", str(_COOKIES_PATH)] if has_cookies else []
             _fallbacks = [
-                # (client_name, extra_opts)
-                # mweb: モバイル web クライアント。web と異なる CDN/リクエストフローを使う
-                ("mweb", ["--extractor-args", "youtube:player_client=mweb"]
-                 + _js_opts + _ck_opts),
-                # android_vr: PO Token 不要。cookies 付きなら SABR を回避できる可能性
+                # mweb: モバイル web（n-challenge あり）
+                ("mweb",       ["--extractor-args", "youtube:player_client=mweb"]
+                               + _js_opts + _ck_opts),
+                # android_vr: PO Token 不要・n-challenge 不要
                 ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
-                 + _ck_opts),
-                # ios: cookies あり。最後の手段
-                ("ios", ["--extractor-args", "youtube:player_client=ios"] + _ck_opts),
+                               + _ck_opts),
+                # ios: n-challenge 不要。cookies があれば認証も通る
+                ("ios",        ["--extractor-args", "youtube:player_client=ios"]
+                               + _ck_opts),
             ]
-            _fb_errors = {}
+            _fb_errors: dict = {}
             for _fb_name, _fb_opts in _fallbacks:
                 _fb_base = ["--no-playlist", "--no-check-certificates"] + _fb_opts
-                _fb_cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
-                           "-o", output_template] + _fb_base + [url]
+                _fb_cmd  = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
+                            "-o", output_template] + _fb_base + [url]
                 _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if _fb_r.returncode == 0:
                     result = _fb_r
-                    err = ""
+                    err    = ""
                     break
                 _fb_errors[_fb_name] = _fb_r.stderr.decode("utf-8", errors="replace")
+                print(f"[DL] fallback {_fb_name} 失敗: {_fb_errors[_fb_name][-200:]}", flush=True)
             else:
-                # 全フォールバック失敗
-                _detail = f"\nweb詳細: {_err_web[-250:]}"
+                # 全フォールバック失敗 → 原因別メッセージ
+                _detail = f"\nweb: {_err_web[-200:]}"
                 for _n, _e in _fb_errors.items():
-                    _detail += f"\n{_n}詳細: {_e[-250:]}"
-                raise RuntimeError(
-                    "YouTube ダウンロード失敗（web / mweb / ios 全て失敗）\n\n"
-                    + (
-                        "PO Token 問題または cookies が期限切れの可能性があります。\n"
+                    _detail += f"\n{_n}: {_e[-200:]}"
+                if _ejs_fail:
+                    raise RuntimeError(
+                        "YouTube ダウンロード失敗（EJS/n-challenge + 全フォールバック失敗）\n\n"
+                        f"🔧 Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                        "ios/android_vr も失敗した場合は cookies が期限切れの可能性があります。\n"
                         + _COOKIES_UPDATE_MSG
-                        if has_cookies else
-                        "Streamlit Cloud のIPがブロックされています。\n"
+                        + _detail
                     )
-                    + _detail
-                )
+                elif _sign_in:
+                    raise RuntimeError(
+                        "YouTube 認証エラー（Sign in to confirm you're not a bot）\n\n"
+                        + _COOKIES_UPDATE_MSG
+                        + _detail
+                    )
+                else:
+                    raise RuntimeError(
+                        "YouTube ダウンロード失敗（CDN 403 + 全フォールバック失敗）\n\n"
+                        + (
+                            "PO Token 問題または cookies が期限切れの可能性があります。\n"
+                            + _COOKIES_UPDATE_MSG
+                            if has_cookies else
+                            "IP がブロックされているか、cookies を設定してください。\n"
+                        )
+                        + _detail
+                    )
+
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
     for ext in [".mp4", ".mkv", ".webm", ".m4v", ".mov"]:
