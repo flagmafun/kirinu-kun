@@ -101,6 +101,17 @@ def _restore_credentials():
                 pass  # 変換失敗時はそのまま書き込む
         ck_path.write_text(raw_ck, encoding="utf-8")
 
+    # OAuth2 トークン — Supabase から復元（cookies よりも優先度が高い）
+    try:
+        from core.db import get_site_setting as _gss2
+        from core.downloader import restore_oauth2_token as _rot
+        _oauth2_json = _gss2("youtube_oauth2_token")
+        if _oauth2_json:
+            _rot(_oauth2_json)
+    except Exception:
+        pass
+
+
 _restore_credentials()
 
 
@@ -1546,6 +1557,144 @@ def render_admin_panel():
                     st.rerun()
                 except Exception as _ck_err:
                     st.error(f"保存失敗: {_ck_err}")
+
+    # ── OAuth2 認証セクション ─────────────────────────────────
+    st.markdown("---")
+    st.subheader("🔑 YouTube OAuth2 認証（cookies 不要・長期有効）")
+
+    from core.downloader import (
+        has_oauth2_token as _has_oauth2,
+        get_oauth2_token_json as _get_oauth2_json,
+        start_oauth2_flow as _start_oauth2_flow,
+    )
+
+    # 現在の OAuth2 状態を表示
+    if _has_oauth2():
+        st.success("✅ OAuth2 トークンあり（cookies なしでダウンロード可能）")
+    else:
+        st.info("OAuth2 トークンなし（cookies またはフォールバックで動作）")
+
+    # OAuth2 フロー中のセッション状態管理
+    # _oauth2_lines: バックグラウンドスレッドが蓄積する出力行（module-level list）
+    import threading as _threading
+    import re as _re
+
+    if "_oauth2_lines" not in s:
+        s["_oauth2_lines"] = []
+    if "_oauth2_running" not in s:
+        s["_oauth2_running"] = False
+    if "_oauth2_done" not in s:
+        s["_oauth2_done"] = False
+    if "_oauth2_error" not in s:
+        s["_oauth2_error"] = None
+
+    # 認証開始ボタン
+    _col_oauth_start, _col_oauth_reset = st.columns([2, 1])
+    with _col_oauth_start:
+        if not s["_oauth2_running"] and not s["_oauth2_done"]:
+            if st.button("🚀 OAuth2 認証を開始する", key="admin_oauth2_start_btn"):
+                s["_oauth2_lines"] = []
+                s["_oauth2_running"] = True
+                s["_oauth2_done"] = False
+                s["_oauth2_error"] = None
+                # バックグラウンドスレッドで yt-dlp OAuth2 フローを実行
+                _result_holder = {"lines": s["_oauth2_lines"]}
+                def _oauth2_worker(holder=_result_holder):
+                    try:
+                        proc = _start_oauth2_flow()
+                        for _line in proc.stdout:
+                            holder["lines"].append(_line.rstrip())
+                        proc.wait()
+                        holder["lines"].append(f"__DONE__:{proc.returncode}")
+                    except Exception as _ex:
+                        holder["lines"].append(f"__ERROR__:{_ex}")
+                _t = _threading.Thread(target=_oauth2_worker, daemon=True)
+                _t.start()
+                s["_oauth2_thread_lines"] = _result_holder["lines"]
+                st.rerun()
+
+    with _col_oauth_reset:
+        if s["_oauth2_running"] or s["_oauth2_done"]:
+            if st.button("🔄 リセット", key="admin_oauth2_reset_btn"):
+                s["_oauth2_running"] = False
+                s["_oauth2_done"] = False
+                s["_oauth2_lines"] = []
+                s["_oauth2_error"] = None
+                st.rerun()
+
+    # フロー実行中の表示
+    if s["_oauth2_running"]:
+        _lines = s.get("_oauth2_thread_lines", [])
+
+        # 終了判定
+        _finished = any(l.startswith("__DONE__:") or l.startswith("__ERROR__:") for l in _lines)
+        if _finished:
+            _last = next(l for l in _lines if l.startswith("__DONE__:") or l.startswith("__ERROR__:"))
+            if _last.startswith("__DONE__:0"):
+                # 成功 → トークンを Supabase に保存
+                s["_oauth2_running"] = False
+                s["_oauth2_done"] = True
+                try:
+                    from core.db import set_site_setting as _sss
+                    _tok_json = _get_oauth2_json()
+                    if _tok_json:
+                        _sss("youtube_oauth2_token", _tok_json, updated_by=s.get("user_email", ""))
+                        st.success("✅ OAuth2 認証完了！トークンを Supabase に保存しました。")
+                        st.balloons()
+                    else:
+                        st.warning("⚠️ トークンファイルが見つかりませんでした。")
+                except Exception as _e:
+                    st.error(f"Supabase 保存失敗: {_e}")
+                st.rerun()
+            else:
+                s["_oauth2_running"] = False
+                s["_oauth2_error"] = _last
+                st.rerun()
+        else:
+            # フロー継続中: URL とコードを探して表示
+            _auth_url = None
+            _auth_code = None
+            for _ln in _lines:
+                _m_url = _re.search(r'https://\S+google\S+', _ln)
+                if _m_url:
+                    _auth_url = _m_url.group(0).rstrip(".")
+                _m_code = _re.search(r'\b([A-Z]{4}-[A-Z]{4})\b', _ln)
+                if _m_code:
+                    _auth_code = _m_code.group(1)
+
+            if _auth_url and _auth_code:
+                st.markdown("### 📱 ブラウザで以下の手順を実行してください")
+                st.markdown(f"**① 下記の URL をブラウザで開く:**")
+                st.code(_auth_url, language=None)
+                st.markdown(f"**② コードを入力する:**")
+                st.code(_auth_code, language=None)
+                st.markdown("**③ Google アカウントでログインして承認する**")
+                st.info("⏳ 承認待ち中... 承認が完了すると自動的に完了します。")
+            else:
+                st.info("⏳ yt-dlp を起動して認証 URL を取得しています...")
+
+            import time as _time
+            _time.sleep(1.5)
+            st.rerun()
+
+    if s.get("_oauth2_error"):
+        st.error(f"OAuth2 エラー: {s['_oauth2_error']}")
+
+    if s["_oauth2_done"]:
+        st.success("✅ OAuth2 認証済み。次回からは cookies 不要でダウンロードできます。")
+
+    with st.expander("OAuth2 とは？"):
+        st.markdown("""
+**OAuth2 認証** = Google アカウントで yt-dlp を承認する仕組みです。
+
+| | cookies | OAuth2 |
+|---|---|---|
+| 有効期限 | 数日〜1週間 | **数週間〜数ヶ月** |
+| 操作 | 拡張機能でエクスポート | **ブラウザで1クリック承認** |
+| 安定性 | △ | **◎** |
+
+承認後はトークンが Supabase に保存されるため、Railway が再起動しても自動復元されます。
+        """)
 
 
 # ── ログイン / 会員登録ページ ─────────────────────────────

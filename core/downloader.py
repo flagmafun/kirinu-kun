@@ -107,8 +107,54 @@ def _clean_url(url: str) -> str:
     return candidate
 
 
-_CREDS_DIR = Path(__file__).parent.parent / "credentials"
-_COOKIES_PATH = _CREDS_DIR / "cookies.txt"
+_CREDS_DIR         = Path(__file__).parent.parent / "credentials"
+_COOKIES_PATH      = _CREDS_DIR / "cookies.txt"
+# yt-dlp キャッシュディレクトリ（OAuth2 トークンもここに保存される）
+_YTDLP_CACHE_DIR   = _CREDS_DIR / "ytdlp-cache"
+# yt-dlp が OAuth2 トークンを書くパス: {cache_dir}/youtube/oauth.json
+_OAUTH2_TOKEN_PATH = _YTDLP_CACHE_DIR / "youtube" / "oauth.json"
+
+
+def has_oauth2_token() -> bool:
+    """OAuth2 トークンファイルが存在するか確認する。"""
+    return _OAUTH2_TOKEN_PATH.exists() and _OAUTH2_TOKEN_PATH.stat().st_size > 0
+
+
+def get_oauth2_token_json() -> "str | None":
+    """OAuth2 トークンの JSON 文字列を返す（Supabase 保存用）。"""
+    if not has_oauth2_token():
+        return None
+    return _OAUTH2_TOKEN_PATH.read_text(encoding="utf-8")
+
+
+def restore_oauth2_token(json_str: str) -> None:
+    """Supabase から復元した JSON 文字列をトークンファイルに書き込む。"""
+    _OAUTH2_TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _OAUTH2_TOKEN_PATH.write_text(json_str, encoding="utf-8")
+
+
+def start_oauth2_flow() -> "subprocess.Popen":
+    """OAuth2 デバイス認証フローを開始して Popen を返す。
+
+    返り値の Popen の stderr を行単位で読み取ることで
+    認証 URL とコードを取得できる。プロセスが完了すると
+    _OAUTH2_TOKEN_PATH にトークンが保存される。
+    """
+    _YTDLP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    # --simulate: 実際にはダウンロードしない。OAuth2 の認証フローだけ実行させる
+    return subprocess.Popen(
+        [
+            "yt-dlp",
+            "--username", "oauth2", "--password", "",
+            "--cache-dir", str(_YTDLP_CACHE_DIR),
+            "--no-playlist", "--simulate",
+            # 短い公開動画を使って認証フローを起動する
+            "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,   # stderr と stdout をマージして読みやすくする
+        text=True,
+    )
 
 
 def _ensure_netscape_cookies() -> None:
@@ -182,34 +228,39 @@ def _nchallenge_failed_in_stderr(stderr: str) -> bool:
 def _get_ytdlp_base(use_cookies: bool = True) -> list:
     """yt-dlp共通オプションを返す。
 
-    Cookieあり:   web クライアント + cookies
-                  n-challenge は jsinterp（組み込み）または nodejs-wheel で解決
-    Cookieなし:   android_vr（n-challenge 不要、ただし SABR の影響あり）
+    優先順位:
+      1. OAuth2 トークンあり → web クライアント + OAuth2（cookies 不要、長期有効）
+      2. cookies あり        → web クライアント + cookies
+      3. どちらもなし        → android_vr（n-challenge 不要、ただし SABR の影響あり）
+
+    いずれの場合も --cache-dir を固定パスに指定して OAuth2 トークンを永続化する。
     """
     _ensure_netscape_cookies()
-    has_cookies = use_cookies and _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
-    opts = ["--no-playlist", "--no-check-certificates"]
+    _has_oauth2  = has_oauth2_token()
+    _has_cookies = (
+        use_cookies and _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    )
 
-    if has_cookies:
-        # web クライアント + cookies:
-        #   - cookies 対応（ios/android は cookies 非対応で yt-dlp がスキップしてしまう）
-        #   - n-challenge: nodejs-wheel の node バイナリを --js-runtimes で明示指定
-        #   - 認証済みセッションにより SABR を回避
-        #   ※ player_skip=js は NG（フォーマット抽出まで壊れる）
+    opts = [
+        "--no-playlist", "--no-check-certificates",
+        "--cache-dir", str(_YTDLP_CACHE_DIR),   # OAuth2 トークン永続化に必須
+    ]
+    node_bin = _find_node_binary()
+    js_runtimes = ["--js-runtimes", f"node:{node_bin}" if node_bin else "node"]
+
+    if _has_oauth2:
+        # OAuth2: cookies 不要。n-challenge は引き続き必要なので --js-runtimes も渡す
+        opts += [
+            "--extractor-args", "youtube:player_client=web",
+            "--username", "oauth2", "--password", "",
+        ] + js_runtimes
+    elif _has_cookies:
         opts += [
             "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
-        ]
-        # EJS n-challenge 解決のため --js-runtimes node を必ず渡す
-        # （デフォルト 'deno' を上書きしないと deno 未インストール環境で失敗する）
-        # node_bin あり → yt-dlp がそのパスを直接使用（PATH 検索不要）
-        # node_bin なし → yt-dlp 自身が sysconfig.scripts + PATH で node を発見
-        #   nodejs-wheel は console_scripts に node を登録するため
-        #   venv/bin/node → 実バイナリへのラッパーとして機能する
-        node_bin = _find_node_binary()
-        opts += ["--js-runtimes", f"node:{node_bin}" if node_bin else "node"]
+        ] + js_runtimes
     else:
-        # android_vr: n-challenge 不要だが非認証のため SABR が発生する場合あり
+        # 認証なし: android_vr は n-challenge 不要
         opts += ["--extractor-args", "youtube:player_client=android_vr"]
 
     return opts
@@ -231,7 +282,11 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base = _get_ytdlp_base()
-    has_cookies = _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0
+    # OAuth2 または cookies があれば「認証あり」として扱う（フォールバック判定に使用）
+    has_cookies = (
+        has_oauth2_token()
+        or (_COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0)
+    )
 
     # video_id 取得
     id_result = subprocess.run(
@@ -308,17 +363,26 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             _err_web  = err
             _node_bin = _find_node_binary()
             _js_opts  = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
-            _ck_opts  = ["--cookies", str(_COOKIES_PATH)] if has_cookies else []
+            # 認証オプション: OAuth2 優先、なければ cookies
+            if has_oauth2_token():
+                _auth_opts = [
+                    "--cache-dir", str(_YTDLP_CACHE_DIR),
+                    "--username", "oauth2", "--password", "",
+                ]
+            elif _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
+                _auth_opts = ["--cookies", str(_COOKIES_PATH)]
+            else:
+                _auth_opts = []
             _fallbacks = [
                 # mweb: モバイル web（n-challenge あり）
                 ("mweb",       ["--extractor-args", "youtube:player_client=mweb"]
-                               + _js_opts + _ck_opts),
-                # android_vr: PO Token 不要・n-challenge 不要
+                               + _js_opts + _auth_opts),
+                # android_vr: n-challenge 不要（OAuth2 があれば認証も通る）
                 ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
-                               + _ck_opts),
-                # ios: n-challenge 不要。cookies があれば認証も通る
+                               + _auth_opts),
+                # ios: n-challenge 不要（OAuth2 + ios = 最も安定）
                 ("ios",        ["--extractor-args", "youtube:player_client=ios"]
-                               + _ck_opts),
+                               + _auth_opts),
             ]
             _fb_errors: dict = {}
             for _fb_name, _fb_opts in _fallbacks:
