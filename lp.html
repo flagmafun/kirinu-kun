@@ -1102,47 +1102,123 @@
         <!-- subtle glow -->
         <div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(249,115,22,0.12),transparent 70%);pointer-events:none;"></div>
 
-        <p style="color:var(--white);font-size:20px;font-weight:700;margin-bottom:8px;">切り抜き作業・編集・投稿設定で、<br>1本 <span class="accent">約30分。</span></p>
-
-        <p style="margin-top:32px;">もし<br><strong style="color:var(--white)">100本作ると…</strong></p>
-
-        <div style="
-          background:rgba(249,115,22,0.08);
-          border-left:3px solid var(--orange);
-          border-radius:0 12px 12px 0;
-          padding:16px 20px;
-          margin:24px 0;
-          font-size:22px;
-          color:var(--white);
-          font-weight:700;
-        ">
-          30分 × 100本<br>
-          ＝ <span class="accent">3,000分（50時間）</span>
+        <!-- Step 1: 1本あたりの時間 -->
+        <div style="margin-bottom:40px;">
+          <p style="color:var(--muted);font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:16px;">STEP 1 ── 1本あたりの作業時間</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;">
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 8px;">
+              <div style="font-size:28px;margin-bottom:6px;">✂️</div>
+              <div style="color:var(--muted);font-size:11px;margin-bottom:4px;">切り抜き</div>
+              <div style="color:var(--white);font-weight:800;font-size:15px;">〜10分</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 8px;">
+              <div style="font-size:28px;margin-bottom:6px;">🎬</div>
+              <div style="color:var(--muted);font-size:11px;margin-bottom:4px;">編集</div>
+              <div style="color:var(--white);font-weight:800;font-size:15px;">〜15分</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 8px;">
+              <div style="font-size:28px;margin-bottom:6px;">📤</div>
+              <div style="color:var(--muted);font-size:11px;margin-bottom:4px;">投稿設定</div>
+              <div style="color:var(--white);font-weight:800;font-size:15px;">〜5分</div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:16px;padding:14px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:12px;">
+            <span style="color:var(--muted);font-size:15px;">合計 </span>
+            <span style="color:var(--orange-light);font-size:24px;font-weight:900;">1本 約30分</span>
+          </div>
         </div>
 
-        <p>労働時間（1日8時間）だと<br><strong style="color:var(--white)">丸々約6日分。</strong></p>
+        <!-- Step 2: 100本の計算 -->
+        <div style="margin-bottom:40px;">
+          <p style="color:var(--muted);font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:16px;">STEP 2 ── 月100本作ると？</p>
+          <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.2);border-radius:16px;padding:24px;text-align:center;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+              <div style="text-align:center;">
+                <div style="color:var(--muted);font-size:13px;">1本</div>
+                <div style="color:var(--white);font-size:28px;font-weight:900;">30分</div>
+              </div>
+              <div style="color:var(--orange);font-size:28px;font-weight:900;">×</div>
+              <div style="text-align:center;">
+                <div style="color:var(--muted);font-size:13px;">本数</div>
+                <div style="color:var(--white);font-size:28px;font-weight:900;">100本</div>
+              </div>
+              <div style="color:var(--orange);font-size:28px;font-weight:900;">=</div>
+              <div style="text-align:center;">
+                <div style="color:var(--muted);font-size:13px;">合計</div>
+                <div style="color:var(--orange-light);font-size:28px;font-weight:900;">3,000分</div>
+              </div>
+            </div>
+            <!-- 日数バー -->
+            <div style="background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;margin-bottom:12px;height:32px;position:relative;">
+              <div style="background:linear-gradient(90deg,#f97316,#f59e0b);height:100%;width:100%;display:flex;align-items:center;justify-content:center;">
+                <span style="color:#1e1b4b;font-weight:900;font-size:13px;">50時間 ＝ 労働 丸々約6日分</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;justify-content:center;">
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">月曜</div>
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">火曜</div>
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">水曜</div>
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">木曜</div>
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">金曜</div>
+              <div style="background:#f97316;border-radius:6px;padding:6px 10px;color:#1e1b4b;font-size:11px;font-weight:700;">土曜</div>
+              <div style="background:rgba(249,115,22,0.3);border:1px dashed rgba(249,115,22,0.5);border-radius:6px;padding:6px 10px;color:var(--orange-light);font-size:11px;font-weight:700;">+2h</div>
+            </div>
+          </div>
+        </div>
 
-        <p style="margin-top:24px;">でも実際は</p>
-        <ul style="margin:12px 0 24px 20px;line-height:2.2;list-style:none;padding:0;">
-          <li>・元動画チェック</li>
-          <li>・修正対応</li>
-          <li>・他案件</li>
-          <li>・投稿管理</li>
-        </ul>
-        <p>などが入るので<br><strong style="color:var(--white)">ほぼ1ヶ月かかることも普通。</strong></p>
+        <!-- Step 3: 実際は -->
+        <div style="margin-bottom:40px;">
+          <p style="color:var(--muted);font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:16px;">STEP 3 ── でも実際は…</p>
+          <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:16px;padding:24px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px;">
+                <span style="font-size:20px;">👀</span>
+                <span style="color:var(--muted);font-size:13px;font-weight:600;">元動画チェック</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px;">
+                <span style="font-size:20px;">🔧</span>
+                <span style="color:var(--muted);font-size:13px;font-weight:600;">修正対応</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px;">
+                <span style="font-size:20px;">💼</span>
+                <span style="color:var(--muted);font-size:13px;font-weight:600;">他案件</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px;">
+                <span style="font-size:20px;">📋</span>
+                <span style="color:var(--muted);font-size:13px;font-weight:600;">投稿管理</span>
+              </div>
+            </div>
+            <div style="text-align:center;padding:16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:12px;">
+              <span style="color:#fca5a5;font-size:20px;font-weight:900;">ほぼ1ヶ月かかることも普通。</span>
+            </div>
+          </div>
+        </div>
 
-        <p style="margin-top:32px;">しかも外注すると</p>
-        <div style="
-          background:rgba(239,68,68,0.1);
-          border:1px solid rgba(239,68,68,0.3);
-          border-radius:12px;
-          padding:20px 24px;
-          margin:16px 0;
-          text-align:center;
-        ">
-          <p style="color:#fca5a5;font-size:22px;font-weight:700;margin:0 0 4px;">1本 3,000〜5,000円</p>
-          <p style="color:var(--muted);font-size:14px;margin:0;">つまり 100本(1日平均3投稿)で…</p>
-          <p style="color:#f87171;font-size:40px;font-weight:900;margin:8px 0 0;letter-spacing:-1px;">30万〜50万円</p>
+        <!-- Step 4: 外注すると -->
+        <div style="margin-bottom:8px;">
+          <p style="color:var(--muted);font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:16px;">STEP 4 ── しかも外注すると…</p>
+          <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:16px;padding:24px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+              <div style="text-align:center;flex:1;min-width:100px;">
+                <div style="color:var(--muted);font-size:12px;margin-bottom:4px;">1本あたり</div>
+                <div style="color:#fca5a5;font-size:22px;font-weight:900;">3,000〜5,000円</div>
+              </div>
+              <div style="color:var(--muted);font-size:24px;">×</div>
+              <div style="text-align:center;flex:1;min-width:100px;">
+                <div style="color:var(--muted);font-size:12px;margin-bottom:4px;">月100本</div>
+                <div style="color:var(--white);font-size:22px;font-weight:900;">100本</div>
+              </div>
+            </div>
+            <!-- cost bar -->
+            <div style="background:rgba(0,0,0,0.3);border-radius:8px;height:8px;overflow:hidden;margin-bottom:16px;">
+              <div style="background:linear-gradient(90deg,#ef4444,#f87171);height:100%;width:100%;border-radius:8px;"></div>
+            </div>
+            <div style="text-align:center;padding:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:12px;">
+              <div style="color:#fca5a5;font-size:14px;margin-bottom:4px;">月々の外注費用</div>
+              <div style="color:#f87171;font-size:48px;font-weight:900;letter-spacing:-2px;line-height:1;">30万〜50万円</div>
+              <div style="color:#fca5a5;font-size:13px;margin-top:8px;">年間 360万〜600万円</div>
+            </div>
+          </div>
         </div>
 
         <!-- merit.jpg image -->
@@ -1510,7 +1586,7 @@
         <div class="section-badge">GET STARTED</div>
 
         <h2>ショート量産を<br><span class="accent">モニター価格</span>で始めよう</h2>
-        <p><strong style="color:var(--white)">ショート編集、まだ何十時間もかけてますか？</strong><br>その作業、AIが代行します！</p>
+        <p><strong style="color:var(--white)">ショート編集、まだ何十時間・何十万円もかけてますか？</strong><br>その作業、AIが代行します！</p>
 
         <!-- 外注コスト比較 -->
         <div style="
