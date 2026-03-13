@@ -1648,7 +1648,10 @@ def render_admin_panel():
                 st.rerun()
             else:
                 s["_oauth2_running"] = False
-                s["_oauth2_error"] = _last
+                _ytdlp_output = "\n".join(
+                    l for l in _lines if not l.startswith("__")
+                ) or "（出力なし）"
+                s["_oauth2_error"] = f"{_last}\n\nyt-dlp 出力:\n{_ytdlp_output}"
                 st.rerun()
         else:
             # フロー継続中: URL とコードを探して表示
