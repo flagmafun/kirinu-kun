@@ -293,8 +293,11 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             # CDN 403（n-challenge は正常）→ ios クライアントで自動リトライ
             # web クライアントは Streamlit Cloud の IP でブロックされることがある。
             # ios クライアントは別 CDN を使うため回避できる場合がある。
+            # cookies も渡す（yt-dlp 2026.x は ios でも認証が必要な場合がある）
             _base_ios = ["--no-playlist", "--no-check-certificates",
                          "--extractor-args", "youtube:player_client=ios"]
+            if has_cookies:
+                _base_ios += ["--cookies", str(_COOKIES_PATH)]
             _cmd_ios = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
                         "-o", output_template] + _base_ios + [url]
             _r2 = subprocess.run(_cmd_ios, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
