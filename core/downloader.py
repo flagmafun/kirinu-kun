@@ -159,6 +159,18 @@ def _cookies_expired_in_stderr(stderr: str) -> bool:
     return any(h in s for h in _COOKIES_EXPIRED_HINTS)
 
 
+_NCHALLENGE_HINTS = ("n challenge solving failed",)
+
+
+def _nchallenge_failed_in_stderr(stderr: str) -> bool:
+    """n-challenge 解決失敗を検出する。
+
+    n-challenge 失敗の副作用で "page needs to be reloaded" が stderr に出るため、
+    _cookies_expired_in_stderr より先に呼ぶこと（優先順位が重要）。
+    """
+    return any(h in stderr.lower() for h in _NCHALLENGE_HINTS)
+
+
 def _get_ytdlp_base(use_cookies: bool = True) -> list:
     """yt-dlp共通オプションを返す。
 
@@ -220,6 +232,18 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     )
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
+        # n-challenge 失敗を cookies 失敗より先にチェック（優先順位が重要）
+        # n-challenge 失敗の副作用で "page needs to be reloaded" が stderr に混入し、
+        # _cookies_expired_in_stderr が誤って True を返すため。
+        if _nchallenge_failed_in_stderr(_stderr):
+            import importlib.util as _ilu
+            _node = _find_node_binary() or "未検出"
+            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+            raise RuntimeError(
+                f"ダウンロード失敗: n-challenge 解決失敗\n\n"
+                f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                f"詳細: {_stderr[-400:]}"
+            )
         if has_cookies and _cookies_expired_in_stderr(_stderr):
             # cookies 期限切れ/セッション失効
             # ★ android_vr フォールバックはしない（SABR で必ず失敗するため）
