@@ -4266,6 +4266,263 @@ def step5():
             st.rerun()
 
 
+# ── エンコード中ローディングオーバーレイ HTML ───────────────
+def _make_loading_html(clip_num: int, total_clips: int,
+                       elapsed: float, remaining,
+                       clip_title: str = "") -> str:
+    """全画面ローディングオーバーレイ HTML を生成する。
+    clip_num   : 現在処理中のクリップ番号（1始まり）
+    total_clips: 全クリップ数
+    elapsed    : 経過秒
+    remaining  : 残り秒の推定値（None = 推定不可）
+    clip_title : クリップタイトル
+    """
+    import math
+
+    # 進捗 %（現在のクリップを0.5本分として計算）
+    pct = min(99, int((clip_num - 1) / total_clips * 100))
+
+    # 経過時間の文字列
+    if elapsed >= 60:
+        elapsed_str = f"{int(elapsed // 60)}分{int(elapsed % 60):02d}秒"
+    else:
+        elapsed_str = f"{int(elapsed)}秒"
+
+    # 残り時間の文字列
+    if remaining is None:
+        rem_str = "推定中..."
+    elif remaining >= 60:
+        rem_str = f"約{int(remaining // 60)}分{int(remaining % 60):02d}秒"
+    else:
+        rem_str = f"約{int(remaining)}秒"
+
+    # 円形プログレスリング（SVG strokeDashoffset）
+    radius        = 52
+    circumference = 2 * math.pi * radius
+    dash_offset   = circumference * (1 - pct / 100)
+
+    # クリップのドットインジケーター
+    dots_html = "".join(
+        '<div class="ld-dot ld-dot-done"></div>'   if j < clip_num - 1 else
+        '<div class="ld-dot ld-dot-cur"></div>'    if j == clip_num - 1 else
+        '<div class="ld-dot ld-dot-pend"></div>'
+        for j in range(total_clips)
+    )
+
+    short_title = (clip_title[:32] + "…") if len(clip_title) > 32 else clip_title
+
+    return f"""
+<style>
+@keyframes ld-bounce {{
+  0%,100% {{ transform: translateY(0px) rotate(-2deg); }}
+  50%     {{ transform: translateY(-14px) rotate(2deg); }}
+}}
+@keyframes ld-float {{
+  0%,100% {{ transform: translateY(0px); opacity:.7; }}
+  50%     {{ transform: translateY(-12px); opacity:1; }}
+}}
+@keyframes ld-pulse {{
+  0%,100% {{ opacity:.4; transform:scale(.8); }}
+  50%     {{ opacity:1;  transform:scale(1.2); }}
+}}
+@keyframes ld-rotate {{
+  from {{ transform: rotate(0deg); }}
+  to   {{ transform: rotate(360deg); }}
+}}
+@keyframes ld-shimmer {{
+  0%   {{ background-position: -200% center; }}
+  100% {{ background-position:  200% center; }}
+}}
+.ld-overlay {{
+  position:fixed!important; inset:0!important;
+  width:100vw!important; height:100vh!important;
+  background: radial-gradient(ellipse at 60% 20%, #2e1065 0%, #0f172a 55%, #0c1a2e 100%);
+  z-index:999999!important;
+  display:flex!important; flex-direction:column!important;
+  align-items:center!important; justify-content:center!important;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  overflow:hidden;
+}}
+/* 背景の光の玉 */
+.ld-glow {{
+  position:absolute; border-radius:50%; filter:blur(60px); pointer-events:none;
+}}
+/* キャラクター */
+.ld-chara {{
+  animation: ld-bounce 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 10px 28px rgba(167,139,250,.55));
+  margin-bottom:18px;
+}}
+/* テキスト */
+.ld-title {{
+  color:#e2e8f0; font-size:1.35em; font-weight:700;
+  margin-bottom:6px; letter-spacing:.4px;
+  text-shadow: 0 0 20px rgba(167,139,250,.8);
+}}
+.ld-subtitle {{
+  color:rgba(148,163,184,.8); font-size:.88em;
+  margin-bottom:28px; max-width:320px;
+  text-align:center; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}}
+/* 円形プログレス */
+.ld-ring-wrap {{
+  position:relative; width:136px; height:136px; margin-bottom:26px;
+}}
+.ld-ring-wrap svg {{ display:block; }}
+.ld-ring-bg {{ fill:none; stroke:rgba(255,255,255,.08); stroke-width:10; }}
+.ld-ring-fg {{
+  fill:none; stroke-width:10; stroke-linecap:round;
+  stroke:url(#ld-rg);
+  transform-origin:68px 68px; transform:rotate(-90deg);
+  transition: stroke-dashoffset .6s ease;
+}}
+.ld-ring-text {{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  color:white;
+}}
+.ld-ring-pct  {{ font-size:1.9em; font-weight:700; line-height:1; }}
+.ld-ring-sub  {{ font-size:.72em; color:rgba(255,255,255,.6); margin-top:2px; }}
+/* ステータスカード */
+.ld-stats {{
+  display:flex; gap:16px; margin-bottom:22px;
+}}
+.ld-stat {{
+  text-align:center;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px; padding:10px 20px;
+  backdrop-filter:blur(8px);
+  min-width:100px;
+}}
+.ld-stat-label {{ color:rgba(148,163,184,.7); font-size:.68em; margin-bottom:3px; }}
+.ld-stat-val   {{
+  color:#f1f5f9; font-size:1.08em; font-weight:600;
+  background:linear-gradient(90deg,#c084fc,#818cf8,#c084fc);
+  background-size:200%;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  animation: ld-shimmer 2s linear infinite;
+}}
+/* クリップドット */
+.ld-dots {{ display:flex; gap:7px; align-items:center; }}
+.ld-dot {{ width:9px; height:9px; border-radius:50%; }}
+.ld-dot-done {{ background:#a78bfa; box-shadow:0 0 6px rgba(167,139,250,.7); }}
+.ld-dot-cur  {{
+  background:#f472b6;
+  box-shadow:0 0 10px rgba(244,114,182,.9);
+  animation:ld-pulse 1s ease-in-out infinite;
+}}
+.ld-dot-pend {{ background:rgba(255,255,255,.15); }}
+</style>
+
+<div class="ld-overlay">
+  <!-- 背景グロー -->
+  <div class="ld-glow" style="width:500px;height:500px;background:rgba(124,58,237,.18);top:-150px;left:-100px;"></div>
+  <div class="ld-glow" style="width:400px;height:400px;background:rgba(236,72,153,.12);bottom:-100px;right:-80px;"></div>
+
+  <!-- ✦ 浮遊する星 -->
+  <span style="position:absolute;top:9%;left:11%;font-size:1.1em;color:#a78bfa;animation:ld-float 3s ease-in-out infinite;">✦</span>
+  <span style="position:absolute;top:14%;left:78%;font-size:.8em;color:#f472b6;animation:ld-float 4s ease-in-out infinite .5s;">✦</span>
+  <span style="position:absolute;top:22%;left:91%;font-size:1.3em;color:#818cf8;animation:ld-float 3.5s ease-in-out infinite 1s;">⭐</span>
+  <span style="position:absolute;top:72%;left:4%;font-size:1em;color:#c084fc;animation:ld-float 4.2s ease-in-out infinite 1.2s;">✦</span>
+  <span style="position:absolute;top:82%;left:93%;font-size:.9em;color:#f472b6;animation:ld-float 3.8s ease-in-out infinite .3s;">✦</span>
+  <span style="position:absolute;top:88%;left:48%;font-size:.75em;color:#a78bfa;animation:ld-float 3.2s ease-in-out infinite .7s;">✦</span>
+
+  <!-- かわいいキャラクター -->
+  <div class="ld-chara">
+    <svg viewBox="0 0 120 140" width="130" height="130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="fg" cx="38%" cy="30%">
+          <stop offset="0%" stop-color="#a78bfa"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
+        </radialGradient>
+        <radialGradient id="faceG" cx="38%" cy="30%">
+          <stop offset="0%" stop-color="#fef3c7"/>
+          <stop offset="100%" stop-color="#fcd34d"/>
+        </radialGradient>
+      </defs>
+      <!-- ドレス/体 -->
+      <ellipse cx="60" cy="106" rx="30" ry="28" fill="url(#fg)"/>
+      <!-- スカート裾のフリル -->
+      <path d="M32 115 Q40 125 50 118 Q58 128 68 118 Q78 126 88 116" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <!-- 腕（ハサミを持つ） -->
+      <ellipse cx="29" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(-30 29 100)"/>
+      <ellipse cx="91" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(30 91 100)"/>
+      <!-- ✂️ ハサミ -->
+      <text x="13" y="110" font-size="15" fill="white" opacity=".85">✂</text>
+      <text x="82" y="110" font-size="15" fill="white" opacity=".85">✂</text>
+      <!-- 頭 -->
+      <circle cx="60" cy="50" r="28" fill="url(#faceG)"/>
+      <!-- 頬 -->
+      <ellipse cx="45" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
+      <ellipse cx="75" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
+      <!-- 目（大きくキュート） -->
+      <ellipse cx="51" cy="47" rx="8" ry="9" fill="white"/>
+      <ellipse cx="69" cy="47" rx="8" ry="9" fill="white"/>
+      <circle  cx="51" cy="48" r="6" fill="#1e1b4b"/>
+      <circle  cx="69" cy="48" r="6" fill="#1e1b4b"/>
+      <!-- ハイライト -->
+      <circle cx="53" cy="44" r="2.5" fill="white"/>
+      <circle cx="71" cy="44" r="2.5" fill="white"/>
+      <circle cx="55" cy="49" r="1.2" fill="white"/>
+      <circle cx="73" cy="49" r="1.2" fill="white"/>
+      <!-- 口（笑顔） -->
+      <path d="M52 60 Q60 67 68 60" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- 耳っぽい丸 (ネコ耳風) -->
+      <polygon points="34,26 28,8 44,18" fill="#f472b6"/>
+      <polygon points="86,26 92,8 76,18" fill="#f472b6"/>
+      <polygon points="35,24 31,13 42,19" fill="#fda4af"/>
+      <polygon points="85,24 89,13 78,19" fill="#fda4af"/>
+      <!-- 体の星デコ -->
+      <text x="49" y="118" font-size="9" fill="white" opacity=".7">★</text>
+      <text x="63" y="118" font-size="9" fill="white" opacity=".7">★</text>
+    </svg>
+  </div>
+
+  <div class="ld-title">🎬 Shorts 制作中</div>
+  <div class="ld-subtitle">{short_title}</div>
+
+  <!-- 円形プログレスリング -->
+  <div class="ld-ring-wrap">
+    <svg width="136" height="136" viewBox="0 0 136 136">
+      <defs>
+        <linearGradient id="ld-rg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#f472b6"/>
+          <stop offset="50%"  stop-color="#a78bfa"/>
+          <stop offset="100%" stop-color="#818cf8"/>
+        </linearGradient>
+      </defs>
+      <circle class="ld-ring-bg" cx="68" cy="68" r="{radius}"/>
+      <circle class="ld-ring-fg" cx="68" cy="68" r="{radius}"
+              stroke-dasharray="{circumference:.2f}"
+              stroke-dashoffset="{dash_offset:.2f}"/>
+    </svg>
+    <div class="ld-ring-text">
+      <div class="ld-ring-pct">{pct}%</div>
+      <div class="ld-ring-sub">{clip_num}/{total_clips} 本目</div>
+    </div>
+  </div>
+
+  <!-- 時間ステータス -->
+  <div class="ld-stats">
+    <div class="ld-stat">
+      <div class="ld-stat-label">⏱ 経過</div>
+      <div class="ld-stat-val">{elapsed_str}</div>
+    </div>
+    <div class="ld-stat">
+      <div class="ld-stat-label">⏳ 残り</div>
+      <div class="ld-stat-val">{rem_str}</div>
+    </div>
+  </div>
+
+  <!-- クリップ進捗ドット -->
+  <div class="ld-dots">{dots_html}</div>
+</div>
+"""
+
+
 # ── パイプライン実行 ──────────────────────────────────────
 def _run_pipeline(clips: list, sched: dict):
     from core.downloader import download_video
@@ -4417,16 +4674,14 @@ def _run_pipeline(clips: list, sched: dict):
                 while not _cs_done_r.wait(timeout=1.0):
                     _el = _time.time() - _clip_t0_r
                     if _avg_sec_r is not None:
-                        _tr = max(0.0, _avg_sec_r - _el) + _avg_sec_r * (len(clips) - i - 1)
-                        _time_ph_r.markdown(
-                            f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
-                            f"経過 **{int(_el)}秒** / 残り約 **{int(_tr//60)}分{int(_tr%60)}秒**"
-                        )
+                        _tr_r = max(0.0, _avg_sec_r - _el) + _avg_sec_r * (len(clips) - i - 1)
+                        _rem_r = _tr_r
                     else:
-                        _time_ph_r.markdown(
-                            f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
-                            f"経過 **{int(_el)}秒**（初回のため残り時間推定中）"
-                        )
+                        _rem_r = None
+                    _time_ph_r.markdown(
+                        _make_loading_html(i + 1, len(clips), _el, _rem_r, title),
+                        unsafe_allow_html=True,
+                    )
                 _cs_thread_r.join()
                 _elapsed_r = _time.time() - _clip_t0_r
                 _time_ph_r.empty()
@@ -4631,16 +4886,13 @@ def _generate_pipeline(clips: list, sched: dict):
                             _this_rem = max(0.0, _avg_sec - _elapsed)
                             _rest_rem = _avg_sec * (len(clips) - i - 1)
                             _total    = _this_rem + _rest_rem
-                            _time_ph.markdown(
-                                f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
-                                f"経過 **{int(_elapsed)}秒** / "
-                                f"残り約 **{int(_total//60)}分{int(_total%60)}秒**"
-                            )
+                            _rem_arg  = _total
                         else:
-                            _time_ph.markdown(
-                                f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
-                                f"経過 **{int(_elapsed)}秒**（初回のため残り時間推定中）"
-                            )
+                            _rem_arg  = None
+                        _time_ph.markdown(
+                            _make_loading_html(i + 1, len(clips), _elapsed, _rem_arg, title),
+                            unsafe_allow_html=True,
+                        )
                     _cs_thread.join()
                     _elapsed_final = _time.time() - _clip_t0
                     _time_ph.empty()
