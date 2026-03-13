@@ -143,6 +143,8 @@ _COOKIES_EXPIRED_HINTS = (
     "have likely been rotated",
     "the page needs to be reloaded",
     "page needs to be reloaded",
+    "sign in to confirm you're not a bot",  # 認証なしアクセス拒否（cookies なし or 期限切れ）
+    "sign in to confirm",                   # 上記の短縮形マッチ
 )
 
 _COOKIES_UPDATE_MSG = (
@@ -161,8 +163,10 @@ def _cookies_expired_in_stderr(stderr: str) -> bool:
 
 _NCHALLENGE_HINTS = (
     "n challenge solving failed",           # Node.js 起動後 solver スクリプトが失敗
-    "a supported javascript runtime",        # Node.js 自体が見つからない
-    "challenge solver script distribution",  # solver スクリプト未インストール
+    "a supported javascript runtime",       # Node.js 自体が見つからない
+    "challenge solver script distribution", # solver スクリプト未インストール（旧形式）
+    "yt-dlp-ejs",                           # yt-dlp 2026.x 新形式: "yt-dlp-ejs package is missing"
+    "wiki/ejs",                             # EJS wiki URL が stderr にあれば確実
 )
 
 
@@ -270,7 +274,18 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
-        # SABR 検出
+        # ① n-challenge 失敗を最初に検査（HTTP 403 か否かにかかわらず発生する）
+        # "Sign in to confirm you're not a bot" は n-challenge 失敗の結果として出ることがある
+        if _nchallenge_failed_in_stderr(err):
+            import importlib.util as _ilu
+            _node = _find_node_binary() or "未検出"
+            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+            raise RuntimeError(
+                f"ダウンロード失敗: n-challenge 解決失敗\n\n"
+                f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                f"詳細: {err[-400:]}"
+            )
+        # ② SABR 検出
         if "sabr" in err.lower() or "missing a url" in err.lower():
             raise RuntimeError(
                 "YouTube SABR エラー（非認証セッション）\n\n"
