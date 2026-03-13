@@ -173,13 +173,19 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list:
     if has_cookies:
         # web クライアント + cookies:
         #   - cookies 対応（ios/android は cookies 非対応で yt-dlp がスキップしてしまう）
-        #   - n-challenge: yt-dlp 組み込み jsinterp または nodejs-wheel が解決
+        #   - n-challenge: nodejs-wheel の node バイナリを --js-runtimes で明示指定
         #   - 認証済みセッションにより SABR を回避
         #   ※ player_skip=js は NG（フォーマット抽出まで壊れる）
         opts += [
             "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
         ]
+        # nodejs-wheel の node バイナリを明示指定して EJS n-challenge を解決
+        # --js-runtimes node:/path は _determine_runtime_path() がそのまま使用するため
+        # PATH 検索をバイパスできる（nodejs-wheel は venv/bin に node を置かない）
+        node_bin = _find_node_binary()
+        if node_bin:
+            opts += ["--js-runtimes", f"node:{node_bin}"]
     else:
         # android_vr: n-challenge 不要だが非認証のため SABR が発生する場合あり
         opts += ["--extractor-args", "youtube:player_client=android_vr"]
