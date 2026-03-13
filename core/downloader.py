@@ -280,18 +280,29 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 + f"\n詳細: {err[-300:]}"
             )
         if "HTTP Error 403" in err or "403: Forbidden" in err:
+            # n-challenge が未解決で 403 になっているケースを先にチェック
+            # （--print id は成功するが、ストリーミングURL の n パラメータ解決で失敗すると 403 になる）
+            if _nchallenge_failed_in_stderr(err):
+                import importlib.util as _ilu
+                _node = _find_node_binary() or "未検出"
+                _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+                raise RuntimeError(
+                    f"YouTube 403エラー（n-challenge 未解決が原因）\n\n"
+                    f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                    f"詳細: {err[-600:]}"
+                )
             if has_cookies:
                 raise RuntimeError(
                     "YouTube CDN 403エラー\n\n"
                     "cookies が期限切れか無効の可能性があります。\n"
                     + _COOKIES_UPDATE_MSG
-                    + f"\n詳細: {err[-300:]}"
+                    + f"\n詳細: {err[-600:]}"
                 )
             raise RuntimeError(
                 "YouTube CDN 403エラー（IP制限）\n\n"
                 "Streamlit Cloud のIPがブロックされています。\n"
                 "cookies を設定することで回避できる場合があります。\n\n"
-                f"詳細: {err[-300:]}"
+                f"詳細: {err[-600:]}"
             )
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
