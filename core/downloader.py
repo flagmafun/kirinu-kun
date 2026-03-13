@@ -300,8 +300,8 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             _ck_opts = ["--cookies", str(_COOKIES_PATH)] if has_cookies else []
             _fallbacks = [
                 # (client_name, extra_opts)
-                # tv_embedded: PO Token 不要・別 CDN。EJS も必要なので --js-runtimes を渡す
-                ("tv_embedded", ["--extractor-args", "youtube:player_client=tv_embedded"]
+                # mweb: モバイル web クライアント。web と異なる CDN/リクエストフローを使う
+                ("mweb", ["--extractor-args", "youtube:player_client=mweb"]
                  + _js_opts + _ck_opts),
                 # ios: cookies あり。PO Token が取れればダウンロードできる可能性
                 ("ios", ["--extractor-args", "youtube:player_client=ios"] + _ck_opts),
@@ -323,7 +323,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 for _n, _e in _fb_errors.items():
                     _detail += f"\n{_n}詳細: {_e[-250:]}"
                 raise RuntimeError(
-                    "YouTube ダウンロード失敗（web / tv_embedded / ios 全て失敗）\n\n"
+                    "YouTube ダウンロード失敗（web / mweb / ios 全て失敗）\n\n"
                     + (
                         "PO Token 問題または cookies が期限切れの可能性があります。\n"
                         + _COOKIES_UPDATE_MSG
