@@ -290,32 +290,43 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                     f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
                     f"詳細: {err[-600:]}"
                 )
-            # CDN 403（n-challenge は正常）→ ios クライアントで自動リトライ
-            # web クライアントは Streamlit Cloud の IP でブロックされることがある。
-            # ios クライアントは別 CDN を使うため回避できる場合がある。
-            # cookies も渡す（yt-dlp 2026.x は ios でも認証が必要な場合がある）
-            _base_ios = ["--no-playlist", "--no-check-certificates",
-                         "--extractor-args", "youtube:player_client=ios"]
-            if has_cookies:
-                _base_ios += ["--cookies", str(_COOKIES_PATH)]
-            _cmd_ios = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
-                        "-o", output_template] + _base_ios + [url]
-            _r2 = subprocess.run(_cmd_ios, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if _r2.returncode == 0:
-                result = _r2  # ios で成功 → 以降の処理に流す
-                err = ""
+            # CDN 403（n-challenge は正常）→ フォールバッククライアントで順番に試す
+            # web: Streamlit Cloud IP でブロックされる / PO Token 問題が発生することがある
+            # tv_embedded: PO Token 不要・別 CDN → 最初に試す
+            # ios + cookies: tv_embedded がダメなら試す
+            _err_web = err
+            _fallbacks = [
+                # (client_name, extra_opts)
+                ("tv_embedded", ["--extractor-args", "youtube:player_client=tv_embedded"]
+                 + (["--cookies", str(_COOKIES_PATH)] if has_cookies else [])),
+                ("ios", ["--extractor-args", "youtube:player_client=ios"]
+                 + (["--cookies", str(_COOKIES_PATH)] if has_cookies else [])),
+            ]
+            _fb_errors = {}
+            for _fb_name, _fb_opts in _fallbacks:
+                _fb_base = ["--no-playlist", "--no-check-certificates"] + _fb_opts
+                _fb_cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
+                           "-o", output_template] + _fb_base + [url]
+                _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if _fb_r.returncode == 0:
+                    result = _fb_r
+                    err = ""
+                    break
+                _fb_errors[_fb_name] = _fb_r.stderr.decode("utf-8", errors="replace")
             else:
-                _err2 = _r2.stderr.decode("utf-8", errors="replace")
+                # 全フォールバック失敗
+                _detail = f"\nweb詳細: {_err_web[-250:]}"
+                for _n, _e in _fb_errors.items():
+                    _detail += f"\n{_n}詳細: {_e[-250:]}"
                 raise RuntimeError(
-                    "YouTube CDN 403エラー（web + ios 両方失敗）\n\n"
+                    "YouTube ダウンロード失敗（web / tv_embedded / ios 全て失敗）\n\n"
                     + (
-                        "cookies が期限切れか無効の可能性があります。\n"
+                        "PO Token 問題または cookies が期限切れの可能性があります。\n"
                         + _COOKIES_UPDATE_MSG
                         if has_cookies else
                         "Streamlit Cloud のIPがブロックされています。\n"
                     )
-                    + f"\nweb詳細: {err[-300:]}"
-                    + f"\nios詳細: {_err2[-300:]}"
+                    + _detail
                 )
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
