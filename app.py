@@ -3274,7 +3274,7 @@ def step3():
 
     # ── ページ上部ナビゲーション ──
     _ec_top3 = sum(1 for c in s.clips if c.get("enabled", True))
-    _tnc3 = st.columns([1, 3])
+    _tnc3 = st.columns([1, 2, 1])
     with _tnc3[0]:
         if st.button("← デザイン設定", key="back3_top"):
             s.step = 2
@@ -3287,6 +3287,23 @@ def step3():
             disabled=_ec_top3 == 0,
         ):
             s.step = 4
+            st.rerun()
+    with _tnc3[2]:
+        if st.button(
+            "⬇️ DLのみ",
+            key="dl_only3_top",
+            use_container_width=True,
+            disabled=_ec_top3 == 0,
+        ):
+            _now = datetime.now()
+            s.schedule = {
+                "start_date": _now.strftime("%Y-%m-%d"),
+                "start_time": "09:00",
+                "interval_hours": "24",
+                "category_id": "22",
+            }
+            s["_download_only_mode"] = True
+            s.step = 5
             st.rerun()
     st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
@@ -3696,19 +3713,36 @@ def step3():
     _save_session(s.video_info, clips)
 
     # ナビゲーション
-    col_back, col_next = st.columns([1, 3])
+    enabled_count = sum(1 for c in clips if c.get("enabled", True))
+    col_back, col_next, col_dl = st.columns([1, 2, 1])
     with col_back:
         if st.button("← デザイン設定", key="back3"):
             s.step = 2
             st.rerun()
     with col_next:
-        enabled_count = sum(1 for c in clips if c.get("enabled", True))
         if st.button(
             f"スケジュール設定へ →（{enabled_count}本）",
             type="primary", use_container_width=True,
             disabled=enabled_count == 0,
         ):
             s.step = 4
+            st.rerun()
+    with col_dl:
+        if st.button(
+            "⬇️ DLのみ",
+            key="dl_only3",
+            use_container_width=True,
+            disabled=enabled_count == 0,
+        ):
+            _now = datetime.now()
+            s.schedule = {
+                "start_date": _now.strftime("%Y-%m-%d"),
+                "start_time": "09:00",
+                "interval_hours": "24",
+                "category_id": "22",
+            }
+            s["_download_only_mode"] = True
+            s.step = 5
             st.rerun()
 
 
@@ -3917,7 +3951,7 @@ def step5():
     _tnc5, _ = st.columns([1, 3])
     with _tnc5:
         if st.button("← 戻る", key="back5_top", disabled=s.running):
-            s.step = 4
+            s.step = 3 if s.get("_download_only_mode") else 4
             st.rerun()
     st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
@@ -3938,10 +3972,14 @@ def step5():
     """, unsafe_allow_html=True)
 
     # ── 認証状態チェック ──
+    _dl_only_mode = s.get("_download_only_mode", False)
     secret_ok  = (CREDS_DIR / "client_secret.json").exists()
     multi_mode = _is_multi_user_mode()
+    token_ok   = False  # ダウンロードのみモードはFalseのまま; 通常モードは以下で上書き
 
-    if multi_mode:
+    if _dl_only_mode:
+        pass  # YouTube認証不要（ダウンロードのみモード）
+    elif multi_mode:
         # ─── マルチユーザーモード: ユーザーごと YouTube 接続 ───────────
         yt_token   = s.get("yt_token")
         ch_name    = s.get("yt_channel_name", "")
@@ -4187,18 +4225,23 @@ def step5():
     enabled_clips = [c for c in s.clips if c.get("enabled", True)]
     sched = s.schedule
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("処理本数",   f"{len(enabled_clips)} 本")
-    col2.metric("元動画",     (s.video_info or {}).get("title", "—")[:20])
-    try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
-        last_dt = base_dt + timedelta(hours=(len(enabled_clips)-1) * int(sched["interval_hours"]))
-        col3.metric("初回投稿", base_dt.strftime("%m/%d %H:%M"))
-        col4.metric("最終投稿", last_dt.strftime("%m/%d %H:%M"))
-    except Exception:
-        pass
+    if _dl_only_mode:
+        col1, col2 = st.columns(2)
+        col1.metric("処理本数", f"{len(enabled_clips)} 本")
+        col2.metric("元動画",   (s.video_info or {}).get("title", "—")[:20])
+    else:
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("処理本数",   f"{len(enabled_clips)} 本")
+        col2.metric("元動画",     (s.video_info or {}).get("title", "—")[:20])
+        try:
+            base_dt = datetime.strptime(
+                f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
+            )
+            last_dt = base_dt + timedelta(hours=(len(enabled_clips)-1) * int(sched["interval_hours"]))
+            col3.metric("初回投稿", base_dt.strftime("%m/%d %H:%M"))
+            col4.metric("最終投稿", last_dt.strftime("%m/%d %H:%M"))
+        except Exception:
+            pass
 
     st.markdown("")
 
@@ -4208,6 +4251,43 @@ def step5():
     if not _in_phase_b:
         # ═══ Phase A: 実行前確認 ════════════════════════════════════
 
+        if _dl_only_mode:
+            # ── ダウンロードのみモード ────────────────────────────────────
+            if s.get("pipeline_error"):
+                _err_full = s["pipeline_error"]
+                _err_head = _err_full.split("\n")[0]
+                st.error(f"❌ {_err_head}")
+                if "\n" in _err_full:
+                    with st.expander("🔍 詳細エラー（クリックで展開）", expanded=False):
+                        st.code(_err_full, language="")
+
+            if not enabled_clips:
+                st.warning("クリップを1本以上選択してください")
+
+            _dl_col_back, _dl_col_run = st.columns([1, 3])
+            with _dl_col_back:
+                if st.button("← クリップ確認へ", key="back5_dlonly", disabled=s.running):
+                    s["_download_only_mode"] = False
+                    s.step = 3
+                    st.rerun()
+            with _dl_col_run:
+                if st.button(
+                    f"⬇️ {len(enabled_clips)} 本のクリップを生成",
+                    type="primary", use_container_width=True,
+                    disabled=(not enabled_clips or s.get("_pipeline_pending", False)),
+                    key="btn_generate_dlonly",
+                ):
+                    print(f"[BTN] DLのみ: clips={len(enabled_clips)}", flush=True)
+                    s["_pipeline_pending"] = True
+                    s["_pipeline_ran"]     = None
+                    s["_pipeline_want_dl"] = True
+                    s["_pipeline_clips"]   = enabled_clips
+                    s["_pipeline_sched"]   = dict(sched)
+                    s["pipeline_error"]    = None
+                    st.rerun()
+            st.stop()
+
+        # ── 通常モード ────────────────────────────────────────────────
         # cookies 期限切れ警告
         _prev_err = s.get("pipeline_error") or ""
         if "cookies が期限切れ" in _prev_err or "cookies を再エクスポート" in _prev_err:
@@ -4343,53 +4423,68 @@ def step5():
 
         st.markdown("")
 
-        if not all_ready:
-            st.warning("YouTubeにアップロードするには認証を完了してください")
+        if _dl_only_mode:
+            # ダウンロードのみ: アップロードボタンなし
+            col_done_dl, _ = st.columns([1, 3])
+            with col_done_dl:
+                if st.button(
+                    "✅ 完了",
+                    use_container_width=True,
+                    key="btn_dlonly_done",
+                ):
+                    s["_download_only_mode"] = False
+                    s["generated_clips"] = []
+                    s["raw_path"] = None
+                    s.step = 3
+                    st.rerun()
+        else:
+            if not all_ready:
+                st.warning("YouTubeにアップロードするには認証を完了してください")
 
-        col_upload, col_skip = st.columns([3, 1])
-        with col_upload:
-            if st.button(
-                "☁️ YouTubeにアップロード",
-                type="primary", use_container_width=True,
-                disabled=(not all_ready or s.running),
-                key="btn_upload",
-            ):
-                s.running = True
-                _upload_pipeline()
-                s.running = False
-                st.rerun()
-        with col_skip:
-            if st.button(
-                "スキップ",
-                use_container_width=True,
-                disabled=s.running,
-                key="btn_skip",
-            ):
-                for _c in s.get("generated_clips", []):
-                    try:
-                        Path(_c["shorts_path"]).unlink(missing_ok=True)
-                    except Exception:
-                        pass
-                _rp = s.get("raw_path")
-                if _rp:
-                    try:
-                        Path(_rp).unlink(missing_ok=True)
-                    except Exception:
-                        pass
-                s.results = [
-                    {
-                        "num":         _c["num"],
-                        "title":       _c["title"],
-                        "video_id":    None,
-                        "publish_jst": _c["publish_jst"],
-                        "status":      "ダウンロードのみ",
-                    }
-                    for _c in s.get("generated_clips", [])
-                ]
-                s["generated_clips"] = []
-                s["raw_path"]        = None
-                s["sched_pending"]   = None
-                st.rerun()
+            col_upload, col_skip = st.columns([3, 1])
+            with col_upload:
+                if st.button(
+                    "☁️ YouTubeにアップロード",
+                    type="primary", use_container_width=True,
+                    disabled=(not all_ready or s.running),
+                    key="btn_upload",
+                ):
+                    s.running = True
+                    _upload_pipeline()
+                    s.running = False
+                    st.rerun()
+            with col_skip:
+                if st.button(
+                    "スキップ",
+                    use_container_width=True,
+                    disabled=s.running,
+                    key="btn_skip",
+                ):
+                    for _c in s.get("generated_clips", []):
+                        try:
+                            Path(_c["shorts_path"]).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    _rp = s.get("raw_path")
+                    if _rp:
+                        try:
+                            Path(_rp).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    s.results = [
+                        {
+                            "num":         _c["num"],
+                            "title":       _c["title"],
+                            "video_id":    None,
+                            "publish_jst": _c["publish_jst"],
+                            "status":      "ダウンロードのみ",
+                        }
+                        for _c in s.get("generated_clips", [])
+                    ]
+                    s["generated_clips"] = []
+                    s["raw_path"]        = None
+                    s["sched_pending"]   = None
+                    st.rerun()
 
     # ── 結果表示 ──
     if s.results:
@@ -4413,7 +4508,8 @@ def step5():
             for k in ["step","video_info","clips","results","running",
                       "generated_clips","raw_path","sched_pending",
                       "pipeline_error","_pipeline_pending","_pipeline_ran",
-                      "_pipeline_clips","_pipeline_sched","_pipeline_want_dl"]:
+                      "_pipeline_clips","_pipeline_sched","_pipeline_want_dl",
+                      "_download_only_mode"]:
                 del st.session_state[k]
             st.rerun()
 
