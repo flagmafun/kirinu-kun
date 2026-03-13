@@ -295,12 +295,16 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             # tv_embedded: PO Token 不要・別 CDN → 最初に試す
             # ios + cookies: tv_embedded がダメなら試す
             _err_web = err
+            _node_bin = _find_node_binary()
+            _js_opts = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
+            _ck_opts = ["--cookies", str(_COOKIES_PATH)] if has_cookies else []
             _fallbacks = [
                 # (client_name, extra_opts)
+                # tv_embedded: PO Token 不要・別 CDN。EJS も必要なので --js-runtimes を渡す
                 ("tv_embedded", ["--extractor-args", "youtube:player_client=tv_embedded"]
-                 + (["--cookies", str(_COOKIES_PATH)] if has_cookies else [])),
-                ("ios", ["--extractor-args", "youtube:player_client=ios"]
-                 + (["--cookies", str(_COOKIES_PATH)] if has_cookies else [])),
+                 + _js_opts + _ck_opts),
+                # ios: cookies あり。PO Token が取れればダウンロードできる可能性
+                ("ios", ["--extractor-args", "youtube:player_client=ios"] + _ck_opts),
             ]
             _fb_errors = {}
             for _fb_name, _fb_opts in _fallbacks:
