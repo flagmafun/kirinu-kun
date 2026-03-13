@@ -281,7 +281,6 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             )
         if "HTTP Error 403" in err or "403: Forbidden" in err:
             # n-challenge が未解決で 403 になっているケースを先にチェック
-            # （--print id は成功するが、ストリーミングURL の n パラメータ解決で失敗すると 403 になる）
             if _nchallenge_failed_in_stderr(err):
                 import importlib.util as _ilu
                 _node = _find_node_binary() or "未検出"
@@ -291,19 +290,30 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                     f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
                     f"詳細: {err[-600:]}"
                 )
-            if has_cookies:
+            # CDN 403（n-challenge は正常）→ ios クライアントで自動リトライ
+            # web クライアントは Streamlit Cloud の IP でブロックされることがある。
+            # ios クライアントは別 CDN を使うため回避できる場合がある。
+            _base_ios = ["--no-playlist", "--no-check-certificates",
+                         "--extractor-args", "youtube:player_client=ios"]
+            _cmd_ios = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
+                        "-o", output_template] + _base_ios + [url]
+            _r2 = subprocess.run(_cmd_ios, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if _r2.returncode == 0:
+                result = _r2  # ios で成功 → 以降の処理に流す
+                err = ""
+            else:
+                _err2 = _r2.stderr.decode("utf-8", errors="replace")
                 raise RuntimeError(
-                    "YouTube CDN 403エラー\n\n"
-                    "cookies が期限切れか無効の可能性があります。\n"
-                    + _COOKIES_UPDATE_MSG
-                    + f"\n詳細: {err[-600:]}"
+                    "YouTube CDN 403エラー（web + ios 両方失敗）\n\n"
+                    + (
+                        "cookies が期限切れか無効の可能性があります。\n"
+                        + _COOKIES_UPDATE_MSG
+                        if has_cookies else
+                        "Streamlit Cloud のIPがブロックされています。\n"
+                    )
+                    + f"\nweb詳細: {err[-300:]}"
+                    + f"\nios詳細: {_err2[-300:]}"
                 )
-            raise RuntimeError(
-                "YouTube CDN 403エラー（IP制限）\n\n"
-                "Streamlit Cloud のIPがブロックされています。\n"
-                "cookies を設定することで回避できる場合があります。\n\n"
-                f"詳細: {err[-600:]}"
-            )
         raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
     for ext in [".mp4", ".mkv", ".webm", ".m4v", ".mov"]:
