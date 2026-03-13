@@ -180,12 +180,14 @@ def _get_ytdlp_base(use_cookies: bool = True) -> list:
             "--extractor-args", "youtube:player_client=web",
             "--cookies", str(_COOKIES_PATH),
         ]
-        # nodejs-wheel の node バイナリを明示指定して EJS n-challenge を解決
-        # --js-runtimes node:/path は _determine_runtime_path() がそのまま使用するため
-        # PATH 検索をバイパスできる（nodejs-wheel は venv/bin に node を置かない）
+        # EJS n-challenge 解決のため --js-runtimes node を必ず渡す
+        # （デフォルト 'deno' を上書きしないと deno 未インストール環境で失敗する）
+        # node_bin あり → yt-dlp がそのパスを直接使用（PATH 検索不要）
+        # node_bin なし → yt-dlp 自身が sysconfig.scripts + PATH で node を発見
+        #   nodejs-wheel は console_scripts に node を登録するため
+        #   venv/bin/node → 実バイナリへのラッパーとして機能する
         node_bin = _find_node_binary()
-        if node_bin:
-            opts += ["--js-runtimes", f"node:{node_bin}"]
+        opts += ["--js-runtimes", f"node:{node_bin}" if node_bin else "node"]
     else:
         # android_vr: n-challenge 不要だが非認証のため SABR が発生する場合あり
         opts += ["--extractor-args", "youtube:player_client=android_vr"]
