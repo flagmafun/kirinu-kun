@@ -303,7 +303,10 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 # mweb: モバイル web クライアント。web と異なる CDN/リクエストフローを使う
                 ("mweb", ["--extractor-args", "youtube:player_client=mweb"]
                  + _js_opts + _ck_opts),
-                # ios: cookies あり。PO Token が取れればダウンロードできる可能性
+                # android_vr: PO Token 不要。cookies 付きなら SABR を回避できる可能性
+                ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
+                 + _ck_opts),
+                # ios: cookies あり。最後の手段
                 ("ios", ["--extractor-args", "youtube:player_client=ios"] + _ck_opts),
             ]
             _fb_errors = {}
