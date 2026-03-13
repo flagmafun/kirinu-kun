@@ -33,6 +33,9 @@ def main() -> None:
     except (json.JSONDecodeError, ValueError):
         admin_emails = [e.strip() for e in admin_emails_raw.split(",") if e.strip()]
 
+    # _is_admin() は st.secrets["admin"]["emails"] をカンマ区切り文字列で参照する
+    admin_emails_csv = ",".join(admin_emails)
+
     toml_content = f"""\
 [supabase]
 url = {_q(supabase_url)}
@@ -45,6 +48,9 @@ client_secret_json = {_q(youtube_client_secret)}
 [app]
 url = {_q(app_url)}
 admin_emails = {json.dumps(admin_emails)}
+
+[admin]
+emails = {_q(admin_emails_csv)}
 """
     (secrets_dir / "secrets.toml").write_text(toml_content)
     print("✅ secrets.toml を生成しました")
