@@ -598,7 +598,9 @@ def create_shorts(
             cmd = [
                 "ffmpeg", "-y",
                 "-loop", "1", "-framerate", "30", "-i", str(frame_jpg),  # [0] 背景
+                # -err_detect ignore_err: H.264 Late SEI など未対応の SEI をスキップ
                 # -fflags +genpts: フラグメント MP4 や不正な PTS を持つ動画に対する対策
+                "-err_detect", "ignore_err",
                 "-fflags", "+genpts",
                 "-ss", str(start_sec), "-i", str(input_path),             # [1] 動画
                 "-t", str(actual_dur),
@@ -616,6 +618,7 @@ def create_shorts(
             crop_filter = _build_crop_filter(w, h)
             cmd = [
                 "ffmpeg", "-y",
+                "-err_detect", "ignore_err",
                 "-fflags", "+genpts",
                 "-ss", str(start_sec), "-i", str(input_path),
                 "-t", str(actual_dur),
