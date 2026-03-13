@@ -561,6 +561,15 @@ def create_shorts(
     w, h, total_dur = get_video_dimensions(input_path)
     actual_dur = min(max_duration, max(1, total_dur - start_sec))
 
+    # ── 診断ログ ────────────────────────────────────────────
+    _fsize = Path(input_path).stat().st_size if Path(input_path).exists() else -1
+    print(
+        f"[CREATE_SHORTS] input={input_path} size={_fsize}B "
+        f"dims={w}x{h} total_dur={total_dur:.1f}s "
+        f"start_sec={start_sec}s actual_dur={actual_dur}s",
+        flush=True,
+    )
+
     frame_jpg = None
     try:
         if themes:
@@ -589,6 +598,8 @@ def create_shorts(
             cmd = [
                 "ffmpeg", "-y",
                 "-loop", "1", "-framerate", "30", "-i", str(frame_jpg),  # [0] 背景
+                # -fflags +genpts: フラグメント MP4 や不正な PTS を持つ動画に対する対策
+                "-fflags", "+genpts",
                 "-ss", str(start_sec), "-i", str(input_path),             # [1] 動画
                 "-t", str(actual_dur),
                 "-filter_complex", fc,
@@ -597,6 +608,7 @@ def create_shorts(
                 "-c:v", "libx264", "-preset", "fast", "-crf", "22",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
+                "-threads", "2",
                 str(output_path),
             ]
         else:
@@ -604,19 +616,30 @@ def create_shorts(
             crop_filter = _build_crop_filter(w, h)
             cmd = [
                 "ffmpeg", "-y",
+                "-fflags", "+genpts",
                 "-ss", str(start_sec), "-i", str(input_path),
                 "-t", str(actual_dur),
                 "-vf", crop_filter,
                 "-c:v", "libx264", "-preset", "fast", "-crf", "22",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
+                "-threads", "2",
                 str(output_path),
             ]
 
+        print(f"[CREATE_SHORTS] cmd: {' '.join(str(c) for c in cmd)}", flush=True)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if result.returncode != 0:
+        _rc = result.returncode
+        if _rc != 0:
             err = result.stderr.decode("utf-8", errors="replace")
-            raise RuntimeError("ffmpeg失敗: %s" % err[-600:])
+            print(f"[CREATE_SHORTS] ffmpeg FAILED rc={_rc}", flush=True)
+            print(f"[CREATE_SHORTS] ffmpeg stderr:\n{err[:3000]}", flush=True)
+            # 先頭と末尾の両方を表示（中間が切れても原因が見える）
+            if len(err) > 800:
+                err_display = err[:400] + "\n...\n" + err[-400:]
+            else:
+                err_display = err
+            raise RuntimeError(f"ffmpeg失敗 (rc={_rc}): {err_display}")
 
     finally:
         if frame_jpg and Path(frame_jpg).exists():
