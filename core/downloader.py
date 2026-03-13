@@ -159,7 +159,11 @@ def _cookies_expired_in_stderr(stderr: str) -> bool:
     return any(h in s for h in _COOKIES_EXPIRED_HINTS)
 
 
-_NCHALLENGE_HINTS = ("n challenge solving failed",)
+_NCHALLENGE_HINTS = (
+    "n challenge solving failed",           # Node.js 起動後 solver スクリプトが失敗
+    "a supported javascript runtime",        # Node.js 自体が見つからない
+    "challenge solver script distribution",  # solver スクリプト未インストール
+)
 
 
 def _nchallenge_failed_in_stderr(stderr: str) -> bool:
