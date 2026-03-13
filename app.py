@@ -4345,8 +4345,12 @@ def _run_pipeline(clips: list, sched: dict):
             status.update(label="ダウンロード失敗", state="error")
 
         # ② 各クリップを処理（ダウンロード成功時のみ）
+        import time as _time
+        import threading as _threading
+        _clip_times_run = []  # 各クリップの実処理秒数（残り時間推定用）
+
         for i, clip in (enumerate(clips) if _dl_ok else ()):
-            pct  = (i + 1) / len(clips)
+            pct  = i / len(clips)  # 開始時点の進捗
             title = clip["title"] or f"Shorts {clip['index']}"
             hashtags = clip.get("hashtags", "#Shorts")
             description = (clip.get("description","").strip() + "\n\n" + hashtags).strip()
@@ -4355,7 +4359,15 @@ def _run_pipeline(clips: list, sched: dict):
             jst_dt = base_dt + timedelta(hours=i * interval_h)
             utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
 
-            prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
+            if _clip_times_run:
+                _avg_sec_r = sum(_clip_times_run) / len(_clip_times_run)
+                _rem_sec_r = _avg_sec_r * (len(clips) - i)
+                _rem_str_r = f"残り約{int(_rem_sec_r//60)}分{int(_rem_sec_r%60)}秒"
+            else:
+                _avg_sec_r = None
+                _rem_str_r = "推定中..."
+
+            prog.progress(pct, text=f"[{i+1}/{len(clips)}] エンコード中... {_rem_str_r}")
 
             try:
                 # デザイン設定を取得（クリップごとランダムモード対応）
@@ -4375,23 +4387,52 @@ def _run_pipeline(clips: list, sched: dict):
                 _bottom_img = clip.get("bottom_image")
                 _bottom_path = Path(_bottom_img) if _bottom_img else None
 
-                # 変換
+                # 変換（スレッドで実行し残り時間をライブ表示）
                 st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
                          f"({int(clip['start'])}s → {int(clip['end'])}s)")
                 shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
-                create_shorts(
-                    raw_path, shorts_path,
+
+                _cs_result_r = [None]
+                _cs_done_r   = _threading.Event()
+                _cs_kw_r     = dict(
+                    input_path=raw_path, output_path=shorts_path,
                     max_duration=int(clip["end"] - clip["start"]),
-                    start_sec=int(clip["start"]),
-                    title=title,
-                    theme_key=_theme_key,
-                    size_key=_size_key,
-                    pattern_key=_pattern_key,
-                    themes=TITLE_THEMES,
-                    sizes=TITLE_SIZES,
+                    start_sec=int(clip["start"]), title=title,
+                    theme_key=_theme_key, size_key=_size_key, pattern_key=_pattern_key,
+                    themes=TITLE_THEMES, sizes=TITLE_SIZES or {},
                     bottom_image_path=_bottom_path,
                     catchphrase=clip.get("catchphrase", ""),
                 )
+                def _cs_worker_r(kw=_cs_kw_r, res=_cs_result_r, done=_cs_done_r):
+                    try:
+                        create_shorts(**kw)
+                    except Exception as _ex:
+                        res[0] = _ex
+                    finally:
+                        done.set()
+                _cs_thread_r = _threading.Thread(target=_cs_worker_r, daemon=True)
+                _cs_thread_r.start()
+                _time_ph_r = st.empty()
+                _clip_t0_r = _time.time()
+                while not _cs_done_r.wait(timeout=1.0):
+                    _el = _time.time() - _clip_t0_r
+                    if _avg_sec_r is not None:
+                        _tr = max(0.0, _avg_sec_r - _el) + _avg_sec_r * (len(clips) - i - 1)
+                        _time_ph_r.markdown(
+                            f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
+                            f"経過 **{int(_el)}秒** / 残り約 **{int(_tr//60)}分{int(_tr%60)}秒**"
+                        )
+                    else:
+                        _time_ph_r.markdown(
+                            f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
+                            f"経過 **{int(_el)}秒**（初回のため残り時間推定中）"
+                        )
+                _cs_thread_r.join()
+                _elapsed_r = _time.time() - _clip_t0_r
+                _time_ph_r.empty()
+                if _cs_result_r[0] is not None:
+                    raise _cs_result_r[0]
+                _clip_times_run.append(_elapsed_r)
 
                 # アップロード
                 st.write(f"☁️ **{i+1}本目: アップロード中** "
@@ -4505,8 +4546,12 @@ def _generate_pipeline(clips: list, sched: dict):
         if _dl_ok:
             s["raw_path"] = str(raw_path)
 
+            import time as _time
+            import threading as _threading
+            _clip_times = []  # 各クリップの実処理秒数を記録（残り時間推定用）
+
             for i, clip in enumerate(clips):
-                pct   = (i + 1) / len(clips)
+                pct   = i / len(clips)   # 開始時点の進捗（完了したクリップ数ベース）
                 title = clip["title"] or f"Shorts {clip['index']}"
                 hashtags    = clip.get("hashtags", "#Shorts")
                 description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
@@ -4515,7 +4560,16 @@ def _generate_pipeline(clips: list, sched: dict):
                 jst_dt = base_dt + timedelta(hours=i * interval_h)
                 utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
 
-                prog.progress(pct, text=f"[{i+1}/{len(clips)}] {title[:40]}")
+                # 残り時間の初期推定
+                if _clip_times:
+                    _avg_sec = sum(_clip_times) / len(_clip_times)
+                    _rem_sec = _avg_sec * (len(clips) - i)
+                    _rem_str = f"残り約{int(_rem_sec//60)}分{int(_rem_sec%60)}秒"
+                else:
+                    _avg_sec = None
+                    _rem_str = "推定中..."
+
+                prog.progress(pct, text=f"[{i+1}/{len(clips)}] エンコード中... {_rem_str}")
 
                 print(f"[PIPELINE] クリップ {i+1}/{len(clips)} 変換開始: {title[:40]}", flush=True)
                 try:
@@ -4538,8 +4592,13 @@ def _generate_pipeline(clips: list, sched: dict):
                     st.write(f"✂️ **{i+1}本目: 切り出し変換中** "
                              f"({int(clip['start'])}s → {int(clip['end'])}s)")
                     shorts_path = _user_out / "shorts" / f"short_{clip['index']:02d}.mp4"
-                    create_shorts(
-                        raw_path, shorts_path,
+
+                    # ── create_shorts をスレッドで実行し、メインスレッドで1秒ごとに残り時間を表示 ──
+                    _cs_result   = [None]   # None=成功, Exception=失敗
+                    _cs_done     = _threading.Event()
+                    _cs_kwargs   = dict(
+                        input_path=raw_path,
+                        output_path=shorts_path,
                         max_duration=int(clip["end"] - clip["start"]),
                         start_sec=int(clip["start"]),
                         title=title,
@@ -4547,10 +4606,49 @@ def _generate_pipeline(clips: list, sched: dict):
                         size_key=_size_key,
                         pattern_key=_pattern_key,
                         themes=TITLE_THEMES,
-                        sizes=TITLE_SIZES,
+                        sizes=TITLE_SIZES or {},
                         bottom_image_path=_bottom_path,
                         catchphrase=clip.get("catchphrase", ""),
                     )
+
+                    def _cs_worker(kw=_cs_kwargs, res=_cs_result, done=_cs_done):
+                        try:
+                            create_shorts(**kw)
+                        except Exception as _ex:
+                            res[0] = _ex
+                        finally:
+                            done.set()
+
+                    _cs_thread = _threading.Thread(target=_cs_worker, daemon=True)
+                    _cs_thread.start()
+
+                    # 1秒ごとに残り時間を更新
+                    _time_ph  = st.empty()
+                    _clip_t0  = _time.time()
+                    while not _cs_done.wait(timeout=1.0):
+                        _elapsed = _time.time() - _clip_t0
+                        if _avg_sec is not None:
+                            _this_rem = max(0.0, _avg_sec - _elapsed)
+                            _rest_rem = _avg_sec * (len(clips) - i - 1)
+                            _total    = _this_rem + _rest_rem
+                            _time_ph.markdown(
+                                f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
+                                f"経過 **{int(_elapsed)}秒** / "
+                                f"残り約 **{int(_total//60)}分{int(_total%60)}秒**"
+                            )
+                        else:
+                            _time_ph.markdown(
+                                f"⏳ **{i+1}/{len(clips)}本目** エンコード中...&nbsp;&nbsp;"
+                                f"経過 **{int(_elapsed)}秒**（初回のため残り時間推定中）"
+                            )
+                    _cs_thread.join()
+                    _elapsed_final = _time.time() - _clip_t0
+                    _time_ph.empty()
+
+                    if _cs_result[0] is not None:
+                        raise _cs_result[0]
+
+                    _clip_times.append(_elapsed_final)
 
                     generated.append({
                         "num":         i + 1,
@@ -4563,7 +4661,9 @@ def _generate_pipeline(clips: list, sched: dict):
                         "utc_dt":      utc_dt.isoformat(),
                         "publish_jst": jst_dt.strftime("%Y/%m/%d %H:%M"),
                     })
-                    st.write(f"✅ **{i+1}本目: 変換完了**")
+                    prog.progress((i+1)/len(clips),
+                                  text=f"[{i+1}/{len(clips)}] ✅ 完了 ({int(_elapsed_final)}秒)")
+                    st.write(f"✅ **{i+1}本目: 変換完了** ({int(_elapsed_final)}秒)")
 
                 except Exception as e:
                     import traceback as _tb
