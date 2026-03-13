@@ -4566,7 +4566,12 @@ def _generate_pipeline(clips: list, sched: dict):
                     st.write(f"✅ **{i+1}本目: 変換完了**")
 
                 except Exception as e:
+                    import traceback as _tb
+                    _clip_err = f"[{i+1}本目] {type(e).__name__}: {e}"
                     st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+                    print(f"[PIPELINE] クリップ変換エラー: {_clip_err}", flush=True)
+                    print(_tb.format_exc(), flush=True)
+                    s['_clip_errors'] = s.get('_clip_errors', []) + [_clip_err]
 
             if not generated:
                 try:
@@ -4574,7 +4579,9 @@ def _generate_pipeline(clips: list, sched: dict):
                 except Exception:
                     pass
                 s["raw_path"] = None
-                s["pipeline_error"] = "すべてのクリップの変換に失敗しました"
+                _errs = s.get('_clip_errors', [])
+                _err_detail = ("\n\n詳細:\n" + "\n".join(_errs[:3])) if _errs else ""
+                s["pipeline_error"] = "すべてのクリップの変換に失敗しました" + _err_detail
                 status.update(label="変換失敗", state="error")
                 # ← return しない：with ブロックを自然に終了させる
             else:
