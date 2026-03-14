@@ -2832,12 +2832,33 @@ def step1():
 - `https://example.com/video.mp4` — mp4 直接URL
 """)
 
-        _f_video_url = st.text_input(
-            "動画ファイルのURL",
-            placeholder="https://drive.google.com/file/d/xxxxxxxx/view?usp=sharing",
-            key="s1_file_url",
-            help="Google Drive の共有リンク、または動画ファイルへの直接URLに対応しています",
+        # 入力方法の選択
+        _f_input_method = st.radio(
+            "入力方法",
+            ["🔗 URLを入力", "💻 ファイルをアップロード"],
+            horizontal=True,
+            key="s1_file_input_method",
+            label_visibility="collapsed",
         )
+
+        _f_video_url = ""
+        _f_uploaded_file = None
+
+        if _f_input_method == "🔗 URLを入力":
+            _f_video_url = st.text_input(
+                "動画ファイルのURL",
+                placeholder="https://drive.google.com/file/d/xxxxxxxx/view?usp=sharing",
+                key="s1_file_url",
+                help="Google Drive の共有リンク、または動画ファイルへの直接URLに対応しています",
+            )
+        else:
+            _f_uploaded_file = st.file_uploader(
+                "動画ファイルを選択",
+                type=["mp4", "mov", "avi", "mkv", "webm", "m4v"],
+                key="s1_file_uploader",
+                help="mp4, mov, avi, mkv, webm に対応しています",
+            )
+
         _f_video_title = st.text_input(
             "動画タイトル（任意）",
             placeholder="例：【完全解説】Pythonの使い方",
@@ -2854,9 +2875,13 @@ def step1():
 
         st.markdown("")
         _file_error = None
+        _f_btn_disabled = (
+            (not _f_video_url.strip() and _f_input_method == "🔗 URLを入力") or
+            (_f_uploaded_file is None and _f_input_method == "💻 ファイルをアップロード")
+        )
         if st.button("📁 解析開始", type="primary", use_container_width=True,
-                     key="analyze_file_btn"):
-            if not _f_video_url.strip():
+                     key="analyze_file_btn", disabled=_f_btn_disabled):
+            if _f_input_method == "🔗 URLを入力" and not _f_video_url.strip():
                 st.error("URLを入力してください")
             else:
                 with st.status("ファイルを解析中...", expanded=True) as _fstatus:
@@ -2865,44 +2890,59 @@ def step1():
                         import json as _fjson
                         import re as _re
 
-                        # ① URL から動画をダウンロード
+                        # ① URL または ローカルファイルから取得
                         _upload_dir = OUTPUT_DIR / "uploads"
                         _upload_dir.mkdir(parents=True, exist_ok=True)
                         _furl = _f_video_url.strip()
 
-                        # ① ダウンロード（ステージ専用 empty を作成）
+                        # ローカルファイルアップロードの場合
                         _fanim1 = st.empty()
-                        _gdrive_match = _re.search(
-                            r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
-                        )
-                        if _gdrive_match:
-                            _file_id = _gdrive_match.group(1)
+                        if _f_input_method == "💻 ファイルをアップロード" and _f_uploaded_file is not None:
                             _fanim1.markdown(_make_analysis_stage_html(
-                                "Google Drive からダウンロード中...",
-                                "ファイルサイズに応じて数十秒かかります"
+                                "ファイルを保存中...", _f_uploaded_file.name
                             ), unsafe_allow_html=True)
-                            import gdown as _gdown
-                            _fpath = _upload_dir / f"{_file_id}.mp4"
-                            _gdown.download(id=_file_id, output=str(_fpath), quiet=True, fuzzy=True)
+                            _fpath = _upload_dir / _f_uploaded_file.name
+                            with open(_fpath, "wb") as _fp:
+                                _fp.write(_f_uploaded_file.getbuffer())
                             if not _fpath.exists() or _fpath.stat().st_size == 0:
-                                raise RuntimeError(
-                                    "Google Drive からダウンロードできませんでした。\n"
-                                    "共有設定が「リンクを知っている全員」になっているか確認してください。"
-                                )
+                                raise RuntimeError("ファイルの保存に失敗しました")
+                            _fanim1.empty()
+                            # 以降の処理用に _furl をダミーセット（ファイルパスで上書き）
+                            _furl = ""
+                            # ② 以降の処理はファイルパスを直接使うためスキップ
                         else:
-                            _fanim1.markdown(_make_analysis_stage_html(
-                                "動画をダウンロード中...", f"{_furl[:50]}..."
-                            ), unsafe_allow_html=True)
-                            import requests as _req
-                            _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
-                            _fpath = _upload_dir / _fname
-                            with _req.get(_furl, stream=True, timeout=300) as _r:
-                                _r.raise_for_status()
-                                with open(_fpath, "wb") as _fp:
-                                    for _chunk in _r.iter_content(chunk_size=8192):
-                                        _fp.write(_chunk)
-                        _fanim1.empty()
-                        st.write(f"✅ ダウンロード完了: `{_fpath.name}`")
+                            # URL モード: Google Drive / 直接URL からダウンロード
+                            _gdrive_match = _re.search(
+                                r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
+                            )
+                            if _gdrive_match:
+                                _file_id = _gdrive_match.group(1)
+                                _fanim1.markdown(_make_analysis_stage_html(
+                                    "Google Drive からダウンロード中...",
+                                    "ファイルサイズに応じて数十秒かかります"
+                                ), unsafe_allow_html=True)
+                                import gdown as _gdown
+                                _fpath = _upload_dir / f"{_file_id}.mp4"
+                                _gdown.download(id=_file_id, output=str(_fpath), quiet=True, fuzzy=True)
+                                if not _fpath.exists() or _fpath.stat().st_size == 0:
+                                    raise RuntimeError(
+                                        "Google Drive からダウンロードできませんでした。\n"
+                                        "共有設定が「リンクを知っている全員」になっているか確認してください。"
+                                    )
+                            else:
+                                _fanim1.markdown(_make_analysis_stage_html(
+                                    "動画をダウンロード中...", f"{_furl[:50]}..."
+                                ), unsafe_allow_html=True)
+                                import requests as _req
+                                _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
+                                _fpath = _upload_dir / _fname
+                                with _req.get(_furl, stream=True, timeout=300) as _r:
+                                    _r.raise_for_status()
+                                    with open(_fpath, "wb") as _fp:
+                                        for _chunk in _r.iter_content(chunk_size=8192):
+                                            _fp.write(_chunk)
+                            _fanim1.empty()
+                        st.write(f"✅ ファイル準備完了: `{_fpath.name}`")
                         _fstem = _fpath.stem[:50]
 
                         # ② ffprobe で尺を取得
