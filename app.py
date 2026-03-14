@@ -1749,6 +1749,8 @@ def _auth_error_ja(e) -> str:
         return "ネットワークエラーが発生しました。接続を確認してください。"
     if "database error" in msg:
         return "サーバーエラーが発生しました。しばらく待ってから再試行してください。"
+    if "sending confirmation email" in msg or ("email" in msg and "send" in msg):
+        return "確認メールの送信に失敗しました。しばらく待ってから再試行してください（1時間あたりの送信数制限に達した可能性があります）。"
     if "signup disabled" in msg:
         return "現在新規登録は受け付けていません。"
     return f"エラーが発生しました: {str(e)}"
