@@ -47,7 +47,35 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ⑥ 月次リセット用関数（毎月1日に Cloud Scheduler 等から呼ぶ）
+-- ⑥ subscriptions 追加カラム（既存DBへの適用）
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS subscription_status    TEXT DEFAULT 'active';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_end     TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS youtube_approved        BOOLEAN DEFAULT false;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS youtube_request_email  TEXT;
+
+-- ⑦ 新規ユーザーのデフォルトを trial (5本) に変更
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  INSERT INTO public.subscriptions (user_id, plan, clips_limit)
+  VALUES (NEW.id, 'trial', 5)
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+-- ⑧ 同時実行制御テーブル
+CREATE TABLE IF NOT EXISTS processing_jobs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status      TEXT DEFAULT 'running',  -- 'running', 'done', 'failed'
+  started_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE processing_jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Own processing jobs" ON processing_jobs FOR ALL USING (auth.uid() = user_id);
+
+-- ⑨ 月次リセット用関数（毎月1日に Cloud Scheduler 等から呼ぶ）
 CREATE OR REPLACE FUNCTION public.reset_monthly_clips()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN

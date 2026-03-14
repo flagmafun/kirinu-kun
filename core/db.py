@@ -145,10 +145,13 @@ def increment_clips_used(user_id: str, count: int = 1):
 def get_plan_label(plan: str) -> str:
     """プランキーを表示名に変換"""
     return {
-        "free":       "🆓 無料プラン（月10本）",
-        "lite":       "💡 ライトプラン（月30本）",
-        "standard":   "⭐ スタンダードプラン（月100本）",
-        "pro":        "🚀 プロプラン（月無制限）",
+        "trial":    "🆓 無料トライアル（月5本）",
+        "basic":    "⭐ ベーシック（月100本）",
+        "pro":      "🚀 プロ（月500本）",
+        # 旧プラン（後方互換）
+        "free":     "🆓 無料プラン（月10本）",
+        "lite":     "💡 ライトプラン（月30本）",
+        "standard": "⭐ スタンダードプラン（月100本）",
     }.get(plan, f"プラン: {plan}")
 
 

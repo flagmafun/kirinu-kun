@@ -4152,6 +4152,73 @@ def step4():
 
 
 # ══════════════════════════════════════════════════════════
+# アップグレード UI（プラン上限到達時）
+# ══════════════════════════════════════════════════════════
+def _show_upgrade_ui(user_id: str):
+    """今月の上限に達したときに表示するアップグレード画面"""
+    import streamlit as _st
+    import os as _os
+
+    try:
+        from core.usage_tracker import get_plan_info, STRIPE_PRICE_BASIC, STRIPE_PRICE_PRO
+        _pi = get_plan_info(user_id)
+    except Exception:
+        return
+
+    _st.error(
+        f"今月の生成枠（{_pi['limit']} 本）を使い切りました。"
+        " プランをアップグレードすると来月まで待たずに続けられます。",
+        icon="🚫",
+    )
+
+    _app_url = ""
+    try:
+        _app_url = _st.secrets.get("app", {}).get("url", "")
+    except Exception:
+        pass
+
+    def _checkout_url(plan: str) -> str | None:
+        try:
+            import stripe as _stripe
+            _stripe.api_key = _st.secrets.get("stripe", {}).get("secret_key", "")
+            price_id = _st.secrets.get("stripe", {}).get(f"price_{plan}", "")
+            if not _stripe.api_key or not price_id:
+                return None
+            sess = _stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{"price": price_id, "quantity": 1}],
+                mode="subscription",
+                success_url=f"{_app_url}?payment=success",
+                cancel_url=f"{_app_url}?payment=canceled",
+                client_reference_id=user_id,
+                metadata={"price_id": price_id},
+            )
+            return sess.url
+        except Exception:
+            return None
+
+    _c1, _c2 = _st.columns(2)
+    with _c1:
+        _url_basic = _checkout_url("basic")
+        if _url_basic:
+            _st.link_button(
+                "⭐ ベーシック（月100本 / ¥50,000）",
+                _url_basic, use_container_width=True,
+            )
+        else:
+            _st.info("ベーシックプラン：月100本 / ¥50,000\n管理者にお問い合わせください")
+    with _c2:
+        _url_pro = _checkout_url("pro")
+        if _url_pro:
+            _st.link_button(
+                "🚀 プロ（月500本 / ¥200,000）",
+                _url_pro, use_container_width=True, type="primary",
+            )
+        else:
+            _st.info("プロプラン：月500本 / ¥200,000\n管理者にお問い合わせください")
+
+
+# ══════════════════════════════════════════════════════════
 # STEP 5 — 実行
 # ══════════════════════════════════════════════════════════
 def step5():
@@ -4182,6 +4249,15 @@ def step5():
             # RerunException を re-raise すると _pipeline_ran="done" が記録されず
             # ループに入るため、Streamlit 内部例外も含めてすべてキャプチャして続行する
             s["pipeline_error"] = f"[{_ename}] {_e}\n\n{_etb}"
+        finally:
+            # 同時実行スロットを解放
+            _slot_id = s.pop("_job_slot_id", None)
+            if _slot_id and _is_multi_user_mode():
+                try:
+                    from core.job_queue import release_slot
+                    release_slot(_slot_id, success=not bool(s.get("pipeline_error")))
+                except Exception:
+                    pass
         s["_pipeline_ran"] = "done"  # 完走マーク
         print("[STEP5] パイプライン完了 → st.rerun()", flush=True)
         st.rerun()
@@ -4189,6 +4265,25 @@ def step5():
 
     render_stepbar(5)
     render_video_banner()
+
+    # ── 使用量メーター ─────────────────────────────────────────────────
+    if _is_multi_user_mode():
+        _uid_s5 = s.get("user_id", "")
+        if _uid_s5:
+            try:
+                from core.usage_tracker import get_plan_info
+                _pi = get_plan_info(_uid_s5)
+                _bar_val = min(1.0, _pi["used"] / _pi["limit"]) if _pi["limit"] > 0 else 0
+                _bar_color = "🔴" if _pi["remaining"] == 0 else ("🟡" if _pi["remaining"] <= 3 else "🟢")
+                st.progress(
+                    _bar_val,
+                    text=f"{_bar_color} 今月の使用: **{_pi['used']} / {_pi['limit']} 本** ｜ プラン: {_pi['label']}",
+                )
+                if _pi["remaining"] == 0:
+                    _show_upgrade_ui(_uid_s5)
+                    st.stop()
+            except Exception:
+                pass
 
     # ──── DEBUGパネル（確認後に削除） ────────────────────────────────────
     with st.expander("🐛 デバッグ情報（確認したら削除）", expanded=True):
@@ -4532,6 +4627,18 @@ def step5():
                     key="btn_generate_dlonly",
                 ):
                     print(f"[BTN] DLのみ: clips={len(enabled_clips)}", flush=True)
+                    if _is_multi_user_mode():
+                        from core.usage_tracker import check_can_generate
+                        from core.job_queue import acquire_slot
+                        _u_ok, _u_err = check_can_generate(s.get("user_id", ""), len(enabled_clips))
+                        if not _u_ok:
+                            s["pipeline_error"] = _u_err
+                            st.rerun()
+                        _slot = acquire_slot(s.get("user_id", ""))
+                        if _slot is None:
+                            s["pipeline_error"] = "ただいまサーバーが混雑しています。少し待ってから再度お試しください。"
+                            st.rerun()
+                        s["_job_slot_id"] = _slot
                     s["_pipeline_pending"] = True
                     s["_pipeline_ran"]     = None
                     s["_pipeline_want_dl"] = True
@@ -4629,6 +4736,18 @@ def step5():
             ):
                 # フラグを立てて即rerun → パイプラインはstep5()先頭のメインフローで実行
                 print(f"[BTN] クリック: want_dl={_want_dl}, clips={len(enabled_clips)}", flush=True)
+                if _is_multi_user_mode():
+                    from core.usage_tracker import check_can_generate
+                    from core.job_queue import acquire_slot
+                    _u_ok, _u_err = check_can_generate(s.get("user_id", ""), len(enabled_clips))
+                    if not _u_ok:
+                        s["pipeline_error"] = _u_err
+                        st.rerun()
+                    _slot = acquire_slot(s.get("user_id", ""))
+                    if _slot is None:
+                        s["pipeline_error"] = "ただいまサーバーが混雑しています。少し待ってから再度お試しください。"
+                        st.rerun()
+                    s["_job_slot_id"] = _slot
                 s["_pipeline_pending"] = True
                 s["_pipeline_ran"]     = None
                 s["_pipeline_want_dl"] = _want_dl
