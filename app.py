@@ -2213,70 +2213,197 @@ def render_video_banner():
 
 # ── Step1 解析ステージ用ローディングカード ─────────────────
 def _make_analysis_stage_html(title: str, detail: str = "") -> str:
-    """Step1 解析中に st.empty().markdown() で表示するカード型アニメーション。
-    既存の _make_loading_html と同じキャラクター・配色を使用。
+    """切り抜きくんキャラクター（3D風・可愛い）によるローディングカード。
+    企画→デザイン→編集の3活動をサイクルアニメーションで表示。
     """
     return f"""
 <style>
-@keyframes as-bounce {{0%,100%{{transform:translateY(0)rotate(-2deg)}}50%{{transform:translateY(-10px)rotate(2deg)}}}}
-@keyframes as-float  {{0%,100%{{transform:translateY(0);opacity:.6}}50%{{transform:translateY(-10px);opacity:1}}}}
-@keyframes as-spin   {{to{{transform:rotate(360deg)}}}}
+@keyframes as-bounce{{0%,100%{{transform:translateY(0) rotate(-1.5deg)}}50%{{transform:translateY(-12px) rotate(1.5deg)}}}}
+@keyframes as-float {{0%,100%{{transform:translateY(0);opacity:.5}}50%{{transform:translateY(-9px);opacity:1}}}}
+@keyframes as-spin  {{to{{transform:rotate(360deg)}}}}
 @keyframes as-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
+@keyframes as-snip  {{0%,100%{{transform:rotate(0deg) translate(0,0)}}40%{{transform:rotate(22deg) translate(1px,-1px)}}70%{{transform:rotate(-8deg)}}}}
+@keyframes as-phone {{0%,100%{{transform:rotate(-6deg) translateY(0)}}50%{{transform:rotate(6deg) translateY(-3px)}}}}
+@keyframes as-blink {{0%,88%,100%{{transform:scaleY(1)}}93%{{transform:scaleY(0.08)}}}}
+@keyframes as-star  {{0%,100%{{opacity:.4;transform:scale(.8) rotate(0deg)}}50%{{opacity:1;transform:scale(1.2) rotate(180deg)}}}}
+@keyframes as-act   {{0%,30%{{opacity:1;transform:translateY(0)}}35%,100%{{opacity:0;transform:translateY(-6px)}}}}
+@keyframes as-act2  {{0%,32%{{opacity:0}}33%,63%{{opacity:1;transform:translateY(0)}}68%,100%{{opacity:0;transform:translateY(-6px)}}}}
+@keyframes as-act3  {{0%,65%{{opacity:0}}66%,96%{{opacity:1;transform:translateY(0)}}100%{{opacity:0}}}}
 .as-card{{
   background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
-  border:1px solid rgba(139,92,246,.35);border-radius:16px;
-  padding:20px 16px 18px;display:flex;flex-direction:column;
+  border:1px solid rgba(139,92,246,.4);border-radius:16px;
+  padding:18px 16px 16px;display:flex;flex-direction:column;
   align-items:center;position:relative;overflow:hidden;
   font-family:-apple-system,'Hiragino Sans',sans-serif;
 }}
 .as-glow{{position:absolute;border-radius:50%;filter:blur(40px);pointer-events:none;}}
-.as-chara{{animation:as-bounce 2.4s ease-in-out infinite;
-  filter:drop-shadow(0 6px 18px rgba(167,139,250,.55));margin-bottom:10px;}}
-.as-title{{
-  font-size:15px;font-weight:700;margin-bottom:4px;
-  background:linear-gradient(90deg,#c084fc,#818cf8,#c084fc);background-size:200%;
+.as-chara{{animation:as-bounce 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 8px 20px rgba(220,80,60,.5)) drop-shadow(0 2px 8px rgba(167,139,250,.4));
+  margin-bottom:8px;}}
+.as-title{{font-size:14px;font-weight:700;margin-bottom:3px;
+  background:linear-gradient(90deg,#fbbf24,#f87171,#c084fc,#fbbf24);background-size:300%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  animation:as-shimmer 2s linear infinite;
-}}
-.as-detail{{font-size:11px;color:rgba(148,163,184,.85);margin-bottom:14px;text-align:center;}}
-.as-spinner{{width:26px;height:26px;border-radius:50%;
-  border:3px solid rgba(139,92,246,.2);border-top-color:#a78bfa;
-  animation:as-spin .8s linear infinite;}}
+  animation:as-shimmer 2.5s linear infinite;}}
+.as-detail{{font-size:11px;color:rgba(148,163,184,.8);margin-bottom:10px;text-align:center;}}
+.as-spinner{{width:24px;height:24px;border-radius:50%;
+  border:3px solid rgba(139,92,246,.2);border-top-color:#f87171;
+  animation:as-spin .7s linear infinite;}}
+.as-act-wrap{{position:relative;height:20px;width:100%;text-align:center;margin-bottom:10px;}}
+.as-act-lbl{{position:absolute;left:0;right:0;font-size:11px;font-weight:700;
+  border-radius:10px;padding:2px 10px;display:inline-block;}}
 </style>
 <div class="as-card">
-  <div class="as-glow" style="width:220px;height:220px;background:rgba(124,58,237,.18);top:-90px;left:-70px;"></div>
-  <div class="as-glow" style="width:160px;height:160px;background:rgba(236,72,153,.12);bottom:-70px;right:-50px;"></div>
-  <span style="position:absolute;top:10px;left:14px;font-size:13px;color:#a78bfa;animation:as-float 3s ease-in-out infinite;">✦</span>
-  <span style="position:absolute;top:12px;right:16px;font-size:10px;color:#f472b6;animation:as-float 4s ease-in-out infinite .5s;">✦</span>
-  <span style="position:absolute;bottom:14px;left:20px;font-size:9px;color:#818cf8;animation:as-float 3.5s ease-in-out infinite 1s;">✦</span>
+  <div class="as-glow" style="width:200px;height:200px;background:rgba(194,65,12,.15);top:-80px;left:-60px;"></div>
+  <div class="as-glow" style="width:150px;height:150px;background:rgba(124,58,237,.15);bottom:-60px;right:-40px;"></div>
+  <span style="position:absolute;top:8px;left:12px;font-size:12px;color:#fbbf24;animation:as-star 2.8s ease-in-out infinite;">✦</span>
+  <span style="position:absolute;top:10px;right:14px;font-size:9px;color:#f472b6;animation:as-star 3.5s ease-in-out infinite .6s;">✦</span>
+  <span style="position:absolute;bottom:40px;left:10px;font-size:8px;color:#818cf8;animation:as-star 3s ease-in-out infinite 1.2s;">✦</span>
+  <span style="position:absolute;bottom:42px;right:12px;font-size:10px;color:#fbbf24;animation:as-star 4s ease-in-out infinite .3s;">★</span>
+
   <div class="as-chara">
-    <svg viewBox="0 0 120 140" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 190 210" width="95" height="105" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="asg" cx="38%" cy="30%"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></radialGradient>
-        <radialGradient id="asf" cx="38%" cy="30%"><stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fcd34d"/></radialGradient>
+        <radialGradient id="ksk" cx="40%" cy="35%"><stop offset="0%" stop-color="#FFE0B2"/><stop offset="100%" stop-color="#FFAB40"/></radialGradient>
+        <radialGradient id="ksh" cx="35%" cy="25%"><stop offset="0%" stop-color="#455A64"/><stop offset="100%" stop-color="#1A237E"/></radialGradient>
+        <radialGradient id="ksr" cx="35%" cy="20%"><stop offset="0%" stop-color="#EF5350"/><stop offset="100%" stop-color="#B71C1C"/></radialGradient>
+        <radialGradient id="ksrl" cx="35%" cy="20%"><stop offset="0%" stop-color="#FF8A80"/><stop offset="100%" stop-color="#EF5350"/></radialGradient>
+        <radialGradient id="ksey" cx="35%" cy="30%"><stop offset="0%" stop-color="#283593"/><stop offset="100%" stop-color="#0D47A1"/></radialGradient>
+        <filter id="kssh"><feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.4)"/></filter>
+        <filter id="ksglow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
-      <ellipse cx="60" cy="106" rx="30" ry="28" fill="url(#asg)"/>
-      <path d="M32 115 Q40 125 50 118 Q58 128 68 118 Q78 126 88 116" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <ellipse cx="29" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(-30 29 100)"/>
-      <ellipse cx="91" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(30 91 100)"/>
-      <text x="13" y="110" font-size="15" fill="white" opacity=".85">✂</text>
-      <text x="82" y="110" font-size="15" fill="white" opacity=".85">✂</text>
-      <circle cx="60" cy="50" r="28" fill="url(#asf)"/>
-      <ellipse cx="45" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
-      <ellipse cx="75" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
-      <ellipse cx="51" cy="47" rx="8" ry="9" fill="white"/>
-      <ellipse cx="69" cy="47" rx="8" ry="9" fill="white"/>
-      <circle cx="51" cy="48" r="6" fill="#1e1b4b"/>
-      <circle cx="69" cy="48" r="6" fill="#1e1b4b"/>
-      <circle cx="53" cy="44" r="2.5" fill="white"/>
-      <circle cx="71" cy="44" r="2.5" fill="white"/>
-      <path d="M52 60 Q60 67 68 60" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <polygon points="34,26 28,8 44,18" fill="#f472b6"/>
-      <polygon points="86,26 92,8 76,18" fill="#f472b6"/>
+
+      <!-- ── BODY（胴体・パーカー 3D風）── -->
+      <!-- 影 -->
+      <ellipse cx="95" cy="200" rx="45" ry="8" fill="rgba(0,0,0,0.25)"/>
+      <!-- 肩・胴 -->
+      <path d="M40 130 Q40 200 95 200 Q150 200 150 130 Q140 118 95 116 Q50 118 40 130Z" fill="url(#ksr)"/>
+      <!-- ハイライト -->
+      <path d="M55 125 Q65 115 95 114 Q125 115 135 125 Q120 118 95 117 Q70 118 55 125Z" fill="rgba(255,255,255,0.18)"/>
+      <!-- フード衿 -->
+      <path d="M72 120 Q95 132 118 120 Q110 138 95 140 Q80 138 72 120Z" fill="#FAFAFA"/>
+      <path d="M80 122 Q95 130 110 122 Q103 134 95 136 Q87 134 80 122Z" fill="#F0F0F0"/>
+      <!-- ファスナー -->
+      <line x1="95" y1="138" x2="95" y2="195" stroke="#FF8A80" stroke-width="2" stroke-dasharray="3,3"/>
+      <!-- 側面シャドウ -->
+      <path d="M40 130 Q40 200 60 200 Q50 170 48 140Z" fill="rgba(0,0,0,0.12)"/>
+      <path d="M150 130 Q150 200 130 200 Q140 170 142 140Z" fill="rgba(0,0,0,0.12)"/>
+
+      <!-- ── LEFT ARM（左腕・ハサミ）── -->
+      <path d="M55 128 Q28 140 16 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
+      <path d="M55 128 Q28 140 16 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <!-- 手 -->
+      <circle cx="13" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
+      <!-- ハサミ（アニメーション付き）-->
+      <g transform="translate(-4,158)" style="transform-origin:8px 8px;animation:as-snip 1.8s ease-in-out infinite;">
+        <!-- 上刃 -->
+        <path d="M8,8 L38,-8" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M8,8 L38,-8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <!-- 下刃 -->
+        <path d="M8,8 L40,18" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M8,8 L40,18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <!-- 持ち手リング（赤） -->
+        <circle cx="3" cy="2" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
+        <circle cx="3" cy="16" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
+        <!-- 金属感ハイライト -->
+        <circle cx="3" cy="2" r="4" fill="rgba(255,255,255,0.3)"/>
+        <circle cx="3" cy="16" r="4" fill="rgba(255,255,255,0.3)"/>
+      </g>
+
+      <!-- ── RIGHT ARM（右腕・スマホ）── -->
+      <path d="M135 128 Q162 140 174 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
+      <path d="M135 128 Q162 140 174 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <!-- 手 -->
+      <circle cx="177" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
+      <!-- スマホ（アニメーション付き）-->
+      <g transform="translate(164,144)" style="transform-origin:14px 22px;animation:as-phone 2.4s ease-in-out infinite;">
+        <!-- 本体 -->
+        <rect x="0" y="0" width="28" height="44" rx="5" fill="#212121" stroke="#424242" stroke-width="1.5"/>
+        <!-- 画面 -->
+        <rect x="2" y="3" width="24" height="36" rx="3" fill="#FAFAFA"/>
+        <!-- YouTube赤背景 -->
+        <rect x="4" y="8" width="20" height="16" rx="3" fill="#FF0000"/>
+        <!-- 再生ボタン -->
+        <polygon points="11,12 11,20 21,16" fill="white"/>
+        <!-- YouTubeロゴ文字 -->
+        <text x="14" y="32" text-anchor="middle" font-size="5" fill="#333" font-weight="800" font-family="Arial,sans-serif">YouTube</text>
+        <!-- ホームバー -->
+        <rect x="8" y="39" width="12" height="2" rx="1" fill="#9E9E9E"/>
+        <!-- 画面ハイライト -->
+        <path d="M4,5 L8,5 L6,15" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </g>
+
+      <!-- ── HEAD（頭）── -->
+      <circle cx="95" cy="78" r="44" fill="url(#ksk)" filter="url(#kssh)"/>
+      <!-- 頭のハイライト（3D感）-->
+      <ellipse cx="78" cy="60" rx="20" ry="25" fill="rgba(255,255,255,0.18)" transform="rotate(-15 78 60)"/>
+
+      <!-- ── HAT（帽子）── -->
+      <!-- つば -->
+      <path d="M48 62 Q95 54 142 62 Q138 74 95 75 Q52 74 48 62Z" fill="#263238" filter="url(#kssh)"/>
+      <path d="M50 63 Q95 56 140 63 Q136 70 95 71 Q54 70 50 63Z" fill="#37474F"/>
+      <!-- つばハイライト -->
+      <path d="M60 62 Q95 57 130 62 Q125 66 95 67 Q65 66 60 62Z" fill="rgba(255,255,255,0.08)"/>
+      <!-- クラウン（丸みある形）-->
+      <path d="M60 62 Q62 18 95 14 Q128 18 130 62 Q112 56 95 55 Q78 56 60 62Z" fill="url(#ksh)" filter="url(#kssh)"/>
+      <!-- クラウンハイライト -->
+      <ellipse cx="80" cy="30" rx="14" ry="8" fill="rgba(255,255,255,0.13)" transform="rotate(-20 80 30)"/>
+      <!-- AIバッジ（金色）-->
+      <circle cx="95" cy="40" r="15" fill="#FDD835" stroke="#F9A825" stroke-width="2" filter="url(#ksglow)"/>
+      <circle cx="95" cy="40" r="12" fill="#FFEE58"/>
+      <circle cx="89" cy="35" r="3" fill="rgba(255,255,255,0.4)"/>
+      <text x="95" y="46" text-anchor="middle" font-size="11" font-weight="900" fill="#1A237E" font-family="'Arial Black',sans-serif">AI</text>
+      <!-- 帽子の星 -->
+      <text x="70" y="34" font-size="9" fill="#FFD700" opacity="0.9" style="animation:as-star 2s infinite;">★</text>
+      <text x="112" y="28" font-size="7" fill="#FFD700" opacity="0.7">★</text>
+
+      <!-- ── EYES（目）── -->
+      <!-- 左目白目 -->
+      <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
+      <!-- 右目白目 -->
+      <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
+      <!-- 左まぶた（まばたきアニメ）-->
+      <g style="transform-origin:74px 80px;animation:as-blink 4s ease-in-out infinite;">
+        <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
+        <circle cx="76" cy="82" r="12" fill="url(#ksey)"/>
+        <circle cx="77" cy="83" r="7" fill="#0D0D2B"/>
+        <circle cx="80" cy="77" r="4" fill="white"/>
+        <circle cx="72" cy="85" r="2" fill="white" opacity="0.7"/>
+      </g>
+      <!-- 右まぶた（まばたきアニメ）-->
+      <g style="transform-origin:116px 80px;animation:as-blink 4s ease-in-out infinite;">
+        <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
+        <circle cx="118" cy="82" r="12" fill="url(#ksey)"/>
+        <circle cx="119" cy="83" r="7" fill="#0D0D2B"/>
+        <circle cx="122" cy="77" r="4" fill="white"/>
+        <circle cx="114" cy="85" r="2" fill="white" opacity="0.7"/>
+      </g>
+      <!-- 目の輝き（キラキラ星）-->
+      <text x="64" y="72" font-size="10" fill="#FFD700" style="animation:as-star 1.5s infinite;">✦</text>
+      <text x="122" y="70" font-size="8" fill="#FFD700" style="animation:as-star 1.5s infinite .3s;">✦</text>
+
+      <!-- ほっぺ（チーク）-->
+      <ellipse cx="60" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
+      <ellipse cx="130" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
+
+      <!-- 口（笑顔）-->
+      <path d="M78 100 Q95 116 112 100" stroke="#C0392B" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M81 100 Q95 112 109 100" fill="white"/>
+      <path d="M81 100 Q95 112 109 100" stroke="#E57373" stroke-width="1" fill="none"/>
+
+      <!-- 鼻 -->
+      <ellipse cx="95" cy="94" rx="4" ry="3" fill="#FFAB40" opacity="0.7"/>
     </svg>
   </div>
+
+  <!-- 活動ラベル（企画→デザイン→編集サイクル）-->
+  <div class="as-act-wrap">
+    <span class="as-act-lbl" style="color:#FDD835;background:rgba(253,216,53,.15);animation:as-act 6s ease-in-out infinite;">✏️ 企画中...</span>
+    <span class="as-act-lbl" style="color:#40C4FF;background:rgba(64,196,255,.15);animation:as-act2 6s ease-in-out infinite;">🎨 デザイン中...</span>
+    <span class="as-act-lbl" style="color:#FF8A80;background:rgba(255,138,128,.15);animation:as-act3 6s ease-in-out infinite;">✂️ 編集中...</span>
+  </div>
+
   <div class="as-title">{title}</div>
-  {'<div class="as-detail">' + detail + '</div>' if detail else '<div style="height:14px;"></div>'}
+  {'<div class="as-detail">' + detail + '</div>' if detail else '<div style="height:10px;"></div>'}
   <div class="as-spinner"></div>
 </div>
 """
@@ -5151,172 +5278,153 @@ def _make_loading_html(clip_num: int, total_clips: int,
 
     return f"""
 <style>
-@keyframes ld-bounce {{
-  0%,100% {{ transform: translateY(0px) rotate(-2deg); }}
-  50%     {{ transform: translateY(-14px) rotate(2deg); }}
-}}
-@keyframes ld-float {{
-  0%,100% {{ transform: translateY(0px); opacity:.7; }}
-  50%     {{ transform: translateY(-12px); opacity:1; }}
-}}
-@keyframes ld-pulse {{
-  0%,100% {{ opacity:.4; transform:scale(.8); }}
-  50%     {{ opacity:1;  transform:scale(1.2); }}
-}}
-@keyframes ld-rotate {{
-  from {{ transform: rotate(0deg); }}
-  to   {{ transform: rotate(360deg); }}
-}}
-@keyframes ld-shimmer {{
-  0%   {{ background-position: -200% center; }}
-  100% {{ background-position:  200% center; }}
-}}
-.ld-overlay {{
-  position:fixed!important; inset:0!important;
-  width:100vw!important; height:100vh!important;
-  background: radial-gradient(ellipse at 60% 20%, #2e1065 0%, #0f172a 55%, #0c1a2e 100%);
+@keyframes ld-bounce{{0%,100%{{transform:translateY(0) rotate(-1.5deg)}}50%{{transform:translateY(-14px) rotate(1.5deg)}}}}
+@keyframes ld-float {{0%,100%{{transform:translateY(0);opacity:.6}}50%{{transform:translateY(-12px);opacity:1}}}}
+@keyframes ld-pulse {{0%,100%{{opacity:.4;transform:scale(.8)}}50%{{opacity:1;transform:scale(1.2)}}}}
+@keyframes ld-rotate{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+@keyframes ld-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
+@keyframes ld-snip  {{0%,100%{{transform:rotate(0deg)}}40%{{transform:rotate(22deg) translate(1px,-1px)}}70%{{transform:rotate(-8deg)}}}}
+@keyframes ld-phone {{0%,100%{{transform:rotate(-6deg)}}50%{{transform:rotate(6deg) translateY(-3px)}}}}
+@keyframes ld-blink {{0%,88%,100%{{transform:scaleY(1)}}93%{{transform:scaleY(0.08)}}}}
+@keyframes ld-star  {{0%,100%{{opacity:.4;transform:scale(.8) rotate(0deg)}}50%{{opacity:1;transform:scale(1.2) rotate(180deg)}}}}
+@keyframes ld-act   {{0%,30%{{opacity:1;transform:translateY(0)}}35%,100%{{opacity:0;transform:translateY(-5px)}}}}
+@keyframes ld-act2  {{0%,32%{{opacity:0}}33%,63%{{opacity:1;transform:translateY(0)}}68%,100%{{opacity:0;transform:translateY(-5px)}}}}
+@keyframes ld-act3  {{0%,65%{{opacity:0}}66%,96%{{opacity:1;transform:translateY(0)}}100%{{opacity:0}}}}
+.ld-overlay{{
+  position:fixed!important;inset:0!important;
+  width:100vw!important;height:100vh!important;
+  background:radial-gradient(ellipse at 55% 20%,#3b0a0a 0%,#1a0a0a 40%,#0f172a 100%);
   z-index:999999!important;
-  display:flex!important; flex-direction:column!important;
-  align-items:center!important; justify-content:center!important;
-  font-family:'Segoe UI',system-ui,sans-serif;
-  overflow:hidden;
+  display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;
+  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;
 }}
-/* 背景の光の玉 */
-.ld-glow {{
-  position:absolute; border-radius:50%; filter:blur(60px); pointer-events:none;
+.ld-glow{{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;}}
+.ld-chara{{
+  animation:ld-bounce 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 12px 30px rgba(220,80,60,.55)) drop-shadow(0 2px 10px rgba(255,200,0,.3));
+  margin-bottom:12px;
 }}
-/* キャラクター */
-.ld-chara {{
-  animation: ld-bounce 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 10px 28px rgba(167,139,250,.55));
-  margin-bottom:18px;
+.ld-title{{color:#fef3c7;font-size:1.3em;font-weight:700;margin-bottom:4px;letter-spacing:.4px;text-shadow:0 0 20px rgba(251,191,36,.6);}}
+.ld-subtitle{{color:rgba(148,163,184,.8);font-size:.85em;margin-bottom:20px;max-width:320px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+.ld-ring-wrap{{position:relative;width:136px;height:136px;margin-bottom:20px;}}
+.ld-ring-wrap svg{{display:block;}}
+.ld-ring-bg{{fill:none;stroke:rgba(255,255,255,.08);stroke-width:10;}}
+.ld-ring-fg{{fill:none;stroke-width:10;stroke-linecap:round;stroke:url(#ld-rg);transform-origin:68px 68px;transform:rotate(-90deg);transition:stroke-dashoffset .6s ease;}}
+.ld-ring-text{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;}}
+.ld-ring-pct{{font-size:1.9em;font-weight:700;line-height:1;}}
+.ld-ring-sub{{font-size:.72em;color:rgba(255,255,255,.6);margin-top:2px;}}
+.ld-stat{{text-align:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,200,0,.2);border-radius:14px;padding:10px 28px;backdrop-filter:blur(8px);margin-bottom:18px;}}
+.ld-stat-label{{color:rgba(148,163,184,.7);font-size:.68em;margin-bottom:3px;}}
+.ld-stat-val{{font-size:1.12em;font-weight:700;background:linear-gradient(90deg,#fbbf24,#f87171,#fbbf24);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:ld-shimmer 2s linear infinite;}}
+.ld-dots{{display:flex;gap:7px;align-items:center;margin-bottom:20px;}}
+.ld-dot{{width:9px;height:9px;border-radius:50%;}}
+.ld-dot-done{{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,.7);}}
+.ld-dot-cur{{background:#f87171;box-shadow:0 0 10px rgba(248,113,113,.9);animation:ld-pulse 1s ease-in-out infinite;}}
+.ld-dot-pend{{background:rgba(255,255,255,.15);}}
+.ld-act-wrap{{position:relative;height:22px;width:200px;text-align:center;margin-bottom:8px;}}
+.ld-act-lbl{{position:absolute;left:0;right:0;font-size:12px;font-weight:700;border-radius:12px;padding:3px 12px;}}
+.ld-cancel-btn{{
+  margin-top:4px;padding:8px 28px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);
+  border-radius:20px;color:rgba(255,255,255,.7);font-size:.82em;
+  cursor:pointer;transition:all .2s;
 }}
-/* テキスト */
-.ld-title {{
-  color:#e2e8f0; font-size:1.35em; font-weight:700;
-  margin-bottom:6px; letter-spacing:.4px;
-  text-shadow: 0 0 20px rgba(167,139,250,.8);
-}}
-.ld-subtitle {{
-  color:rgba(148,163,184,.8); font-size:.88em;
-  margin-bottom:28px; max-width:320px;
-  text-align:center; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
-}}
-/* 円形プログレス */
-.ld-ring-wrap {{
-  position:relative; width:136px; height:136px; margin-bottom:26px;
-}}
-.ld-ring-wrap svg {{ display:block; }}
-.ld-ring-bg {{ fill:none; stroke:rgba(255,255,255,.08); stroke-width:10; }}
-.ld-ring-fg {{
-  fill:none; stroke-width:10; stroke-linecap:round;
-  stroke:url(#ld-rg);
-  transform-origin:68px 68px; transform:rotate(-90deg);
-  transition: stroke-dashoffset .6s ease;
-}}
-.ld-ring-text {{
-  position:absolute; inset:0;
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  color:white;
-}}
-.ld-ring-pct  {{ font-size:1.9em; font-weight:700; line-height:1; }}
-.ld-ring-sub  {{ font-size:.72em; color:rgba(255,255,255,.6); margin-top:2px; }}
-/* ステータスカード */
-.ld-stats {{
-  display:flex; gap:16px; margin-bottom:22px;
-}}
-.ld-stat {{
-  text-align:center;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:14px; padding:10px 20px;
-  backdrop-filter:blur(8px);
-  min-width:100px;
-}}
-.ld-stat-label {{ color:rgba(148,163,184,.7); font-size:.68em; margin-bottom:3px; }}
-.ld-stat-val   {{
-  color:#f1f5f9; font-size:1.08em; font-weight:600;
-  background:linear-gradient(90deg,#c084fc,#818cf8,#c084fc);
-  background-size:200%;
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  animation: ld-shimmer 2s linear infinite;
-}}
-/* クリップドット */
-.ld-dots {{ display:flex; gap:7px; align-items:center; }}
-.ld-dot {{ width:9px; height:9px; border-radius:50%; }}
-.ld-dot-done {{ background:#a78bfa; box-shadow:0 0 6px rgba(167,139,250,.7); }}
-.ld-dot-cur  {{
-  background:#f472b6;
-  box-shadow:0 0 10px rgba(244,114,182,.9);
-  animation:ld-pulse 1s ease-in-out infinite;
-}}
-.ld-dot-pend {{ background:rgba(255,255,255,.15); }}
+.ld-cancel-btn:hover{{background:rgba(255,255,255,.16);color:white;border-color:rgba(255,255,255,.4);}}
 </style>
 
 <div class="ld-overlay">
-  <!-- 背景グロー -->
-  <div class="ld-glow" style="width:500px;height:500px;background:rgba(124,58,237,.18);top:-150px;left:-100px;"></div>
-  <div class="ld-glow" style="width:400px;height:400px;background:rgba(236,72,153,.12);bottom:-100px;right:-80px;"></div>
+  <div class="ld-glow" style="width:500px;height:500px;background:rgba(180,30,10,.18);top:-150px;left:-100px;"></div>
+  <div class="ld-glow" style="width:400px;height:400px;background:rgba(251,191,36,.1);bottom:-100px;right:-80px;"></div>
+  <span style="position:absolute;top:9%;left:11%;font-size:1.1em;color:#fbbf24;animation:ld-star 2.8s ease-in-out infinite;">✦</span>
+  <span style="position:absolute;top:14%;left:78%;font-size:.8em;color:#f87171;animation:ld-star 3.5s ease-in-out infinite .5s;">✦</span>
+  <span style="position:absolute;top:22%;left:91%;font-size:1.3em;color:#fbbf24;animation:ld-star 3s ease-in-out infinite 1s;">★</span>
+  <span style="position:absolute;top:72%;left:4%;font-size:1em;color:#f87171;animation:ld-star 4s ease-in-out infinite 1.2s;">✦</span>
+  <span style="position:absolute;top:82%;left:93%;font-size:.9em;color:#fbbf24;animation:ld-float 3.8s ease-in-out infinite .3s;">✦</span>
 
-  <!-- ✦ 浮遊する星 -->
-  <span style="position:absolute;top:9%;left:11%;font-size:1.1em;color:#a78bfa;animation:ld-float 3s ease-in-out infinite;">✦</span>
-  <span style="position:absolute;top:14%;left:78%;font-size:.8em;color:#f472b6;animation:ld-float 4s ease-in-out infinite .5s;">✦</span>
-  <span style="position:absolute;top:22%;left:91%;font-size:1.3em;color:#818cf8;animation:ld-float 3.5s ease-in-out infinite 1s;">⭐</span>
-  <span style="position:absolute;top:72%;left:4%;font-size:1em;color:#c084fc;animation:ld-float 4.2s ease-in-out infinite 1.2s;">✦</span>
-  <span style="position:absolute;top:82%;left:93%;font-size:.9em;color:#f472b6;animation:ld-float 3.8s ease-in-out infinite .3s;">✦</span>
-  <span style="position:absolute;top:88%;left:48%;font-size:.75em;color:#a78bfa;animation:ld-float 3.2s ease-in-out infinite .7s;">✦</span>
-
-  <!-- かわいいキャラクター -->
+  <!-- 切り抜きくん（3D風・可愛い）-->
   <div class="ld-chara">
-    <svg viewBox="0 0 120 140" width="130" height="130" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 190 210" width="115" height="125" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="fg" cx="38%" cy="30%">
-          <stop offset="0%" stop-color="#a78bfa"/>
-          <stop offset="100%" stop-color="#7c3aed"/>
-        </radialGradient>
-        <radialGradient id="faceG" cx="38%" cy="30%">
-          <stop offset="0%" stop-color="#fef3c7"/>
-          <stop offset="100%" stop-color="#fcd34d"/>
-        </radialGradient>
+        <radialGradient id="lk" cx="40%" cy="35%"><stop offset="0%" stop-color="#FFE0B2"/><stop offset="100%" stop-color="#FFAB40"/></radialGradient>
+        <radialGradient id="lkh" cx="35%" cy="25%"><stop offset="0%" stop-color="#455A64"/><stop offset="100%" stop-color="#1A237E"/></radialGradient>
+        <radialGradient id="lkr" cx="35%" cy="20%"><stop offset="0%" stop-color="#EF5350"/><stop offset="100%" stop-color="#B71C1C"/></radialGradient>
+        <radialGradient id="lkrl" cx="35%" cy="20%"><stop offset="0%" stop-color="#FF8A80"/><stop offset="100%" stop-color="#EF5350"/></radialGradient>
+        <radialGradient id="lkey" cx="35%" cy="30%"><stop offset="0%" stop-color="#283593"/><stop offset="100%" stop-color="#0D47A1"/></radialGradient>
+        <filter id="lks"><feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.4)"/></filter>
       </defs>
-      <!-- ドレス/体 -->
-      <ellipse cx="60" cy="106" rx="30" ry="28" fill="url(#fg)"/>
-      <!-- スカート裾のフリル -->
-      <path d="M32 115 Q40 125 50 118 Q58 128 68 118 Q78 126 88 116" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <!-- 腕（ハサミを持つ） -->
-      <ellipse cx="29" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(-30 29 100)"/>
-      <ellipse cx="91" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(30 91 100)"/>
-      <!-- ✂️ ハサミ -->
-      <text x="13" y="110" font-size="15" fill="white" opacity=".85">✂</text>
-      <text x="82" y="110" font-size="15" fill="white" opacity=".85">✂</text>
-      <!-- 頭 -->
-      <circle cx="60" cy="50" r="28" fill="url(#faceG)"/>
-      <!-- 頬 -->
-      <ellipse cx="45" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
-      <ellipse cx="75" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
-      <!-- 目（大きくキュート） -->
-      <ellipse cx="51" cy="47" rx="8" ry="9" fill="white"/>
-      <ellipse cx="69" cy="47" rx="8" ry="9" fill="white"/>
-      <circle  cx="51" cy="48" r="6" fill="#1e1b4b"/>
-      <circle  cx="69" cy="48" r="6" fill="#1e1b4b"/>
-      <!-- ハイライト -->
-      <circle cx="53" cy="44" r="2.5" fill="white"/>
-      <circle cx="71" cy="44" r="2.5" fill="white"/>
-      <circle cx="55" cy="49" r="1.2" fill="white"/>
-      <circle cx="73" cy="49" r="1.2" fill="white"/>
-      <!-- 口（笑顔） -->
-      <path d="M52 60 Q60 67 68 60" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <!-- 耳っぽい丸 (ネコ耳風) -->
-      <polygon points="34,26 28,8 44,18" fill="#f472b6"/>
-      <polygon points="86,26 92,8 76,18" fill="#f472b6"/>
-      <polygon points="35,24 31,13 42,19" fill="#fda4af"/>
-      <polygon points="85,24 89,13 78,19" fill="#fda4af"/>
-      <!-- 体の星デコ -->
-      <text x="49" y="118" font-size="9" fill="white" opacity=".7">★</text>
-      <text x="63" y="118" font-size="9" fill="white" opacity=".7">★</text>
+      <ellipse cx="95" cy="202" rx="45" ry="7" fill="rgba(0,0,0,0.2)"/>
+      <path d="M40 130 Q40 200 95 200 Q150 200 150 130 Q140 118 95 116 Q50 118 40 130Z" fill="url(#lkr)"/>
+      <path d="M55 125 Q65 115 95 114 Q125 115 135 125 Q120 118 95 117 Q70 118 55 125Z" fill="rgba(255,255,255,0.18)"/>
+      <path d="M72 120 Q95 132 118 120 Q110 138 95 140 Q80 138 72 120Z" fill="#FAFAFA"/>
+      <line x1="95" y1="138" x2="95" y2="195" stroke="#FF8A80" stroke-width="2" stroke-dasharray="3,3"/>
+      <path d="M40 130 Q40 200 60 200 Q50 170 48 140Z" fill="rgba(0,0,0,0.1)"/>
+      <path d="M150 130 Q150 200 130 200 Q140 170 142 140Z" fill="rgba(0,0,0,0.1)"/>
+      <path d="M55 128 Q28 140 16 162" stroke="url(#lkr)" stroke-width="18" stroke-linecap="round" fill="none"/>
+      <path d="M55 128 Q28 140 16 162" stroke="url(#lkrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <circle cx="13" cy="166" r="11" fill="url(#lk)" filter="url(#lks)"/>
+      <g transform="translate(-4,158)" style="transform-origin:8px 8px;animation:ld-snip 1.8s ease-in-out infinite;">
+        <path d="M8,8 L38,-8" stroke="#CFD8DC" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M8,8 L38,-8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <path d="M8,8 L40,18" stroke="#CFD8DC" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M8,8 L40,18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <circle cx="3" cy="2" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
+        <circle cx="3" cy="16" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
+        <circle cx="3" cy="2" r="4" fill="rgba(255,255,255,0.3)"/>
+        <circle cx="3" cy="16" r="4" fill="rgba(255,255,255,0.3)"/>
+      </g>
+      <path d="M135 128 Q162 140 174 162" stroke="url(#lkr)" stroke-width="18" stroke-linecap="round" fill="none"/>
+      <path d="M135 128 Q162 140 174 162" stroke="url(#lkrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <circle cx="177" cy="166" r="11" fill="url(#lk)" filter="url(#lks)"/>
+      <g transform="translate(164,144)" style="transform-origin:14px 22px;animation:ld-phone 2.4s ease-in-out infinite;">
+        <rect x="0" y="0" width="28" height="44" rx="5" fill="#212121" stroke="#424242" stroke-width="1.5"/>
+        <rect x="2" y="3" width="24" height="36" rx="3" fill="#FAFAFA"/>
+        <rect x="4" y="8" width="20" height="16" rx="3" fill="#FF0000"/>
+        <polygon points="11,12 11,20 21,16" fill="white"/>
+        <text x="14" y="32" text-anchor="middle" font-size="5" fill="#333" font-weight="800" font-family="Arial,sans-serif">YouTube</text>
+        <rect x="8" y="39" width="12" height="2" rx="1" fill="#9E9E9E"/>
+      </g>
+      <circle cx="95" cy="78" r="44" fill="url(#lk)" filter="url(#lks)"/>
+      <ellipse cx="78" cy="60" rx="20" ry="25" fill="rgba(255,255,255,0.18)" transform="rotate(-15 78 60)"/>
+      <path d="M48 62 Q95 54 142 62 Q138 74 95 75 Q52 74 48 62Z" fill="#263238" filter="url(#lks)"/>
+      <path d="M50 63 Q95 56 140 63 Q136 70 95 71 Q54 70 50 63Z" fill="#37474F"/>
+      <path d="M60 62 Q62 18 95 14 Q128 18 130 62 Q112 56 95 55 Q78 56 60 62Z" fill="url(#lkh)" filter="url(#lks)"/>
+      <ellipse cx="80" cy="30" rx="14" ry="8" fill="rgba(255,255,255,0.13)" transform="rotate(-20 80 30)"/>
+      <circle cx="95" cy="40" r="15" fill="#FDD835" stroke="#F9A825" stroke-width="2"/>
+      <circle cx="95" cy="40" r="12" fill="#FFEE58"/>
+      <circle cx="89" cy="35" r="3" fill="rgba(255,255,255,0.4)"/>
+      <text x="95" y="46" text-anchor="middle" font-size="11" font-weight="900" fill="#1A237E" font-family="'Arial Black',sans-serif">AI</text>
+      <text x="70" y="34" font-size="9" fill="#FFD700" opacity="0.9">★</text>
+      <text x="112" y="28" font-size="7" fill="#FFD700" opacity="0.7">★</text>
+      <g style="transform-origin:74px 80px;animation:ld-blink 4s ease-in-out infinite;">
+        <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
+        <circle cx="76" cy="82" r="12" fill="url(#lkey)"/>
+        <circle cx="77" cy="83" r="7" fill="#0D0D2B"/>
+        <circle cx="80" cy="77" r="4" fill="white"/>
+        <circle cx="72" cy="85" r="2" fill="white" opacity="0.7"/>
+      </g>
+      <g style="transform-origin:116px 80px;animation:ld-blink 4s ease-in-out infinite;">
+        <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
+        <circle cx="118" cy="82" r="12" fill="url(#lkey)"/>
+        <circle cx="119" cy="83" r="7" fill="#0D0D2B"/>
+        <circle cx="122" cy="77" r="4" fill="white"/>
+        <circle cx="114" cy="85" r="2" fill="white" opacity="0.7"/>
+      </g>
+      <text x="64" y="72" font-size="10" fill="#FFD700" style="animation:ld-star 1.5s infinite;">✦</text>
+      <text x="122" y="70" font-size="8" fill="#FFD700" style="animation:ld-star 1.5s infinite .3s;">✦</text>
+      <ellipse cx="60" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
+      <ellipse cx="130" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
+      <path d="M78 100 Q95 116 112 100" stroke="#C0392B" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M81 100 Q95 112 109 100" fill="white"/>
+      <ellipse cx="95" cy="94" rx="4" ry="3" fill="#FFAB40" opacity="0.7"/>
     </svg>
+  </div>
+
+  <!-- 活動サイクル（企画→デザイン→編集）-->
+  <div class="ld-act-wrap">
+    <span class="ld-act-lbl" style="color:#FDD835;background:rgba(253,216,53,.15);animation:ld-act 6s ease-in-out infinite;">✏️ 企画中...</span>
+    <span class="ld-act-lbl" style="color:#40C4FF;background:rgba(64,196,255,.15);animation:ld-act2 6s ease-in-out infinite;">🎨 デザイン中...</span>
+    <span class="ld-act-lbl" style="color:#FF8A80;background:rgba(255,138,128,.15);animation:ld-act3 6s ease-in-out infinite;">✂️ 編集中...</span>
   </div>
 
   <div class="ld-title">🎬 Shorts 制作中</div>
@@ -5327,9 +5435,9 @@ def _make_loading_html(clip_num: int, total_clips: int,
     <svg width="136" height="136" viewBox="0 0 136 136">
       <defs>
         <linearGradient id="ld-rg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%"   stop-color="#f472b6"/>
-          <stop offset="50%"  stop-color="#a78bfa"/>
-          <stop offset="100%" stop-color="#818cf8"/>
+          <stop offset="0%"   stop-color="#fbbf24"/>
+          <stop offset="50%"  stop-color="#f87171"/>
+          <stop offset="100%" stop-color="#fbbf24"/>
         </linearGradient>
       </defs>
       <circle class="ld-ring-bg" cx="68" cy="68" r="{radius}"/>
@@ -5343,20 +5451,19 @@ def _make_loading_html(clip_num: int, total_clips: int,
     </div>
   </div>
 
-  <!-- 時間ステータス -->
-  <div class="ld-stats">
-    <div class="ld-stat">
-      <div class="ld-stat-label">⏱ 経過</div>
-      <div class="ld-stat-val">{elapsed_str}</div>
-    </div>
-    <div class="ld-stat">
-      <div class="ld-stat-label">⏳ 残り</div>
-      <div class="ld-stat-val">{rem_str}</div>
-    </div>
+  <!-- 残り時間のみ表示 -->
+  <div class="ld-stat">
+    <div class="ld-stat-label">⏳ 残り時間</div>
+    <div class="ld-stat-val">{rem_str}</div>
   </div>
 
   <!-- クリップ進捗ドット -->
   <div class="ld-dots">{dots_html}</div>
+
+  <!-- 中断ボタン（ページリロードで中断）-->
+  <button class="ld-cancel-btn" onclick="window.location.reload()">
+    ↩ 前の画面に戻る（中断）
+  </button>
 </div>
 """
 
