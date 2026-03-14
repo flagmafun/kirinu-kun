@@ -2934,13 +2934,21 @@ def step1():
         )
 
         st.markdown("")
-        _file_error = None
+
+        # 前回エラーを表示
+        if s.get("_file_upload_error"):
+            st.error(s["_file_upload_error"])
+            if st.button("✕ エラーを閉じる", key="close_file_err"):
+                s["_file_upload_error"] = None
+                st.rerun()
+
         _f_btn_disabled = (
             (not _f_video_url.strip() and _f_input_method == "🔗 URLを入力") or
             (_f_uploaded_file is None and _f_input_method == "💻 ファイルをアップロード")
         )
         if st.button("📁 解析開始", type="primary", use_container_width=True,
                      key="analyze_file_btn", disabled=_f_btn_disabled):
+            s["_file_upload_error"] = None  # 前回エラーをクリア
             if _f_input_method == "🔗 URLを入力" and not _f_video_url.strip():
                 st.error("URLを入力してください")
             else:
@@ -2954,6 +2962,14 @@ def step1():
                         _upload_dir = OUTPUT_DIR / "uploads"
                         _upload_dir.mkdir(parents=True, exist_ok=True)
                         _furl = _f_video_url.strip()
+
+                        # フォルダリンクは非対応
+                        if "drive.google.com/drive/folders" in _furl or "/folders/" in _furl:
+                            raise RuntimeError(
+                                "フォルダのリンクは使用できません。\n"
+                                "フォルダ内の動画ファイルを右クリック → 共有 → 「リンクをコピー」で\n"
+                                "ファイル単体のリンク（drive.google.com/file/d/...）を貼り付けてください。"
+                            )
 
                         # ローカルファイルアップロードの場合
                         _fanim1 = st.empty()
@@ -2983,11 +2999,18 @@ def step1():
                                 ), unsafe_allow_html=True)
                                 import gdown as _gdown
                                 _fpath = _upload_dir / f"{_file_id}.mp4"
-                                _gdown.download(id=_file_id, output=str(_fpath), quiet=True, fuzzy=True)
+                                _dl_result = _gdown.download(
+                                    id=_file_id, output=str(_fpath),
+                                    quiet=False, fuzzy=True,
+                                )
                                 if not _fpath.exists() or _fpath.stat().st_size == 0:
                                     raise RuntimeError(
-                                        "Google Drive からダウンロードできませんでした。\n"
-                                        "共有設定が「リンクを知っている全員」になっているか確認してください。"
+                                        "Google Drive からダウンロードできませんでした。\n\n"
+                                        "原因として考えられること：\n"
+                                        "・共有設定が「リンクを知っている全員」になっていない\n"
+                                        "・ファイルではなくフォルダのリンクを貼り付けている\n"
+                                        "・ファイルが大きすぎる（目安: 2GB以上）\n\n"
+                                        "対処: ファイルを右クリック → 共有 → 「リンクを知っている全員」に変更してください。"
                                     )
                             else:
                                 _fanim1.markdown(_make_analysis_stage_html(
@@ -3076,10 +3099,8 @@ def step1():
 
                     except Exception as _fe:
                         _fstatus.update(label="エラーが発生しました", state="error")
-                        _file_error = _fe
-
-                if _file_error is not None:
-                    st.error(f"❌ エラー: {_file_error}")
+                        s["_file_upload_error"] = f"❌ {_fe}"
+                        st.rerun()
 
 
 # ══════════════════════════════════════════════════════════
