@@ -2359,9 +2359,9 @@ def step1():
         )
 
         st.markdown("")
+        _analyze_error = None
         if st.button("🔍 解析開始", type="primary", use_container_width=True,
                      disabled=not url.strip(), key="analyze_yt_btn"):
-            _analyze_error = None
             with st.status("動画を解析中...", expanded=True) as status:
                 try:
                     from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
