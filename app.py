@@ -1753,6 +1753,8 @@ def _auth_error_ja(e) -> str:
         return "確認メールの送信に失敗しました。しばらく待ってから再試行してください（1時間あたりの送信数制限に達した可能性があります）。"
     if "signup disabled" in msg:
         return "現在新規登録は受け付けていません。"
+    if "only request this after" in msg or "security purposes" in msg:
+        return "少し待ってから再度お試しください（連続操作の制限）。"
     return f"エラーが発生しました: {str(e)}"
 
 
