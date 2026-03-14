@@ -2326,23 +2326,7 @@ def step1():
 </div>
 """, height=440, scrolling=False)
 
-    # URL入力ラベル
-    st.markdown("""
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-  <div style="width:3px;height:18px;border-radius:2px;
-              background:linear-gradient(180deg,#f97316,#ef4444);flex-shrink:0;"></div>
-  <div style="font-size:14px;font-weight:800;color:#1e293b;">元動画のURLを貼ってください</div>
-</div>
-""", unsafe_allow_html=True)
-    # 前回解析したURLをデフォルト表示
-    _last_url = (s.video_info or {}).get("url", "")
-    url = st.text_input(
-        "YouTube URL",
-        value=_last_url,
-        placeholder="https://www.youtube.com/watch?v=xxxxxxxx",
-        label_visibility="collapsed",
-    )
-
+    # ── 共通設定（タブの外に置く）──────────────────────────
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         clip_sec = st.slider("クリップの長さ（秒）", 20, 60, 58, key="clip_sec_s1")
@@ -2358,328 +2342,435 @@ def step1():
         st.markdown("")
 
     st.markdown("")
-    if st.button("🔍 解析開始", type="primary", use_container_width=True,
-                 disabled=not url.strip()):
-        _analyze_error = None
-        with st.status("動画を解析中...", expanded=True) as status:
-            try:
-                from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
 
-                st.write("📡 動画情報を取得しています...")
-                info = get_video_info(url.strip())
-                s.video_info = info
-                st.write(f"✅ 動画タイトル: **{info['title'][:60]}**")
-                st.write(f"⏱ 尺: {int(info['duration']//60)}分{int(info['duration']%60)}秒")
+    # ── 入力方法タブ ────────────────────────────────────────
+    _tab_yt, _tab_file = st.tabs(["🔗 YouTube URL", "📁 ファイルアップロード"])
 
-                st.write("📝 字幕・トランスクリプトを取得しています...")
-                tmp = OUTPUT_DIR / "transcript"
-                tmp.mkdir(parents=True, exist_ok=True)
-                # 今回の動画と無関係な古いjson3を削除（別動画の字幕が混入しないよう）
-                current_id = info.get("id", "")
-                for old_f in tmp.glob("*.json3"):
-                    if current_id and not old_f.name.startswith(current_id):
-                        old_f.unlink(missing_ok=True)
-                transcript = get_transcript(url.strip(), tmp)
-                if transcript:
-                    st.write(f"✅ 字幕取得完了（{len(transcript)} セグメント）")
-                else:
-                    st.write("⚠️ 字幕を取得できませんでした → 概要欄テキストで代替します")
-                    _dbg = get_transcript_debug()
-                    if _dbg:
-                        st.session_state["transcript_debug"] = _dbg  # Step2でも見えるよう保存
-                        with st.expander("🔍 字幕取得ログ（デバッグ用）"):
-                            for _d in _dbg:
-                                st.code(_d)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # タブ①: YouTube URL
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    with _tab_yt:
+        _last_url = (s.video_info or {}).get("url", "")
+        url = st.text_input(
+            "YouTube URL",
+            value=_last_url,
+            placeholder="https://www.youtube.com/watch?v=xxxxxxxx",
+            label_visibility="collapsed",
+        )
 
-                # ── AI選定ローディングアニメーション（クッキング演出）──
-                _seg_count = len(transcript) if transcript else 0
-                _nc = int(n_clips)
-                # A: フィルムコマ（色違いのシーンブロック）
-                _scene_colors = [
-                    "#1e3a5f","#1a3a1a","#3a1a1a","#2d1f00","#1a1a3a",
-                    "#2a1a2a","#1e3a2a","#3a2a1a","#1a2a3a","#2a3a1a",
-                    "#3a1a2a","#1a3a3a","#2a2a1a","#1f1a3a","#3a2a2a",
-                ]
-                _scenes = "".join(
-                    f'<div class="scene" style="background:{c}"></div>'
-                    for c in _scene_colors
-                )
-                # C: 鍋バブル（大きさ・位置・タイミングをばらす）
-                _bubbles = "".join(
-                    f'<div class="bub" style="'
-                    f'width:{4+i%3}px;height:{4+i%3}px;'
-                    f'left:{15+i*14}%;'
-                    f'animation-delay:{round(i*0.28,2)}s"></div>'
-                    for i in range(6)
-                )
-                # クリップチップ（最大10個表示、超過分は +N本 バッジ）
-                _show = min(_nc, 10)
-                _citems = "".join(
-                    f'<div class="ci" style="animation-delay:{round(0.6+j*0.2,2)}s">'
-                    f'✂ {j}本目</div>'
-                    for j in range(1, _show + 1)
-                )
-                if _nc > 10:
-                    _citems += (
-                        f'<div class="ci" style="animation-delay:{round(0.6+_show*0.2,2)}s;'
-                        f'background:rgba(251,191,36,.25);border-color:rgba(251,191,36,.7);">'
-                        f'+ {_nc - 10}本</div>'
-                    )
-                import streamlit.components.v1 as _cai
-                _cai.html(f"""
-<style>
-*{{box-sizing:border-box;margin:0;padding:0;
-   font-family:-apple-system,'Hiragino Sans',sans-serif;}}
-body{{background:transparent;overflow:hidden;}}
-
-/* ── カード ── */
-.card{{
-  background:linear-gradient(135deg,#1c0a00 0%,#2d1500 50%,#1c0a00 100%);
-  border-radius:14px;padding:16px 16px 14px;
-  border:1px solid rgba(251,191,36,.28);
-}}
-
-/* ── ヘッダー ── */
-.hd{{display:flex;align-items:center;gap:8px;margin-bottom:13px;}}
-.badge{{
-  background:linear-gradient(135deg,#f97316,#dc2626);
-  border-radius:5px;padding:3px 8px;font-size:10px;
-  font-weight:800;color:#fff;letter-spacing:.05em;flex-shrink:0;
-}}
-.htitle{{font-size:13px;font-weight:700;color:#fef3c7;}}
-.dots span{{animation:blink 1.2s infinite;color:#f97316;}}
-.dots span:nth-child(2){{animation-delay:.25s;}}
-.dots span:nth-child(3){{animation-delay:.5s;}}
-@keyframes blink{{0%,100%{{opacity:.1;}}50%{{opacity:1;}}}}
-
-/* ══ A: フィルムリール ══ */
-.film-wrap{{position:relative;margin-bottom:11px;}}
-.film{{
-  height:34px;border-radius:6px;overflow:hidden;
-  background:#0c0c18;border:1px solid rgba(255,255,255,.08);
-  position:relative;display:flex;align-items:center;
-}}
-/* スプロケット穴（上下） */
-.film::before,.film::after{{
-  content:'';position:absolute;left:0;right:0;height:6px;
-  background:repeating-linear-gradient(
-    90deg,transparent 0,transparent 16px,
-    rgba(255,255,255,.13) 16px,rgba(255,255,255,.13) 24px);
-  z-index:2;
-}}
-.film::before{{top:2px;}}
-.film::after{{bottom:2px;}}
-/* シーンブロック */
-.scenes{{
-  display:flex;align-items:center;gap:1px;
-  padding:8px 2px;z-index:1;width:100%;height:100%;
-}}
-.scene{{flex:1;height:18px;border-radius:1px;opacity:.7;}}
-/* ✂️ ハサミ */
-.scissors{{
-  position:absolute;top:50%;left:-32px;
-  transform:translateY(-50%) rotate(90deg);
-  font-size:20px;z-index:6;
-  animation:snip 2.6s linear infinite;
-  filter:drop-shadow(0 0 7px rgba(249,115,22,.9));
-}}
-@keyframes snip{{0%{{left:-32px;}}100%{{left:108%;}}}}
-/* カット光跡 */
-.cutline{{
-  position:absolute;top:0;left:-32px;
-  width:2px;height:100%;z-index:5;
-  background:linear-gradient(180deg,transparent,#f97316 40%,#fbbf24 60%,transparent);
-  animation:snip 2.6s linear infinite;opacity:.8;
-}}
-/* スパーク */
-.spark{{
-  position:absolute;border-radius:50%;
-  background:#fbbf24;z-index:7;
-  animation:spark 2.6s linear infinite;
-  pointer-events:none;
-}}
-@keyframes spark{{
-  0%,60%{{opacity:0;transform:translate(0,0) scale(0);}}
-  65%{{opacity:1;transform:translate(var(--dx),var(--dy)) scale(1);}}
-  80%{{opacity:.5;}}
-  100%,61%{{opacity:0;transform:translate(calc(var(--dx)*1.8),calc(var(--dy)*1.8)) scale(.2);}}
-}}
-
-/* ══ B+C 横並び ══ */
-.cook-row{{display:flex;gap:8px;margin-bottom:11px;}}
-
-/* ── B: フライパン ── */
-.pan-box{{
-  flex:1;background:rgba(249,115,22,.08);
-  border:1px solid rgba(249,115,22,.25);
-  border-radius:10px;padding:8px 8px 6px;
-  text-align:center;position:relative;overflow:hidden;
-}}
-.box-lbl{{font-size:9px;font-weight:800;letter-spacing:.05em;margin-bottom:3px;}}
-.pan-lbl{{color:#c2410c;}}
-.pan-emoji{{font-size:26px;display:block;line-height:1;
-  animation:sizzle .35s ease-in-out infinite alternate;
-  transform-origin:center bottom;}}
-@keyframes sizzle{{
-  0%{{transform:rotate(-3deg) scale(1);}}
-  100%{{transform:rotate(3deg) scale(1.07);}}
-}}
-/* 油はね */
-.drop{{
-  position:absolute;border-radius:50%;
-  background:rgba(251,191,36,.65);
-  animation:dropsplash .7s ease-out infinite;
-}}
-@keyframes dropsplash{{
-  0%{{transform:scale(0);opacity:.8;}}
-  100%{{transform:scale(2.2);opacity:0;}}
-}}
-/* 炎 */
-.flame{{
-  position:absolute;bottom:4px;right:8px;
-  font-size:13px;
-  animation:flicker .4s ease-in-out infinite alternate;
-}}
-@keyframes flicker{{0%{{transform:scale(1) rotate(-4deg);}}100%{{transform:scale(1.15) rotate(3deg);}}}}
-
-/* ── C: 鍋 ── */
-.pot-box{{
-  flex:1;background:rgba(99,102,241,.08);
-  border:1px solid rgba(99,102,241,.25);
-  border-radius:10px;padding:8px 8px 6px;
-  text-align:center;position:relative;overflow:hidden;
-}}
-.pot-lbl{{color:#4f46e5;}}
-.pot-emoji{{font-size:26px;display:block;line-height:1;}}
-/* バブル */
-.bub{{
-  position:absolute;border-radius:50%;
-  background:rgba(99,102,241,.55);
-  animation:bubup 1.4s ease-in infinite;bottom:8px;
-}}
-@keyframes bubup{{
-  0%{{transform:translateY(0) scale(1);opacity:.7;}}
-  100%{{transform:translateY(-32px) scale(.2);opacity:0;}}
-}}
-/* 湯気 */
-.steam{{
-  position:absolute;width:3px;height:3px;border-radius:50%;
-  background:rgba(255,255,255,.35);
-  animation:steamup 1.3s ease-out infinite;
-}}
-@keyframes steamup{{
-  0%{{opacity:.6;transform:translateY(0) scale(1);}}
-  100%{{opacity:0;transform:translateY(-22px) scale(.2);}}
-}}
-
-/* ══ クリップチップ ══ */
-.chips{{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}}
-.ci{{
-  background:rgba(251,191,36,.12);
-  border:1px solid rgba(251,191,36,.4);
-  border-radius:5px;padding:3px 8px;
-  font-size:11px;color:#fde68a;
-  opacity:0;animation:ci-in .4s ease forwards;
-}}
-@keyframes ci-in{{
-  from{{opacity:0;transform:translateY(5px);}}
-  to{{opacity:1;transform:translateY(0);}}
-}}
-
-/* ══ ステータス ══ */
-.st{{display:flex;align-items:center;gap:7px;}}
-.sp{{
-  width:12px;height:12px;flex-shrink:0;border-radius:50%;
-  border:2px solid rgba(249,115,22,.3);border-top-color:#f97316;
-  animation:spin .75s linear infinite;
-}}
-@keyframes spin{{to{{transform:rotate(360deg);}}}}
-.stxt{{font-size:11px;color:#d97706;}}
-</style>
-
-<div class="card">
-  <!-- ヘッダー -->
-  <div class="hd">
-    <div class="badge">✂️ AI</div>
-    <div class="htitle">おいしい瞬間を仕込み中
-      <span class="dots"><span>.</span><span>.</span><span>.</span></span>
-    </div>
-  </div>
-
-  <!-- A: フィルムリールをハサミでカット -->
-  <div class="film-wrap">
-    <div class="film">
-      <div class="scenes">{_scenes}</div>
-    </div>
-    <div class="scissors">✂️</div>
-    <div class="cutline"></div>
-    <div class="spark" style="width:4px;height:4px;top:30%;--dx:-6px;--dy:-8px;animation-delay:.1s"></div>
-    <div class="spark" style="width:3px;height:3px;top:60%;--dx:7px;--dy:-6px;animation-delay:.15s"></div>
-    <div class="spark" style="width:5px;height:5px;top:45%;--dx:-8px;--dy:5px;animation-delay:.08s"></div>
-    <div class="spark" style="width:3px;height:3px;top:25%;--dx:5px;--dy:7px;animation-delay:.2s"></div>
-  </div>
-
-  <!-- B+C: フライパン & 鍋 -->
-  <div class="cook-row">
-    <!-- B: フライパンで炒める -->
-    <div class="pan-box">
-      <div class="box-lbl pan-lbl">🔥 おいしいシーンを炒める</div>
-      <span class="pan-emoji">🍳</span>
-      <div class="drop" style="width:5px;height:5px;bottom:12px;left:28%;animation-delay:0s"></div>
-      <div class="drop" style="width:4px;height:4px;bottom:12px;left:52%;animation-delay:.25s"></div>
-      <div class="drop" style="width:6px;height:6px;bottom:12px;left:70%;animation-delay:.5s"></div>
-      <div class="flame">🔥</div>
-    </div>
-    <!-- C: 鍋でエキスを抽出 -->
-    <div class="pot-box">
-      <div class="box-lbl pot-lbl">♨️ おいしさを抽出中</div>
-      <span class="pot-emoji">🫕</span>
-      {_bubbles}
-      <div class="steam" style="left:35%;bottom:34px;animation-delay:.1s"></div>
-      <div class="steam" style="left:55%;bottom:34px;animation-delay:.55s"></div>
-      <div class="steam" style="left:70%;bottom:34px;animation-delay:.9s"></div>
-    </div>
-  </div>
-
-  <!-- クリップチップ -->
-  <div class="chips">{_citems}</div>
-
-  <!-- ステータス -->
-  <div class="st">
-    <div class="sp"></div>
-    <div class="stxt">{_seg_count} セグメントの字幕から {_nc} 本のおいしい瞬間を仕込み中...</div>
-  </div>
-</div>
-""", height=310, scrolling=False)
-
-                clips = auto_select_clips(
-                    info["duration"], transcript,
-                    n_clips=int(n_clips), clip_sec=clip_sec,
-                    video_title=info.get("title", ""),
-                    description=info.get("description", ""),
-                )
-                s.clips = clips
-                st.write(f"✅ {len(clips)} 本のクリップを選定しました")
-
-                # Claude API のステータスを session_state に保存（Step2で表示）
+        st.markdown("")
+        if st.button("🔍 解析開始", type="primary", use_container_width=True,
+                     disabled=not url.strip(), key="analyze_yt_btn"):
+            _analyze_error = None
+            with st.status("動画を解析中...", expanded=True) as status:
                 try:
-                    from core.ai_writer import get_ai_status
-                    st.session_state["ai_status"] = get_ai_status()
-                except Exception:
-                    pass
+                    from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
 
-                _save_session(info, clips)
-                status.update(label="解析完了！", state="complete")
-                s.step = 2
-                st.rerun()
+                    st.write("📡 動画情報を取得しています...")
+                    info = get_video_info(url.strip())
+                    s.video_info = info
+                    s["_file_upload_mode"] = False
+                    st.write(f"✅ 動画タイトル: **{info['title'][:60]}**")
+                    st.write(f"⏱ 尺: {int(info['duration']//60)}分{int(info['duration']%60)}秒")
 
-            except Exception as e:
-                status.update(label="エラーが発生しました", state="error")
-                _analyze_error = e
+                    st.write("📝 字幕・トランスクリプトを取得しています...")
+                    tmp = OUTPUT_DIR / "transcript"
+                    tmp.mkdir(parents=True, exist_ok=True)
+                    # 今回の動画と無関係な古いjson3を削除（別動画の字幕が混入しないよう）
+                    current_id = info.get("id", "")
+                    for old_f in tmp.glob("*.json3"):
+                        if current_id and not old_f.name.startswith(current_id):
+                            old_f.unlink(missing_ok=True)
+                    transcript = get_transcript(url.strip(), tmp)
+                    if transcript:
+                        st.write(f"✅ 字幕取得完了（{len(transcript)} セグメント）")
+                    else:
+                        st.write("⚠️ 字幕を取得できませんでした → 概要欄テキストで代替します")
+                        _dbg = get_transcript_debug()
+                        if _dbg:
+                            st.session_state["transcript_debug"] = _dbg  # Step2でも見えるよう保存
+                            with st.expander("🔍 字幕取得ログ（デバッグ用）"):
+                                for _d in _dbg:
+                                    st.code(_d)
+
+                    # ── AI選定ローディングアニメーション（クッキング演出）──
+                    _seg_count = len(transcript) if transcript else 0
+                    _nc = int(n_clips)
+                    # A: フィルムコマ（色違いのシーンブロック）
+                    _scene_colors = [
+                        "#1e3a5f","#1a3a1a","#3a1a1a","#2d1f00","#1a1a3a",
+                        "#2a1a2a","#1e3a2a","#3a2a1a","#1a2a3a","#2a3a1a",
+                        "#3a1a2a","#1a3a3a","#2a2a1a","#1f1a3a","#3a2a2a",
+                    ]
+                    _scenes = "".join(
+                        f'<div class="scene" style="background:{c}"></div>'
+                        for c in _scene_colors
+                    )
+                    # C: 鍋バブル（大きさ・位置・タイミングをばらす）
+                    _bubbles = "".join(
+                        f'<div class="bub" style="'
+                        f'width:{4+i%3}px;height:{4+i%3}px;'
+                        f'left:{15+i*14}%;'
+                        f'animation-delay:{round(i*0.28,2)}s"></div>'
+                        for i in range(6)
+                    )
+                    # クリップチップ（最大10個表示、超過分は +N本 バッジ）
+                    _show = min(_nc, 10)
+                    _citems = "".join(
+                        f'<div class="ci" style="animation-delay:{round(0.6+j*0.2,2)}s">'
+                        f'✂ {j}本目</div>'
+                        for j in range(1, _show + 1)
+                    )
+                    if _nc > 10:
+                        _citems += (
+                            f'<div class="ci" style="animation-delay:{round(0.6+_show*0.2,2)}s;'
+                            f'background:rgba(251,191,36,.25);border-color:rgba(251,191,36,.7);">'
+                            f'+ {_nc - 10}本</div>'
+                        )
+                    import streamlit.components.v1 as _cai
+                    _cai.html(f"""
+    <style>
+    *{{box-sizing:border-box;margin:0;padding:0;
+       font-family:-apple-system,'Hiragino Sans',sans-serif;}}
+    body{{background:transparent;overflow:hidden;}}
+    
+    /* ── カード ── */
+    .card{{
+      background:linear-gradient(135deg,#1c0a00 0%,#2d1500 50%,#1c0a00 100%);
+      border-radius:14px;padding:16px 16px 14px;
+      border:1px solid rgba(251,191,36,.28);
+    }}
+    
+    /* ── ヘッダー ── */
+    .hd{{display:flex;align-items:center;gap:8px;margin-bottom:13px;}}
+    .badge{{
+      background:linear-gradient(135deg,#f97316,#dc2626);
+      border-radius:5px;padding:3px 8px;font-size:10px;
+      font-weight:800;color:#fff;letter-spacing:.05em;flex-shrink:0;
+    }}
+    .htitle{{font-size:13px;font-weight:700;color:#fef3c7;}}
+    .dots span{{animation:blink 1.2s infinite;color:#f97316;}}
+    .dots span:nth-child(2){{animation-delay:.25s;}}
+    .dots span:nth-child(3){{animation-delay:.5s;}}
+    @keyframes blink{{0%,100%{{opacity:.1;}}50%{{opacity:1;}}}}
+    
+    /* ══ A: フィルムリール ══ */
+    .film-wrap{{position:relative;margin-bottom:11px;}}
+    .film{{
+      height:34px;border-radius:6px;overflow:hidden;
+      background:#0c0c18;border:1px solid rgba(255,255,255,.08);
+      position:relative;display:flex;align-items:center;
+    }}
+    /* スプロケット穴（上下） */
+    .film::before,.film::after{{
+      content:'';position:absolute;left:0;right:0;height:6px;
+      background:repeating-linear-gradient(
+        90deg,transparent 0,transparent 16px,
+        rgba(255,255,255,.13) 16px,rgba(255,255,255,.13) 24px);
+      z-index:2;
+    }}
+    .film::before{{top:2px;}}
+    .film::after{{bottom:2px;}}
+    /* シーンブロック */
+    .scenes{{
+      display:flex;align-items:center;gap:1px;
+      padding:8px 2px;z-index:1;width:100%;height:100%;
+    }}
+    .scene{{flex:1;height:18px;border-radius:1px;opacity:.7;}}
+    /* ✂️ ハサミ */
+    .scissors{{
+      position:absolute;top:50%;left:-32px;
+      transform:translateY(-50%) rotate(90deg);
+      font-size:20px;z-index:6;
+      animation:snip 2.6s linear infinite;
+      filter:drop-shadow(0 0 7px rgba(249,115,22,.9));
+    }}
+    @keyframes snip{{0%{{left:-32px;}}100%{{left:108%;}}}}
+    /* カット光跡 */
+    .cutline{{
+      position:absolute;top:0;left:-32px;
+      width:2px;height:100%;z-index:5;
+      background:linear-gradient(180deg,transparent,#f97316 40%,#fbbf24 60%,transparent);
+      animation:snip 2.6s linear infinite;opacity:.8;
+    }}
+    /* スパーク */
+    .spark{{
+      position:absolute;border-radius:50%;
+      background:#fbbf24;z-index:7;
+      animation:spark 2.6s linear infinite;
+      pointer-events:none;
+    }}
+    @keyframes spark{{
+      0%,60%{{opacity:0;transform:translate(0,0) scale(0);}}
+      65%{{opacity:1;transform:translate(var(--dx),var(--dy)) scale(1);}}
+      80%{{opacity:.5;}}
+      100%,61%{{opacity:0;transform:translate(calc(var(--dx)*1.8),calc(var(--dy)*1.8)) scale(.2);}}
+    }}
+    
+    /* ══ B+C 横並び ══ */
+    .cook-row{{display:flex;gap:8px;margin-bottom:11px;}}
+    
+    /* ── B: フライパン ── */
+    .pan-box{{
+      flex:1;background:rgba(249,115,22,.08);
+      border:1px solid rgba(249,115,22,.25);
+      border-radius:10px;padding:8px 8px 6px;
+      text-align:center;position:relative;overflow:hidden;
+    }}
+    .box-lbl{{font-size:9px;font-weight:800;letter-spacing:.05em;margin-bottom:3px;}}
+    .pan-lbl{{color:#c2410c;}}
+    .pan-emoji{{font-size:26px;display:block;line-height:1;
+      animation:sizzle .35s ease-in-out infinite alternate;
+      transform-origin:center bottom;}}
+    @keyframes sizzle{{
+      0%{{transform:rotate(-3deg) scale(1);}}
+      100%{{transform:rotate(3deg) scale(1.07);}}
+    }}
+    /* 油はね */
+    .drop{{
+      position:absolute;border-radius:50%;
+      background:rgba(251,191,36,.65);
+      animation:dropsplash .7s ease-out infinite;
+    }}
+    @keyframes dropsplash{{
+      0%{{transform:scale(0);opacity:.8;}}
+      100%{{transform:scale(2.2);opacity:0;}}
+    }}
+    /* 炎 */
+    .flame{{
+      position:absolute;bottom:4px;right:8px;
+      font-size:13px;
+      animation:flicker .4s ease-in-out infinite alternate;
+    }}
+    @keyframes flicker{{0%{{transform:scale(1) rotate(-4deg);}}100%{{transform:scale(1.15) rotate(3deg);}}}}
+    
+    /* ── C: 鍋 ── */
+    .pot-box{{
+      flex:1;background:rgba(99,102,241,.08);
+      border:1px solid rgba(99,102,241,.25);
+      border-radius:10px;padding:8px 8px 6px;
+      text-align:center;position:relative;overflow:hidden;
+    }}
+    .pot-lbl{{color:#4f46e5;}}
+    .pot-emoji{{font-size:26px;display:block;line-height:1;}}
+    /* バブル */
+    .bub{{
+      position:absolute;border-radius:50%;
+      background:rgba(99,102,241,.55);
+      animation:bubup 1.4s ease-in infinite;bottom:8px;
+    }}
+    @keyframes bubup{{
+      0%{{transform:translateY(0) scale(1);opacity:.7;}}
+      100%{{transform:translateY(-32px) scale(.2);opacity:0;}}
+    }}
+    /* 湯気 */
+    .steam{{
+      position:absolute;width:3px;height:3px;border-radius:50%;
+      background:rgba(255,255,255,.35);
+      animation:steamup 1.3s ease-out infinite;
+    }}
+    @keyframes steamup{{
+      0%{{opacity:.6;transform:translateY(0) scale(1);}}
+      100%{{opacity:0;transform:translateY(-22px) scale(.2);}}
+    }}
+    
+    /* ══ クリップチップ ══ */
+    .chips{{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}}
+    .ci{{
+      background:rgba(251,191,36,.12);
+      border:1px solid rgba(251,191,36,.4);
+      border-radius:5px;padding:3px 8px;
+      font-size:11px;color:#fde68a;
+      opacity:0;animation:ci-in .4s ease forwards;
+    }}
+    @keyframes ci-in{{
+      from{{opacity:0;transform:translateY(5px);}}
+      to{{opacity:1;transform:translateY(0);}}
+    }}
+    
+    /* ══ ステータス ══ */
+    .st{{display:flex;align-items:center;gap:7px;}}
+    .sp{{
+      width:12px;height:12px;flex-shrink:0;border-radius:50%;
+      border:2px solid rgba(249,115,22,.3);border-top-color:#f97316;
+      animation:spin .75s linear infinite;
+    }}
+    @keyframes spin{{to{{transform:rotate(360deg);}}}}
+    .stxt{{font-size:11px;color:#d97706;}}
+    </style>
+    
+    <div class="card">
+      <!-- ヘッダー -->
+      <div class="hd">
+        <div class="badge">✂️ AI</div>
+        <div class="htitle">おいしい瞬間を仕込み中
+          <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+        </div>
+      </div>
+    
+      <!-- A: フィルムリールをハサミでカット -->
+      <div class="film-wrap">
+        <div class="film">
+          <div class="scenes">{_scenes}</div>
+        </div>
+        <div class="scissors">✂️</div>
+        <div class="cutline"></div>
+        <div class="spark" style="width:4px;height:4px;top:30%;--dx:-6px;--dy:-8px;animation-delay:.1s"></div>
+        <div class="spark" style="width:3px;height:3px;top:60%;--dx:7px;--dy:-6px;animation-delay:.15s"></div>
+        <div class="spark" style="width:5px;height:5px;top:45%;--dx:-8px;--dy:5px;animation-delay:.08s"></div>
+        <div class="spark" style="width:3px;height:3px;top:25%;--dx:5px;--dy:7px;animation-delay:.2s"></div>
+      </div>
+    
+      <!-- B+C: フライパン & 鍋 -->
+      <div class="cook-row">
+        <!-- B: フライパンで炒める -->
+        <div class="pan-box">
+          <div class="box-lbl pan-lbl">🔥 おいしいシーンを炒める</div>
+          <span class="pan-emoji">🍳</span>
+          <div class="drop" style="width:5px;height:5px;bottom:12px;left:28%;animation-delay:0s"></div>
+          <div class="drop" style="width:4px;height:4px;bottom:12px;left:52%;animation-delay:.25s"></div>
+          <div class="drop" style="width:6px;height:6px;bottom:12px;left:70%;animation-delay:.5s"></div>
+          <div class="flame">🔥</div>
+        </div>
+        <!-- C: 鍋でエキスを抽出 -->
+        <div class="pot-box">
+          <div class="box-lbl pot-lbl">♨️ おいしさを抽出中</div>
+          <span class="pot-emoji">🫕</span>
+          {_bubbles}
+          <div class="steam" style="left:35%;bottom:34px;animation-delay:.1s"></div>
+          <div class="steam" style="left:55%;bottom:34px;animation-delay:.55s"></div>
+          <div class="steam" style="left:70%;bottom:34px;animation-delay:.9s"></div>
+        </div>
+      </div>
+    
+      <!-- クリップチップ -->
+      <div class="chips">{_citems}</div>
+    
+      <!-- ステータス -->
+      <div class="st">
+        <div class="sp"></div>
+        <div class="stxt">{_seg_count} セグメントの字幕から {_nc} 本のおいしい瞬間を仕込み中...</div>
+      </div>
+    </div>
+    """, height=310, scrolling=False)
+    
+                    clips = auto_select_clips(
+                        info["duration"], transcript,
+                        n_clips=int(n_clips), clip_sec=clip_sec,
+                        video_title=info.get("title", ""),
+                        description=info.get("description", ""),
+                    )
+                    s.clips = clips
+                    st.write(f"✅ {len(clips)} 本のクリップを選定しました")
+    
+                    # Claude API のステータスを session_state に保存（Step2で表示）
+                    try:
+                        from core.ai_writer import get_ai_status
+                        st.session_state["ai_status"] = get_ai_status()
+                    except Exception:
+                        pass
+    
+                    _save_session(info, clips)
+                    status.update(label="解析完了！", state="complete")
+                    s.step = 2
+                    st.rerun()
+    
+                except Exception as e:
+                    status.update(label="エラーが発生しました", state="error")
+                    _analyze_error = e
 
         # st.status が折りたたまれてもエラーが見えるよう外に出す
         if _analyze_error is not None:
             st.error(f"❌ エラー: {_analyze_error}")
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # タブ②: ファイルアップロード
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    with _tab_file:
+        st.markdown(
+            '<p style="font-size:12px;color:#64748b;margin-bottom:8px;">'
+            'YouTube からダウンロードせずに、手元の動画ファイルを直接使用します。'
+            '</p>',
+            unsafe_allow_html=True,
+        )
+        _uf = st.file_uploader(
+            "動画ファイルを選択",
+            type=["mp4", "mov", "mkv", "webm", "m4v"],
+            help="MP4 / MOV / MKV / WebM / M4V 形式に対応しています",
+            key="s1_file_uploader",
+        )
+
+        if _uf is not None:
+            st.markdown("")
+            if st.button("📁 解析開始", type="primary", use_container_width=True,
+                         key="analyze_file_btn"):
+                _file_error = None
+                with st.status("ファイルを解析中...", expanded=True) as _fstatus:
+                    try:
+                        import subprocess as _sp
+                        import json as _fjson
+
+                        # ① ファイルを保存
+                        _upload_dir = OUTPUT_DIR / "uploads"
+                        _upload_dir.mkdir(parents=True, exist_ok=True)
+                        _fstem   = Path(_uf.name).stem[:50]
+                        _fsuffix = Path(_uf.name).suffix or ".mp4"
+                        _fpath   = _upload_dir / f"{_fstem}{_fsuffix}"
+                        _fpath.write_bytes(_uf.read())
+                        st.write(f"✅ ファイル保存: `{_uf.name}`")
+
+                        # ② ffprobe で尺を取得
+                        _probe = _sp.run(
+                            ["ffprobe", "-v", "quiet", "-print_format", "json",
+                             "-show_format", str(_fpath)],
+                            capture_output=True, text=True,
+                        )
+                        _dur = 0.0
+                        if _probe.returncode == 0:
+                            _pdata = _fjson.loads(_probe.stdout)
+                            _dur = float(_pdata.get("format", {}).get("duration", 0))
+                        if _dur <= 0:
+                            raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
+                        st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
+
+                        # ③ video_info を組み立て
+                        _title = _fstem
+                        _finfo = {
+                            "url":         "",
+                            "id":          _fstem[:11],
+                            "title":       _title,
+                            "duration":    _dur,
+                            "thumbnail":   "",
+                            "uploader":    "",
+                            "view_count":  0,
+                            "chapters":    [],
+                            "description": "",
+                        }
+                        s.video_info          = _finfo
+                        s["raw_path"]         = str(_fpath)
+                        s["_file_upload_mode"] = True
+
+                        # ④ クリップ自動選定（字幕なし → 時間均等分割）
+                        from core.analyzer import auto_select_clips as _asc
+                        _fclips = _asc(
+                            _dur, [],
+                            n_clips=int(n_clips), clip_sec=clip_sec,
+                            video_title=_title,
+                        )
+                        s.clips = _fclips
+                        st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
+
+                        _save_session(_finfo, _fclips)
+                        _fstatus.update(label="解析完了！", state="complete")
+                        s.step = 2
+                        st.rerun()
+
+                    except Exception as _fe:
+                        _fstatus.update(label="エラーが発生しました", state="error")
+                        _file_error = _fe
+
+                if _file_error is not None:
+                    st.error(f"❌ エラー: {_file_error}")
 
 
 # ══════════════════════════════════════════════════════════
@@ -4509,7 +4600,7 @@ def step5():
                       "generated_clips","raw_path","sched_pending",
                       "pipeline_error","_pipeline_pending","_pipeline_ran",
                       "_pipeline_clips","_pipeline_sched","_pipeline_want_dl",
-                      "_download_only_mode"]:
+                      "_download_only_mode","_file_upload_mode"]:
                 del st.session_state[k]
             st.rerun()
 
@@ -4823,31 +4914,40 @@ def _run_pipeline(clips: list, sched: dict):
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
-        # ① 元動画を1回だけダウンロード
-        st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
-        try:
-            raw_path = download_video(video_info["url"], _user_out / "raw")
-            st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
-            _dl_ok = True
-        except Exception as e:
-            err_msg = str(e)
-            hint = ""
-            if "403" in err_msg or "IP制限" in err_msg:
-                _ck = CREDS_DIR / "cookies.txt"
-                _has_cookies = _ck.exists() and _ck.stat().st_size > 0
-                if _has_cookies:
-                    hint = (
-                        "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。\n"
-                        "cookies が期限切れの可能性があります。\n"
-                        "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。"
-                    )
-                else:
-                    hint = (
-                        "\n\n💡 cookies が設定されていません。\n"
-                        "管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
-                    )
-            s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
-            status.update(label="ダウンロード失敗", state="error")
+        # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
+        if s.get("_file_upload_mode") and s.get("raw_path"):
+            raw_path = Path(s["raw_path"])
+            if raw_path.exists():
+                st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
+                _dl_ok = True
+            else:
+                s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
+                status.update(label="ファイルエラー", state="error")
+        else:
+            st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
+            try:
+                raw_path = download_video(video_info["url"], _user_out / "raw")
+                st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+                _dl_ok = True
+            except Exception as e:
+                err_msg = str(e)
+                hint = ""
+                if "403" in err_msg or "IP制限" in err_msg:
+                    _ck = CREDS_DIR / "cookies.txt"
+                    _has_cookies = _ck.exists() and _ck.stat().st_size > 0
+                    if _has_cookies:
+                        hint = (
+                            "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。\n"
+                            "cookies が期限切れの可能性があります。\n"
+                            "管理パネルの「🍪 YouTube Cookies 管理」から cookies を再エクスポートしてください。"
+                        )
+                    else:
+                        hint = (
+                            "\n\n💡 cookies が設定されていません。\n"
+                            "管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
+                        )
+                s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
+                status.update(label="ダウンロード失敗", state="error")
 
         # ② 各クリップを処理（ダウンロード成功時のみ）
         import time as _time
@@ -5026,25 +5126,36 @@ def _generate_pipeline(clips: list, sched: dict):
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
-        st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
-        try:
-            raw_path = download_video(video_info["url"], _user_out / "raw")
-            print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
-            st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
-            _dl_ok = True
-        except Exception as e:
-            print(f"[PIPELINE] ダウンロード失敗: {e}", flush=True)
-            err_msg = str(e)
-            hint = ""
-            if "403" in err_msg or "IP制限" in err_msg:
-                _ck = CREDS_DIR / "cookies.txt"
-                if _ck.exists() and _ck.stat().st_size > 0:
-                    hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。cookies が期限切れの可能性があります。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
-                else:
-                    hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
-            s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
-            status.update(label="ダウンロード失敗", state="error")
-            # ← return しない：with ブロックを自然に終了させる
+        # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
+        if s.get("_file_upload_mode") and s.get("raw_path"):
+            raw_path = Path(s["raw_path"])
+            if raw_path.exists():
+                st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
+                print(f"[PIPELINE] ファイルアップロードモード: {raw_path}", flush=True)
+                _dl_ok = True
+            else:
+                s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
+                status.update(label="ファイルエラー", state="error")
+        else:
+            st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
+            try:
+                raw_path = download_video(video_info["url"], _user_out / "raw")
+                print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
+                st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+                _dl_ok = True
+            except Exception as e:
+                print(f"[PIPELINE] ダウンロード失敗: {e}", flush=True)
+                err_msg = str(e)
+                hint = ""
+                if "403" in err_msg or "IP制限" in err_msg:
+                    _ck = CREDS_DIR / "cookies.txt"
+                    if _ck.exists() and _ck.stat().st_size > 0:
+                        hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。cookies が期限切れの可能性があります。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
+                    else:
+                        hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
+                s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
+                status.update(label="ダウンロード失敗", state="error")
+                # ← return しない：with ブロックを自然に終了させる
 
         if _dl_ok:
             s["raw_path"] = str(raw_path)
