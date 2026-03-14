@@ -2689,15 +2689,16 @@ def step1():
     with _tab_file:
         st.markdown(
             '<p style="font-size:12px;color:#64748b;margin-bottom:8px;">'
-            'YouTube からダウンロードせずに、手元の動画ファイルを直接使用します。'
+            'Google Drive などに置いた動画の共有URLを貼ってください。'
+            'YouTube からダウンロードせずにそのまま処理します。'
             '</p>',
             unsafe_allow_html=True,
         )
-        _uf = st.file_uploader(
-            "動画ファイルを選択",
-            type=["mp4", "mov", "mkv", "webm", "m4v"],
-            help="MP4 / MOV / MKV / WebM / M4V 形式に対応しています",
-            key="s1_file_uploader",
+        _f_video_url = st.text_input(
+            "動画ファイルのURL",
+            placeholder="https://drive.google.com/file/d/xxxxxxxx/view?usp=sharing",
+            key="s1_file_url",
+            help="Google Drive の共有リンク、または動画ファイルへの直接URLに対応しています",
         )
         _f_video_title = st.text_input(
             "動画タイトル（任意）",
@@ -2713,85 +2714,116 @@ def step1():
             help="AIがクリップタイトル・説明文・採点を生成する際の参考にします。多いほど精度が上がります。",
         )
 
-        if _uf is not None:
-            st.markdown("")
-            _file_error = None
-            if st.button("📁 解析開始", type="primary", use_container_width=True,
-                         key="analyze_file_btn"):
-                with st.status("ファイルを解析中...", expanded=True) as _fstatus:
-                    try:
-                        import subprocess as _sp
-                        import json as _fjson
+        st.markdown("")
+        _file_error = None
+        if st.button("📁 解析開始", type="primary", use_container_width=True,
+                     key="analyze_file_btn", disabled=not _f_video_url.strip()):
+            with st.status("ファイルを解析中...", expanded=True) as _fstatus:
+                try:
+                    import subprocess as _sp
+                    import json as _fjson
+                    import re as _re
 
-                        # ① ファイルを保存
-                        _upload_dir = OUTPUT_DIR / "uploads"
-                        _upload_dir.mkdir(parents=True, exist_ok=True)
-                        _fstem   = Path(_uf.name).stem[:50]
-                        _fsuffix = Path(_uf.name).suffix or ".mp4"
-                        _fpath   = _upload_dir / f"{_fstem}{_fsuffix}"
-                        _fpath.write_bytes(_uf.read())
-                        st.write(f"✅ ファイル保存: `{_uf.name}`")
+                    # ① URL から動画をダウンロード
+                    _upload_dir = OUTPUT_DIR / "uploads"
+                    _upload_dir.mkdir(parents=True, exist_ok=True)
+                    _furl = _f_video_url.strip()
 
-                        # ② ffprobe で尺を取得
-                        _probe = _sp.run(
-                            ["ffprobe", "-v", "quiet", "-print_format", "json",
-                             "-show_format", str(_fpath)],
-                            capture_output=True, text=True,
+                    # Google Drive URL を direct download 形式に変換
+                    _gdrive_match = _re.search(
+                        r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
+                    )
+                    if _gdrive_match:
+                        _file_id = _gdrive_match.group(1)
+                        st.write(f"⬇️ Google Drive からダウンロード中...")
+                        import gdown as _gdown
+                        _fpath = _upload_dir / f"{_file_id}.mp4"
+                        _gdown.download(
+                            id=_file_id,
+                            output=str(_fpath),
+                            quiet=True,
+                            fuzzy=True,
                         )
-                        _dur = 0.0
-                        if _probe.returncode == 0:
-                            _pdata = _fjson.loads(_probe.stdout)
-                            _dur = float(_pdata.get("format", {}).get("duration", 0))
-                        if _dur <= 0:
-                            raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
-                        st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
+                        if not _fpath.exists() or _fpath.stat().st_size == 0:
+                            raise RuntimeError(
+                                "Google Drive からダウンロードできませんでした。\n"
+                                "共有設定が「リンクを知っている全員」になっているか確認してください。"
+                            )
+                    else:
+                        # 直接 URL → requests でストリームダウンロード
+                        import requests as _req
+                        st.write(f"⬇️ ダウンロード中: `{_furl[:60]}`")
+                        _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
+                        _fpath = _upload_dir / _fname
+                        with _req.get(_furl, stream=True, timeout=300) as _r:
+                            _r.raise_for_status()
+                            with open(_fpath, "wb") as _fp:
+                                for _chunk in _r.iter_content(chunk_size=8192):
+                                    _fp.write(_chunk)
 
-                        # ③ 文字起こし（faster-whisper）
-                        st.write("🎙️ 音声を文字起こし中... （動画の長さに比例して数分かかる場合があります）")
-                        from core.transcriber import transcribe_file as _transcribe
-                        _ftranscript = _transcribe(_fpath)
-                        if _ftranscript:
-                            st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
-                        else:
-                            st.write("⚠️ 文字起こしを取得できませんでした → タイトル・説明文で代替します")
+                    st.write(f"✅ ダウンロード完了: `{_fpath.name}`")
+                    _fstem = _fpath.stem[:50]
 
-                        # ④ video_info を組み立て（タイトルは入力値優先、なければファイル名）
-                        _title = _f_video_title.strip() or _fstem
-                        _desc  = _f_description.strip()
-                        _finfo = {
-                            "url":         "",
-                            "id":          _fstem[:11],
-                            "title":       _title,
-                            "duration":    _dur,
-                            "thumbnail":   "",
-                            "uploader":    "",
-                            "view_count":  0,
-                            "chapters":    [],
-                            "description": _desc,
-                        }
-                        s.video_info          = _finfo
-                        s["raw_path"]         = str(_fpath)
-                        s["_file_upload_mode"] = True
+                    # ② ffprobe で尺を取得
+                    _probe = _sp.run(
+                        ["ffprobe", "-v", "quiet", "-print_format", "json",
+                         "-show_format", str(_fpath)],
+                        capture_output=True, text=True,
+                    )
+                    _dur = 0.0
+                    if _probe.returncode == 0:
+                        _pdata = _fjson.loads(_probe.stdout)
+                        _dur = float(_pdata.get("format", {}).get("duration", 0))
+                    if _dur <= 0:
+                        raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
+                    st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
 
-                        # ⑤ クリップ自動選定（文字起こし + description でAI生成）
-                        from core.analyzer import auto_select_clips as _asc
-                        _fclips = _asc(
-                            _dur, _ftranscript,
-                            n_clips=int(n_clips), clip_sec=clip_sec,
-                            video_title=_title,
-                            description=_desc,
-                        )
-                        s.clips = _fclips
-                        st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
+                    # ③ 文字起こし（faster-whisper）
+                    st.write("🎙️ 音声を文字起こし中... （動画の長さに比例して数分かかる場合があります）")
+                    from core.transcriber import transcribe_file as _transcribe
+                    _ftranscript = _transcribe(_fpath)
+                    if _ftranscript:
+                        st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
+                    else:
+                        st.write("⚠️ 文字起こしを取得できませんでした → タイトル・説明文で代替します")
 
-                        _save_session(_finfo, _fclips)
-                        _fstatus.update(label="解析完了！", state="complete")
-                        s.step = 2
-                        st.rerun()
+                    # ④ video_info を組み立て（タイトルは入力値優先、なければファイル名）
+                    _title = _f_video_title.strip() or _fstem
+                    _desc  = _f_description.strip()
+                    _finfo = {
+                        "url":         "",
+                        "id":          _fstem[:11],
+                        "title":       _title,
+                        "duration":    _dur,
+                        "thumbnail":   "",
+                        "uploader":    "",
+                        "view_count":  0,
+                        "chapters":    [],
+                        "description": _desc,
+                    }
+                    s.video_info          = _finfo
+                    s["raw_path"]         = str(_fpath)
+                    s["_file_upload_mode"] = True
 
-                    except Exception as _fe:
-                        _fstatus.update(label="エラーが発生しました", state="error")
-                        _file_error = _fe
+                    # ⑤ クリップ自動選定（文字起こし + description でAI生成）
+                    from core.analyzer import auto_select_clips as _asc
+                    _fclips = _asc(
+                        _dur, _ftranscript,
+                        n_clips=int(n_clips), clip_sec=clip_sec,
+                        video_title=_title,
+                        description=_desc,
+                    )
+                    s.clips = _fclips
+                    st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
+
+                    _save_session(_finfo, _fclips)
+                    _fstatus.update(label="解析完了！", state="complete")
+                    s.step = 2
+                    st.rerun()
+
+                except Exception as _fe:
+                    _fstatus.update(label="エラーが発生しました", state="error")
+                    _file_error = _fe
 
                 if _file_error is not None:
                     st.error(f"❌ エラー: {_file_error}")
