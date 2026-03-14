@@ -1104,9 +1104,8 @@ def _init():
 
     defaults = {
         "schedule": {
-            "start_date":    str((datetime.now() + timedelta(days=1)).date()),
-            "start_time":    "10:00",
-            "interval_hours": 8,
+            "start_date":  str((datetime.now() + timedelta(days=1)).date()),
+            "daily_times": ["09:00", "15:00", "21:00"],
         },
         "results":         [],
         "running":         False,
@@ -3666,9 +3665,8 @@ def step3():
         ):
             _now = datetime.now()
             s.schedule = {
-                "start_date": _now.strftime("%Y-%m-%d"),
-                "start_time": "09:00",
-                "interval_hours": "8",
+                "start_date":  _now.strftime("%Y-%m-%d"),
+                "daily_times": ["09:00", "15:00", "21:00"],
                 "category_id": "22",
             }
             s["_download_only_mode"] = True
@@ -4105,9 +4103,8 @@ def step3():
         ):
             _now = datetime.now()
             s.schedule = {
-                "start_date": _now.strftime("%Y-%m-%d"),
-                "start_time": "09:00",
-                "interval_hours": "8",
+                "start_date":  _now.strftime("%Y-%m-%d"),
+                "daily_times": ["09:00", "15:00", "21:00"],
                 "category_id": "22",
             }
             s["_download_only_mode"] = True
@@ -4145,26 +4142,17 @@ def step4():
                 unsafe_allow_html=True)
 
     sched = s.schedule
+    from datetime import date as dt_date, time as dt_time
+
     col1, col2 = st.columns(2)
     with col1:
-        from datetime import date as dt_date, time as dt_time
         try:
             init_date = datetime.strptime(sched["start_date"], "%Y-%m-%d").date()
         except Exception:
             init_date = (datetime.now() + timedelta(days=1)).date()
-        start_date = st.date_input("初回投稿日（JST）", value=init_date)
+        start_date = st.date_input("開始日（JST）", value=init_date)
+        sched["start_date"] = str(start_date)
 
-        try:
-            init_time = datetime.strptime(sched["start_time"], "%H:%M").time()
-        except Exception:
-            init_time = dt_time(10, 0)
-        start_time = st.time_input("初回投稿時刻（JST）", value=init_time)
-
-    with col2:
-        interval_h = st.number_input(
-            "投稿間隔（時間）", min_value=1, max_value=720,
-            value=int(sched.get("interval_hours", 8)),
-        )
         category = st.selectbox(
             "カテゴリー",
             options=["22 - 人・ブログ", "27 - 教育", "28 - 科学と技術",
@@ -4173,9 +4161,25 @@ def step4():
         )
         sched["category_id"] = category.split(" ")[0]
 
-    sched["start_date"]     = str(start_date)
-    sched["start_time"]     = start_time.strftime("%H:%M")
-    sched["interval_hours"] = int(interval_h)
+    with col2:
+        _saved_times = sched.get("daily_times") or ["09:00", "15:00", "21:00"]
+        _n_times = st.number_input(
+            "1日の投稿本数", min_value=1, max_value=5,
+            value=len(_saved_times), step=1, key="s4_n_times",
+        )
+        _new_times = []
+        _t_cols = st.columns(min(int(_n_times), 3))
+        for _ti in range(int(_n_times)):
+            try:
+                _tv = datetime.strptime(_saved_times[_ti], "%H:%M").time()
+            except Exception:
+                _tv = dt_time([9, 15, 21, 12, 18][_ti % 5], 0)
+            _c = _t_cols[_ti % 3]
+            _t_val = _c.time_input(
+                f"{_ti+1}本目", value=_tv, key=f"s4_time_{_ti}",
+            )
+            _new_times.append(_t_val.strftime("%H:%M"))
+        sched["daily_times"] = _new_times
 
     # ── YouTube 一括設定 ───────────────────────────────────────
     st.markdown("")
@@ -4237,11 +4241,12 @@ def step4():
 
     enabled_clips = [c for c in s.clips if c.get("enabled", True)]
     try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
+        _dt_list = sched.get("daily_times") or ["09:00", "15:00", "21:00"]
+        _start   = datetime.strptime(sched["start_date"], "%Y-%m-%d").date()
         for i, clip in enumerate(enabled_clips):
-            post_dt = base_dt + timedelta(hours=i * int(interval_h))
+            _day = _start + timedelta(days=i // len(_dt_list))
+            _hm  = _dt_list[i % len(_dt_list)]
+            post_dt = datetime.strptime(f"{_day} {_hm}", "%Y-%m-%d %H:%M")
             title_str = clip["title"][:35] or f"クリップ {clip['index']}"
             st.markdown(f"""
             <div class="sched-row">
@@ -4712,12 +4717,15 @@ def step5():
         col1.metric("処理本数",   f"{len(enabled_clips)} 本")
         col2.metric("元動画",     (s.video_info or {}).get("title", "—")[:20])
         try:
-            base_dt = datetime.strptime(
-                f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-            )
-            last_dt = base_dt + timedelta(hours=(len(enabled_clips)-1) * int(sched["interval_hours"]))
-            col3.metric("初回投稿", base_dt.strftime("%m/%d %H:%M"))
-            col4.metric("最終投稿", last_dt.strftime("%m/%d %H:%M"))
+            _dt_list = sched.get("daily_times") or ["09:00", "15:00", "21:00"]
+            _start   = datetime.strptime(sched["start_date"], "%Y-%m-%d").date()
+            _n       = len(enabled_clips)
+            _first_dt = datetime.strptime(f"{_start} {_dt_list[0]}", "%Y-%m-%d %H:%M")
+            _last_day = _start + timedelta(days=(_n - 1) // len(_dt_list))
+            _last_hm  = _dt_list[(_n - 1) % len(_dt_list)]
+            _last_dt  = datetime.strptime(f"{_last_day} {_last_hm}", "%Y-%m-%d %H:%M")
+            col3.metric("初回投稿", _first_dt.strftime("%m/%d %H:%M"))
+            col4.metric("最終投稿", _last_dt.strftime("%m/%d %H:%M"))
         except Exception:
             pass
 
@@ -5279,17 +5287,15 @@ def _run_pipeline(clips: list, sched: dict):
     from core.processor  import create_shorts
     from core.uploader   import upload_shorts
 
-    video_info = s.video_info
-    interval_h = int(sched["interval_hours"])
-    category   = sched.get("category_id", "22")
+    video_info   = s.video_info
+    _dt_list     = sched.get("daily_times") or ["09:00", "15:00", "21:00"]
+    _start_date  = datetime.strptime(sched["start_date"], "%Y-%m-%d").date()
+    category     = sched.get("category_id", "22")
 
-    try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
-    except Exception:
-        s["pipeline_error"] = "スケジュール日時が正しくありません"
-        return
+    def _clip_jst(i: int) -> datetime:
+        _day = _start_date + timedelta(days=i // len(_dt_list))
+        _hm  = _dt_list[i % len(_dt_list)]
+        return datetime.strptime(f"{_day} {_hm}", "%Y-%m-%d %H:%M")
 
     # ── マルチユーザー: YouTube トークン取得＆リフレッシュ ──
     _yt_token  = None
@@ -5372,7 +5378,7 @@ def _run_pipeline(clips: list, sched: dict):
             description = (clip.get("description","").strip() + "\n\n" + hashtags).strip()
             tags = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
-            jst_dt = base_dt + timedelta(hours=i * interval_h)
+            jst_dt = _clip_jst(i)
             utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
 
             if _clip_times_run:
@@ -5514,16 +5520,14 @@ def _generate_pipeline(clips: list, sched: dict):
 
     s["pipeline_error"] = None  # 前回エラーをクリア
 
-    video_info = s.video_info
-    interval_h = int(sched["interval_hours"])
+    video_info   = s.video_info
+    _dt_list     = sched.get("daily_times") or ["09:00", "15:00", "21:00"]
+    _start_date  = datetime.strptime(sched["start_date"], "%Y-%m-%d").date()
 
-    try:
-        base_dt = datetime.strptime(
-            f"{sched['start_date']} {sched['start_time']}", "%Y-%m-%d %H:%M"
-        )
-    except Exception:
-        s["pipeline_error"] = "スケジュール日時が正しくありません"
-        return
+    def _clip_jst(i: int) -> datetime:
+        _day = _start_date + timedelta(days=i // len(_dt_list))
+        _hm  = _dt_list[i % len(_dt_list)]
+        return datetime.strptime(f"{_day} {_hm}", "%Y-%m-%d %H:%M")
 
     _user_id  = s.get("user_id") if _is_multi_user_mode() else None
     _uid_slug = str(_user_id) if _user_id else "local"
@@ -5582,7 +5586,7 @@ def _generate_pipeline(clips: list, sched: dict):
                 description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
                 tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
-                jst_dt = base_dt + timedelta(hours=i * interval_h)
+                jst_dt = _clip_jst(i)
                 utc_dt = (jst_dt - timedelta(hours=9)).replace(tzinfo=timezone.utc)
 
                 # 残り時間の初期推定
