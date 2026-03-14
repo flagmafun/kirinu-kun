@@ -2402,6 +2402,18 @@ def step1():
 """, height=440, scrolling=False)
 
     # ── 共通設定（タブの外に置く）──────────────────────────
+    # プランによる本数上限を取得
+    _s1_max_clips = 50
+    _s1_remaining = None
+    if _is_multi_user_mode() and s.get("user_id"):
+        try:
+            from core.usage_tracker import get_plan_info
+            _pi_s1 = get_plan_info(s["user_id"])
+            _s1_remaining = _pi_s1["remaining"]
+            _s1_max_clips = max(1, _s1_remaining)
+        except Exception:
+            pass
+
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         clip_sec = st.slider("クリップの長さ（秒）", 20, 60, 58, key="clip_sec_s1")
@@ -2412,7 +2424,10 @@ def step1():
             unsafe_allow_html=True,
         )
     with col2:
-        n_clips = st.number_input("本数", 1, 50, 10, key="n_clips_s1")
+        _s1_default = min(10, _s1_max_clips)
+        n_clips = st.number_input("本数", 1, _s1_max_clips, _s1_default, key="n_clips_s1")
+        if _s1_remaining is not None and _s1_remaining <= 10:
+            st.caption(f"残り {_s1_remaining} 本")
     with col3:
         st.markdown("")
 
