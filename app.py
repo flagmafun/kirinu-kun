@@ -5706,6 +5706,7 @@ def _upload_pipeline():
 # ① ログアウト後の Cookie クリア
 if s.get("_clearing_cookie"):
     del st.session_state["_clearing_cookie"]
+    st.session_state["_cookie_cleared"] = True  # Cookie 復元を一時無効化
     _emit_cookie_clear()
     render_login_page()
     st.stop()
@@ -5727,7 +5728,7 @@ if "sb_auth_error" in st.query_params:
 
 # ④ マルチユーザー: Cookie からセッション復元 + ログインチェック
 if _is_multi_user_mode():
-    if not s.get("user_id"):
+    if not s.get("user_id") and not s.get("_cookie_cleared"):
         # Cookie から refresh_token を読んでセッション復元を試みる
         try:
             import urllib.parse
