@@ -35,8 +35,8 @@ STRIPE_PRICE_PRO   = os.environ.get("STRIPE_PRICE_PRO",   "")
 
 # Price ID → (plan名, clips_limit)
 PLAN_BY_PRICE: dict[str, tuple[str, int]] = {
-    STRIPE_PRICE_BASIC: ("basic", 100),
-    STRIPE_PRICE_PRO:   ("pro",   500),
+    STRIPE_PRICE_BASIC: ("basic", 105),
+    STRIPE_PRICE_PRO:   ("pro",   505),
 }
 
 

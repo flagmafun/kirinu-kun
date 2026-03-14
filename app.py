@@ -1401,9 +1401,10 @@ def render_admin_panel():
     st.markdown("### 👥 ユーザー一覧")
 
     _PLAN_LABELS = {
-        "trial": "🆓 無料トライアル",
-        "basic": "⭐ ベーシック",
-        "pro":   "🚀 プロ",
+        "trial": "🆓 無料トライアル（5本）",
+        "basic": "⭐ ベーシック（月105本）",
+        "pro":   "🚀 プロ（月505本）",
+        "test":  "🔧 テストユーザー（無制限）",
         # 旧プラン（後方互換）
         "free":     "🆓 無料",
         "lite":     "💡 ライト",
@@ -1438,15 +1439,14 @@ def render_admin_panel():
     # ── プラン変更 ──
     st.markdown("### ✏️ プラン変更")
 
-    _PLAN_OPTIONS = ["trial", "basic", "pro"]
-    _PLAN_LIMITS  = {"trial": 5, "basic": 100, "pro": 500}
+    _PLAN_OPTIONS = ["trial", "basic", "pro", "test"]
+    _PLAN_LIMITS  = {"trial": 5, "basic": 105, "pro": 505, "test": 999999}
 
     emails = [u["email"] for u in users]
     selected_email = st.selectbox("対象ユーザーを選択", emails, key="_admin_user_sel")
     selected_user  = next((u for u in users if u["email"] == selected_email), None)
 
     if selected_user:
-        # 旧プランが来た場合は trial にフォールバック
         _current_plan = selected_user.get("plan", "trial")
         if _current_plan not in _PLAN_OPTIONS:
             _current_plan = "trial"
@@ -2453,12 +2453,14 @@ def step1():
     # プランによる本数上限を取得
     _s1_max_clips = 50
     _s1_remaining = None
+    _s1_is_test   = False
     if _is_multi_user_mode() and s.get("user_id"):
         try:
             from core.usage_tracker import get_plan_info
             _pi_s1 = get_plan_info(s["user_id"])
-            _s1_remaining = _pi_s1["remaining"]
-            _s1_max_clips = max(1, _s1_remaining)
+            _s1_is_test   = _pi_s1.get("is_test", False)
+            _s1_remaining = _pi_s1["remaining"] if not _s1_is_test else None
+            _s1_max_clips = 50 if _s1_is_test else max(1, _pi_s1["remaining"])
         except Exception:
             pass
 
@@ -2474,8 +2476,14 @@ def step1():
     with col2:
         _s1_default = min(10, _s1_max_clips)
         n_clips = st.number_input("本数", 1, _s1_max_clips, _s1_default, key="n_clips_s1")
-        if _s1_remaining is not None and _s1_remaining <= 10:
-            st.caption(f"残り {_s1_remaining} 本")
+        if _s1_is_test:
+            st.caption("🔧 無制限")
+        elif _s1_remaining is not None:
+            _cap_color = "color:#ef4444;" if _s1_remaining <= 3 else ("color:#f59e0b;" if _s1_remaining <= 10 else "")
+            st.markdown(
+                f'<p style="font-size:12px;{_cap_color}margin:2px 0;">あと <b>{_s1_remaining} 本</b></p>',
+                unsafe_allow_html=True,
+            )
     with col3:
         st.markdown("")
 
@@ -4309,20 +4317,20 @@ def _show_upgrade_ui(user_id: str):
         _url_basic = _checkout_url("basic")
         if _url_basic:
             _st.link_button(
-                "⭐ ベーシック（月100本 / ¥50,000）",
+                "⭐ ベーシック（月105本 / ¥50,000）",
                 _url_basic, use_container_width=True,
             )
         else:
-            _st.info("ベーシックプラン：月100本 / ¥50,000\n管理者にお問い合わせください")
+            _st.info("ベーシックプラン：月105本 / ¥50,000\n管理者にお問い合わせください")
     with _c2:
         _url_pro = _checkout_url("pro")
         if _url_pro:
             _st.link_button(
-                "🚀 プロ（月500本 / ¥200,000）",
+                "🚀 プロ（月505本 / ¥200,000）",
                 _url_pro, use_container_width=True, type="primary",
             )
         else:
-            _st.info("プロプラン：月500本 / ¥200,000\n管理者にお問い合わせください")
+            _st.info("プロプラン：月505本 / ¥200,000\n管理者にお問い合わせください")
 
 
 # ══════════════════════════════════════════════════════════
@@ -4380,15 +4388,29 @@ def step5():
             try:
                 from core.usage_tracker import get_plan_info
                 _pi = get_plan_info(_uid_s5)
-                _bar_val = min(1.0, _pi["used"] / _pi["limit"]) if _pi["limit"] > 0 else 0
-                _bar_color = "🔴" if _pi["remaining"] == 0 else ("🟡" if _pi["remaining"] <= 3 else "🟢")
-                st.progress(
-                    _bar_val,
-                    text=f"{_bar_color} 今月の使用: **{_pi['used']} / {_pi['limit']} 本** ｜ プラン: {_pi['label']}",
-                )
-                if _pi["remaining"] == 0:
-                    _show_upgrade_ui(_uid_s5)
-                    st.stop()
+                if _pi.get("is_test"):
+                    st.info("🔧 テストユーザー：使用制限なし", icon=None)
+                else:
+                    _rem  = _pi["remaining"]
+                    _used = _pi["used"]
+                    _lim  = _pi["limit"]
+                    _bar_val = min(1.0, _used / _lim) if _lim > 0 else 0
+                    if _rem == 0:
+                        _badge = "🔴"
+                        _rem_txt = "**あと 0 本**（上限到達）"
+                    elif _rem <= 5:
+                        _badge = "🟡"
+                        _rem_txt = f"**あと {_rem} 本**"
+                    else:
+                        _badge = "🟢"
+                        _rem_txt = f"**あと {_rem} 本**"
+                    st.progress(
+                        _bar_val,
+                        text=f"{_badge} {_rem_txt}　（{_used} / {_lim} 本使用）｜ {_pi['label']}",
+                    )
+                    if _rem == 0:
+                        _show_upgrade_ui(_uid_s5)
+                        st.stop()
             except Exception:
                 pass
 
@@ -5473,11 +5495,11 @@ def _run_pipeline(clips: list, sched: dict):
                 state="complete",
             )
 
-            # マルチユーザー: 使用量を更新
+            # マルチユーザー: 使用量を更新（テストユーザーはスキップ）
             if _is_multi_user_mode() and _user_id and ok > 0:
                 try:
-                    from core.db import increment_clips_used
-                    increment_clips_used(_user_id, ok)
+                    from core.usage_tracker import increment_usage
+                    increment_usage(_user_id, ok)
                 except Exception:
                     pass
 
@@ -5795,8 +5817,8 @@ def _upload_pipeline():
 
         if _is_multi_user_mode() and _user_id and ok > 0:
             try:
-                from core.db import increment_clips_used
-                increment_clips_used(_user_id, ok)
+                from core.usage_tracker import increment_usage
+                increment_usage(_user_id, ok)
             except Exception:
                 pass
 
