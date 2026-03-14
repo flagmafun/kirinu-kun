@@ -1234,7 +1234,9 @@ body{{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
                     st.rerun()
             with btn_cols[2]:
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
-                    from core.auth import sign_out
+                    from core.auth import sign_out, sign_out_global
+                    _uid_logout = st.session_state.get("user_id", "")
+                    sign_out_global(_uid_logout)
                     sign_out()
                     for k in [k for k in st.session_state.keys() if k != "_clearing_cookie"]:
                         del st.session_state[k]
@@ -1243,7 +1245,9 @@ body{{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         else:
             with btn_cols[1]:
                 if st.button("ログアウト", key="_logout_btn", help="ログアウトします"):
-                    from core.auth import sign_out
+                    from core.auth import sign_out, sign_out_global
+                    _uid_logout = st.session_state.get("user_id", "")
+                    sign_out_global(_uid_logout)
                     sign_out()
                     for k in [k for k in st.session_state.keys() if k != "_clearing_cookie"]:
                         del st.session_state[k]
@@ -5769,6 +5773,10 @@ if _is_multi_user_mode():
         else:
             render_login_page()
             st.stop()
+    elif not s.get("user_id"):
+        # _cookie_cleared=True かつ未ログイン → ログインページを表示
+        render_login_page()
+        st.stop()
 
 # ⑤ 管理者パネル
 if st.query_params.get("page") == "admin":

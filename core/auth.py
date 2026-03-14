@@ -94,6 +94,17 @@ def sign_out():
         pass
 
 
+def sign_out_global(user_id: str):
+    """admin API でユーザーの全セッション（refresh_token 含む）をサーバー側で無効化"""
+    if not user_id:
+        return
+    try:
+        sb = get_supabase_admin()
+        sb.auth.admin.sign_out(user_id, scope="global")
+    except Exception:
+        pass
+
+
 def get_user_by_token(access_token: str):
     """アクセストークンからユーザー情報を取得"""
     try:
