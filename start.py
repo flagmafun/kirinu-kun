@@ -23,6 +23,9 @@ def main() -> None:
     youtube_client_secret     = os.environ.get("YOUTUBE_CLIENT_SECRET_JSON", "")
     app_url                   = os.environ.get("APP_URL", "")
     admin_emails_raw          = os.environ.get("APP_ADMIN_EMAILS", "[]")
+    stripe_secret_key         = os.environ.get("STRIPE_SECRET_KEY", "")
+    stripe_price_basic        = os.environ.get("STRIPE_PRICE_BASIC", "")
+    stripe_price_pro          = os.environ.get("STRIPE_PRICE_PRO", "")
 
     # APP_ADMIN_EMAILS は JSON 配列文字列 '["a@b.com","c@d.com"]'
     # またはカンマ区切り "a@b.com,c@d.com" のどちらでも受け付ける
@@ -51,6 +54,11 @@ admin_emails = {json.dumps(admin_emails)}
 
 [admin]
 emails = {_q(admin_emails_csv)}
+
+[stripe]
+secret_key = {_q(stripe_secret_key)}
+price_basic = {_q(stripe_price_basic)}
+price_pro = {_q(stripe_price_pro)}
 """
     (secrets_dir / "secrets.toml").write_text(toml_content)
     print("✅ secrets.toml を生成しました")
