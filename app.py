@@ -1401,10 +1401,13 @@ def render_admin_panel():
     st.markdown("### 👥 ユーザー一覧")
 
     _PLAN_LABELS = {
+        "trial": "🆓 無料トライアル",
+        "basic": "⭐ ベーシック",
+        "pro":   "🚀 プロ",
+        # 旧プラン（後方互換）
         "free":     "🆓 無料",
         "lite":     "💡 ライト",
         "standard": "⭐ スタンダード",
-        "pro":      "🚀 プロ",
     }
 
     # ヘッダー行
@@ -1435,19 +1438,23 @@ def render_admin_panel():
     # ── プラン変更 ──
     st.markdown("### ✏️ プラン変更")
 
-    _PLAN_OPTIONS = ["free", "lite", "standard", "pro"]
-    _PLAN_LIMITS  = {"free": 10, "lite": 30, "standard": 100, "pro": 9999}
+    _PLAN_OPTIONS = ["trial", "basic", "pro"]
+    _PLAN_LIMITS  = {"trial": 5, "basic": 100, "pro": 500}
 
     emails = [u["email"] for u in users]
     selected_email = st.selectbox("対象ユーザーを選択", emails, key="_admin_user_sel")
     selected_user  = next((u for u in users if u["email"] == selected_email), None)
 
     if selected_user:
+        # 旧プランが来た場合は trial にフォールバック
+        _current_plan = selected_user.get("plan", "trial")
+        if _current_plan not in _PLAN_OPTIONS:
+            _current_plan = "trial"
         col_plan, col_btn = st.columns([3, 1])
         new_plan = col_plan.selectbox(
             "新しいプラン",
             _PLAN_OPTIONS,
-            index=_PLAN_OPTIONS.index(selected_user.get("plan", "free")),
+            index=_PLAN_OPTIONS.index(_current_plan),
             format_func=lambda x: _PLAN_LABELS.get(x, x),
             key="_admin_plan_sel",
         )
