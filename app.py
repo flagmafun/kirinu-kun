@@ -1731,6 +1731,29 @@ def render_admin_panel():
         """)
 
 
+# ── 認証エラーメッセージ日本語化 ────────────────────────────
+def _auth_error_ja(e) -> str:
+    """Supabase 認証エラーを日本語に変換"""
+    msg = str(e).lower()
+    if "invalid login credentials" in msg or "invalid credentials" in msg:
+        return "メールアドレスまたはパスワードが正しくありません。"
+    if "email not confirmed" in msg:
+        return "メールアドレスの確認が完了していません。確認メールのリンクをクリックしてください。"
+    if "already registered" in msg or "user already exists" in msg:
+        return "このメールアドレスは既に登録されています。"
+    if "password" in msg and ("short" in msg or "weak" in msg or "characters" in msg):
+        return "パスワードが条件を満たしていません（8文字以上）。"
+    if "rate limit" in msg or "too many" in msg:
+        return "リクエストが多すぎます。しばらく待ってから再試行してください。"
+    if "network" in msg or "connection" in msg:
+        return "ネットワークエラーが発生しました。接続を確認してください。"
+    if "database error" in msg:
+        return "サーバーエラーが発生しました。しばらく待ってから再試行してください。"
+    if "signup disabled" in msg:
+        return "現在新規登録は受け付けていません。"
+    return f"エラーが発生しました: {str(e)}"
+
+
 # ── ログイン / 会員登録ページ ─────────────────────────────
 def render_login_page():
     """マルチユーザーモード時のログイン・会員登録画面（リデザイン版）"""
@@ -2030,7 +2053,7 @@ button[data-testid="baseButton-primary"]:disabled,
                 else:
                     st.error("ログインに失敗しました。メールアドレスとパスワードを確認してください。")
             except Exception as e:
-                st.error(f"ログインエラー: {e}")
+                st.error(_auth_error_ja(e))
 
         # フッターリンク
         st.markdown("""
@@ -2115,13 +2138,7 @@ button[data-testid="baseButton-primary"]:disabled,
                 else:
                     st.error("登録に失敗しました。")
             except Exception as e:
-                err = str(e)
-                if "already registered" in err.lower():
-                    st.error("このメールアドレスは既に登録されています。")
-                elif "password" in err.lower():
-                    st.error("パスワードが条件を満たしていません（8文字以上）。")
-                else:
-                    st.error(f"登録エラー: {e}")
+                st.error(_auth_error_ja(e))
 
         st.markdown("""
 <div style="text-align:center;margin-top:20px;">
