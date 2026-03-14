@@ -1507,6 +1507,26 @@ def render_admin_panel():
             except Exception as _del_err:
                 st.error(f"削除エラー: {_del_err}")
 
+    # ── メールアドレス指定で完全削除（再登録用） ──
+    st.divider()
+    st.markdown("### 🔁 ソフト削除済みユーザーの完全削除")
+    st.caption("Supabase ダッシュボードで削除したユーザーが同じメールで再登録できない場合に使用")
+    _purge_email = st.text_input("メールアドレス", placeholder="user@example.com", key="_admin_purge_email")
+    if st.button("🗑️ 完全削除して再登録を許可", key="_admin_purge_btn", disabled=not _purge_email.strip()):
+        try:
+            from core.auth import get_supabase_admin as _gsa2
+            _sb2 = _gsa2()
+            # auth.users からメールで検索（ソフト削除済み含む）
+            _res = _sb2.auth.admin.list_users()
+            _target = next((u for u in _res if getattr(u, "email", "") == _purge_email.strip()), None)
+            if _target:
+                _sb2.auth.admin.delete_user(_target.id)
+                st.success(f"✅ {_purge_email} を完全削除しました。再登録できるようになりました。")
+            else:
+                st.warning(f"⚠️ {_purge_email} が見つかりません（すでに完全削除済みの可能性）")
+        except Exception as _purge_err:
+            st.error(f"エラー: {_purge_err}")
+
     # ═══ 🍪 YouTube Cookies 管理 ══════════════════════════════
     st.divider()
     st.subheader("🍪 YouTube Cookies 管理")
