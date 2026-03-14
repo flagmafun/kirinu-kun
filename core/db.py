@@ -182,11 +182,18 @@ def get_all_users_with_stats() -> list:
 
     result = []
     for user in auth_users:
-        uid          = getattr(user, "id", None) or user.get("id", "")
-        email        = getattr(user, "email", None) or user.get("email", "—")
-        created_at   = getattr(user, "created_at", None) or user.get("created_at", "")
-        last_sign_in = getattr(user, "last_sign_in_at", None) or user.get("last_sign_in_at", "")
-        confirmed    = getattr(user, "email_confirmed_at", None) or user.get("email_confirmed_at")
+        if isinstance(user, dict):
+            uid          = user.get("id", "")
+            email        = user.get("email", "—")
+            created_at   = user.get("created_at", "")
+            last_sign_in = user.get("last_sign_in_at", "")
+            confirmed    = user.get("email_confirmed_at")
+        else:
+            uid          = getattr(user, "id", "") or ""
+            email        = getattr(user, "email", "—") or "—"
+            created_at   = getattr(user, "created_at", "") or ""
+            last_sign_in = getattr(user, "last_sign_in_at", "") or ""
+            confirmed    = getattr(user, "email_confirmed_at", None)
 
         sub = subs_by_uid.get(uid, {})
         result.append({
