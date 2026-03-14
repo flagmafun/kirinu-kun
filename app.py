@@ -2132,6 +2132,77 @@ def render_video_banner():
     """, unsafe_allow_html=True)
 
 
+# ── Step1 解析ステージ用ローディングカード ─────────────────
+def _make_analysis_stage_html(title: str, detail: str = "") -> str:
+    """Step1 解析中に st.empty().markdown() で表示するカード型アニメーション。
+    既存の _make_loading_html と同じキャラクター・配色を使用。
+    """
+    return f"""
+<style>
+@keyframes as-bounce {{0%,100%{{transform:translateY(0)rotate(-2deg)}}50%{{transform:translateY(-10px)rotate(2deg)}}}}
+@keyframes as-float  {{0%,100%{{transform:translateY(0);opacity:.6}}50%{{transform:translateY(-10px);opacity:1}}}}
+@keyframes as-spin   {{to{{transform:rotate(360deg)}}}}
+@keyframes as-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
+.as-card{{
+  background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
+  border:1px solid rgba(139,92,246,.35);border-radius:16px;
+  padding:20px 16px 18px;display:flex;flex-direction:column;
+  align-items:center;position:relative;overflow:hidden;
+  font-family:-apple-system,'Hiragino Sans',sans-serif;
+}}
+.as-glow{{position:absolute;border-radius:50%;filter:blur(40px);pointer-events:none;}}
+.as-chara{{animation:as-bounce 2.4s ease-in-out infinite;
+  filter:drop-shadow(0 6px 18px rgba(167,139,250,.55));margin-bottom:10px;}}
+.as-title{{
+  font-size:15px;font-weight:700;margin-bottom:4px;
+  background:linear-gradient(90deg,#c084fc,#818cf8,#c084fc);background-size:200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:as-shimmer 2s linear infinite;
+}}
+.as-detail{{font-size:11px;color:rgba(148,163,184,.85);margin-bottom:14px;text-align:center;}}
+.as-spinner{{width:26px;height:26px;border-radius:50%;
+  border:3px solid rgba(139,92,246,.2);border-top-color:#a78bfa;
+  animation:as-spin .8s linear infinite;}}
+</style>
+<div class="as-card">
+  <div class="as-glow" style="width:220px;height:220px;background:rgba(124,58,237,.18);top:-90px;left:-70px;"></div>
+  <div class="as-glow" style="width:160px;height:160px;background:rgba(236,72,153,.12);bottom:-70px;right:-50px;"></div>
+  <span style="position:absolute;top:10px;left:14px;font-size:13px;color:#a78bfa;animation:as-float 3s ease-in-out infinite;">✦</span>
+  <span style="position:absolute;top:12px;right:16px;font-size:10px;color:#f472b6;animation:as-float 4s ease-in-out infinite .5s;">✦</span>
+  <span style="position:absolute;bottom:14px;left:20px;font-size:9px;color:#818cf8;animation:as-float 3.5s ease-in-out infinite 1s;">✦</span>
+  <div class="as-chara">
+    <svg viewBox="0 0 120 140" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="asg" cx="38%" cy="30%"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></radialGradient>
+        <radialGradient id="asf" cx="38%" cy="30%"><stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fcd34d"/></radialGradient>
+      </defs>
+      <ellipse cx="60" cy="106" rx="30" ry="28" fill="url(#asg)"/>
+      <path d="M32 115 Q40 125 50 118 Q58 128 68 118 Q78 126 88 116" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="29" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(-30 29 100)"/>
+      <ellipse cx="91" cy="100" rx="11" ry="6" fill="#9333ea" transform="rotate(30 91 100)"/>
+      <text x="13" y="110" font-size="15" fill="white" opacity=".85">✂</text>
+      <text x="82" y="110" font-size="15" fill="white" opacity=".85">✂</text>
+      <circle cx="60" cy="50" r="28" fill="url(#asf)"/>
+      <ellipse cx="45" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
+      <ellipse cx="75" cy="58" rx="8" ry="6" fill="#fda4af" opacity=".55"/>
+      <ellipse cx="51" cy="47" rx="8" ry="9" fill="white"/>
+      <ellipse cx="69" cy="47" rx="8" ry="9" fill="white"/>
+      <circle cx="51" cy="48" r="6" fill="#1e1b4b"/>
+      <circle cx="69" cy="48" r="6" fill="#1e1b4b"/>
+      <circle cx="53" cy="44" r="2.5" fill="white"/>
+      <circle cx="71" cy="44" r="2.5" fill="white"/>
+      <path d="M52 60 Q60 67 68 60" stroke="#b45309" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <polygon points="34,26 28,8 44,18" fill="#f472b6"/>
+      <polygon points="86,26 92,8 76,18" fill="#f472b6"/>
+    </svg>
+  </div>
+  <div class="as-title">{title}</div>
+  {'<div class="as-detail">' + detail + '</div>' if detail else '<div style="height:14px;"></div>'}
+  <div class="as-spinner"></div>
+</div>
+"""
+
+
 # ══════════════════════════════════════════════════════════
 # STEP 1 — URL 入力 & 解析
 # ══════════════════════════════════════════════════════════
@@ -2366,14 +2437,20 @@ def step1():
                 try:
                     from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
 
-                    st.write("📡 動画情報を取得しています...")
+                    _anim = st.empty()
+                    _anim.markdown(_make_analysis_stage_html(
+                        "動画情報を取得中...", "YouTube から動画のメタ情報を取得しています"
+                    ), unsafe_allow_html=True)
                     info = get_video_info(url.strip())
+                    _anim.empty()
                     s.video_info = info
                     s["_file_upload_mode"] = False
                     st.write(f"✅ 動画タイトル: **{info['title'][:60]}**")
                     st.write(f"⏱ 尺: {int(info['duration']//60)}分{int(info['duration']%60)}秒")
 
-                    st.write("📝 字幕・トランスクリプトを取得しています...")
+                    _anim.markdown(_make_analysis_stage_html(
+                        "字幕を取得中...", "複数のクライアントで自動字幕を取得しています"
+                    ), unsafe_allow_html=True)
                     tmp = OUTPUT_DIR / "transcript"
                     tmp.mkdir(parents=True, exist_ok=True)
                     # 今回の動画と無関係な古いjson3を削除（別動画の字幕が混入しないよう）
@@ -2382,6 +2459,7 @@ def step1():
                         if current_id and not old_f.name.startswith(current_id):
                             old_f.unlink(missing_ok=True)
                     transcript = get_transcript(url.strip(), tmp)
+                    _anim.empty()
                     if transcript:
                         st.write(f"✅ 字幕取得完了（{len(transcript)} セグメント）")
                     else:
@@ -2728,113 +2806,126 @@ def step1():
         st.markdown("")
         _file_error = None
         if st.button("📁 解析開始", type="primary", use_container_width=True,
-                     key="analyze_file_btn", disabled=not _f_video_url.strip()):
-            with st.status("ファイルを解析中...", expanded=True) as _fstatus:
-                try:
-                    import subprocess as _sp
-                    import json as _fjson
-                    import re as _re
+                     key="analyze_file_btn"):
+            if not _f_video_url.strip():
+                st.error("URLを入力してください")
+            else:
+                with st.status("ファイルを解析中...", expanded=True) as _fstatus:
+                    try:
+                        import subprocess as _sp
+                        import json as _fjson
+                        import re as _re
 
-                    # ① URL から動画をダウンロード
-                    _upload_dir = OUTPUT_DIR / "uploads"
-                    _upload_dir.mkdir(parents=True, exist_ok=True)
-                    _furl = _f_video_url.strip()
+                        # ① URL から動画をダウンロード
+                        _upload_dir = OUTPUT_DIR / "uploads"
+                        _upload_dir.mkdir(parents=True, exist_ok=True)
+                        _furl = _f_video_url.strip()
 
-                    # Google Drive URL を direct download 形式に変換
-                    _gdrive_match = _re.search(
-                        r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
-                    )
-                    if _gdrive_match:
-                        _file_id = _gdrive_match.group(1)
-                        st.write(f"⬇️ Google Drive からダウンロード中...")
-                        import gdown as _gdown
-                        _fpath = _upload_dir / f"{_file_id}.mp4"
-                        _gdown.download(
-                            id=_file_id,
-                            output=str(_fpath),
-                            quiet=True,
-                            fuzzy=True,
+                        # ① ダウンロード（アニメーション表示）
+                        _fanim = st.empty()
+                        _gdrive_match = _re.search(
+                            r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
                         )
-                        if not _fpath.exists() or _fpath.stat().st_size == 0:
-                            raise RuntimeError(
-                                "Google Drive からダウンロードできませんでした。\n"
-                                "共有設定が「リンクを知っている全員」になっているか確認してください。"
-                            )
-                    else:
-                        # 直接 URL → requests でストリームダウンロード
-                        import requests as _req
-                        st.write(f"⬇️ ダウンロード中: `{_furl[:60]}`")
-                        _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
-                        _fpath = _upload_dir / _fname
-                        with _req.get(_furl, stream=True, timeout=300) as _r:
-                            _r.raise_for_status()
-                            with open(_fpath, "wb") as _fp:
-                                for _chunk in _r.iter_content(chunk_size=8192):
-                                    _fp.write(_chunk)
+                        if _gdrive_match:
+                            _file_id = _gdrive_match.group(1)
+                            _fanim.markdown(_make_analysis_stage_html(
+                                "Google Drive からダウンロード中...",
+                                "ファイルサイズに応じて数十秒かかります"
+                            ), unsafe_allow_html=True)
+                            import gdown as _gdown
+                            _fpath = _upload_dir / f"{_file_id}.mp4"
+                            _gdown.download(id=_file_id, output=str(_fpath), quiet=True, fuzzy=True)
+                            if not _fpath.exists() or _fpath.stat().st_size == 0:
+                                raise RuntimeError(
+                                    "Google Drive からダウンロードできませんでした。\n"
+                                    "共有設定が「リンクを知っている全員」になっているか確認してください。"
+                                )
+                        else:
+                            _fanim.markdown(_make_analysis_stage_html(
+                                "動画をダウンロード中...", f"{_furl[:50]}..."
+                            ), unsafe_allow_html=True)
+                            import requests as _req
+                            _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
+                            _fpath = _upload_dir / _fname
+                            with _req.get(_furl, stream=True, timeout=300) as _r:
+                                _r.raise_for_status()
+                                with open(_fpath, "wb") as _fp:
+                                    for _chunk in _r.iter_content(chunk_size=8192):
+                                        _fp.write(_chunk)
+                        _fanim.empty()
+                        st.write(f"✅ ダウンロード完了: `{_fpath.name}`")
+                        _fstem = _fpath.stem[:50]
 
-                    st.write(f"✅ ダウンロード完了: `{_fpath.name}`")
-                    _fstem = _fpath.stem[:50]
+                        # ② ffprobe で尺を取得
+                        _probe = _sp.run(
+                            ["ffprobe", "-v", "quiet", "-print_format", "json",
+                             "-show_format", str(_fpath)],
+                            capture_output=True, text=True,
+                        )
+                        _dur = 0.0
+                        if _probe.returncode == 0:
+                            _pdata = _fjson.loads(_probe.stdout)
+                            _dur = float(_pdata.get("format", {}).get("duration", 0))
+                        if _dur <= 0:
+                            raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
+                        st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
 
-                    # ② ffprobe で尺を取得
-                    _probe = _sp.run(
-                        ["ffprobe", "-v", "quiet", "-print_format", "json",
-                         "-show_format", str(_fpath)],
-                        capture_output=True, text=True,
-                    )
-                    _dur = 0.0
-                    if _probe.returncode == 0:
-                        _pdata = _fjson.loads(_probe.stdout)
-                        _dur = float(_pdata.get("format", {}).get("duration", 0))
-                    if _dur <= 0:
-                        raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
-                    st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
+                        # ③ 文字起こし（faster-whisper・アニメーション表示）
+                        _est_min = max(1, int(_dur / 60))
+                        _fanim.markdown(_make_analysis_stage_html(
+                            "音声を文字起こし中...",
+                            f"動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分かかります"
+                        ), unsafe_allow_html=True)
+                        from core.transcriber import transcribe_file as _transcribe
+                        _ftranscript = _transcribe(_fpath)
+                        _fanim.empty()
+                        if _ftranscript:
+                            st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
+                        else:
+                            st.write("⚠️ 文字起こしを取得できませんでした → タイトル・説明文で代替します")
 
-                    # ③ 文字起こし（faster-whisper）
-                    st.write("🎙️ 音声を文字起こし中... （動画の長さに比例して数分かかる場合があります）")
-                    from core.transcriber import transcribe_file as _transcribe
-                    _ftranscript = _transcribe(_fpath)
-                    if _ftranscript:
-                        st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
-                    else:
-                        st.write("⚠️ 文字起こしを取得できませんでした → タイトル・説明文で代替します")
+                        # ④ video_info を組み立て（タイトルは入力値優先、なければファイル名）
+                        _title = _f_video_title.strip() or _fstem
+                        _desc  = _f_description.strip()
+                        _finfo = {
+                            "url":         "",
+                            "id":          _fstem[:11],
+                            "title":       _title,
+                            "duration":    _dur,
+                            "thumbnail":   "",
+                            "uploader":    "",
+                            "view_count":  0,
+                            "chapters":    [],
+                            "description": _desc,
+                        }
+                        s.video_info          = _finfo
+                        s["raw_path"]         = str(_fpath)
+                        s["_file_upload_mode"] = True
 
-                    # ④ video_info を組み立て（タイトルは入力値優先、なければファイル名）
-                    _title = _f_video_title.strip() or _fstem
-                    _desc  = _f_description.strip()
-                    _finfo = {
-                        "url":         "",
-                        "id":          _fstem[:11],
-                        "title":       _title,
-                        "duration":    _dur,
-                        "thumbnail":   "",
-                        "uploader":    "",
-                        "view_count":  0,
-                        "chapters":    [],
-                        "description": _desc,
-                    }
-                    s.video_info          = _finfo
-                    s["raw_path"]         = str(_fpath)
-                    s["_file_upload_mode"] = True
+                        # ⑤ クリップ自動選定（文字起こし + description でAI生成）
+                        _fanim.markdown(_make_analysis_stage_html(
+                            "AIがクリップを選定中...",
+                            f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出"
+                        ), unsafe_allow_html=True)
+                        from core.analyzer import auto_select_clips as _asc
+                        _fclips = _asc(
+                            _dur, _ftranscript,
+                            n_clips=int(n_clips), clip_sec=clip_sec,
+                            video_title=_title,
+                            description=_desc,
+                        )
+                        _fanim.empty()
+                        s.clips = _fclips
+                        st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
 
-                    # ⑤ クリップ自動選定（文字起こし + description でAI生成）
-                    from core.analyzer import auto_select_clips as _asc
-                    _fclips = _asc(
-                        _dur, _ftranscript,
-                        n_clips=int(n_clips), clip_sec=clip_sec,
-                        video_title=_title,
-                        description=_desc,
-                    )
-                    s.clips = _fclips
-                    st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
+                        _save_session(_finfo, _fclips)
+                        _fstatus.update(label="解析完了！", state="complete")
+                        s.step = 2
+                        st.rerun()
 
-                    _save_session(_finfo, _fclips)
-                    _fstatus.update(label="解析完了！", state="complete")
-                    s.step = 2
-                    st.rerun()
-
-                except Exception as _fe:
-                    _fstatus.update(label="エラーが発生しました", state="error")
-                    _file_error = _fe
+                    except Exception as _fe:
+                        _fstatus.update(label="エラーが発生しました", state="error")
+                        _file_error = _fe
 
                 if _file_error is not None:
                     st.error(f"❌ エラー: {_file_error}")
