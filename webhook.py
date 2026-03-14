@@ -39,7 +39,7 @@ STRIPE_PRICE_AGENCY = os.environ.get("STRIPE_PRICE_AGENCY",  "")
 PLAN_BY_PRICE: dict[str, tuple[str, int]] = {
     STRIPE_PRICE_BASIC:  ("basic",  105),
     STRIPE_PRICE_PRO:    ("pro",    505),
-    STRIPE_PRICE_AGENCY: ("agency", 1000),
+    STRIPE_PRICE_AGENCY: ("agency", 1005),
 }
 
 

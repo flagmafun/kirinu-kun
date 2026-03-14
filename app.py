@@ -1440,7 +1440,7 @@ def render_admin_panel():
     st.markdown("### ✏️ プラン変更")
 
     _PLAN_OPTIONS = ["trial", "basic", "pro", "agency", "test"]
-    _PLAN_LIMITS  = {"trial": 5, "basic": 105, "pro": 505, "agency": 1000, "test": 999999}
+    _PLAN_LIMITS  = {"trial": 5, "basic": 105, "pro": 505, "agency": 1005, "test": 999999}
 
     emails = [u["email"] for u in users]
     selected_email = st.selectbox("対象ユーザーを選択", emails, key="_admin_user_sel")
@@ -4347,24 +4347,36 @@ def _show_upgrade_ui(user_id: str):
         except Exception:
             return None
 
+    # ── 無料5本プレゼントの説明 ─────────────────────────────────────
+    _st.markdown(
+        '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;'
+        'padding:10px 14px;margin-bottom:16px;font-size:13px;color:#713f12;text-align:center;">'
+        '🎁 <b>全プランに無料5本プレゼント付き！</b>　登録時の無料トライアル分がそのまま加算されます。'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
     # ── 3プランを横並び ────────────────────────────────────────────
     _plans_to_show = [
-        ("basic",  "⭐ ベーシック",  "月 105本",  "¥50,000 / 月",   "1チャンネル"),
-        ("pro",    "🚀 プロ",        "月 505本",  "¥200,000 / 月",  "複数チャンネル"),
-        ("agency", "🏢 エージェンシー", "月 1,000本", "¥350,000 / 月", "6〜10チャンネル"),
+        ("basic",  "⭐ ベーシック",     "月 105本",   "100本 + 🎁5本",  "¥50,000 / 月",   "1チャンネル向け"),
+        ("pro",    "🚀 プロ",           "月 505本",   "500本 + 🎁5本",  "¥200,000 / 月",  "複数チャンネル向け"),
+        ("agency", "🏢 エージェンシー", "月 1,005本", "1,000本 + 🎁5本","¥350,000 / 月",  "チャンネルを量産する"),
     ]
     _cols = _st.columns(3)
-    for (_plan_key, _plan_name, _clips_txt, _price_txt, _target_txt), _col in zip(_plans_to_show, _cols):
+    for (_plan_key, _plan_name, _clips_txt, _bonus_txt, _price_txt, _target_txt), _col in zip(_plans_to_show, _cols):
         _is_current = (_plan_key == _current_plan)
         with _col:
             _st.markdown(
-                f"""<div style="border:1px solid {'#6366f1' if _is_current else '#e2e8f0'};
-                border-radius:10px;padding:14px 12px;text-align:center;
+                f"""<div style="border:2px solid {'#6366f1' if _is_current else '#e2e8f0'};
+                border-radius:12px;padding:16px 12px;text-align:center;
                 background:{'#f5f3ff' if _is_current else '#fff'};">
-                <div style="font-size:1.15rem;font-weight:700;">{_plan_name}</div>
-                <div style="font-size:1.6rem;font-weight:800;color:#6366f1;margin:6px 0;">{_clips_txt}</div>
-                <div style="font-size:0.85rem;color:#64748b;">{_target_txt}</div>
-                <div style="font-size:1.1rem;font-weight:700;margin:8px 0;">{_price_txt}</div>
+                <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px;">{_plan_name}</div>
+                <div style="font-size:1.7rem;font-weight:800;color:#6366f1;line-height:1.2;">{_clips_txt}</div>
+                <div style="font-size:0.8rem;color:#16a34a;font-weight:600;margin:4px 0 6px;">
+                  {_bonus_txt}
+                </div>
+                <div style="font-size:0.82rem;color:#64748b;margin-bottom:6px;">{_target_txt}</div>
+                <div style="font-size:1.05rem;font-weight:700;color:#1e293b;">{_price_txt}</div>
                 </div>""",
                 unsafe_allow_html=True,
             )

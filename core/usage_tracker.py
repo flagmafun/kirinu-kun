@@ -15,7 +15,7 @@ PLANS: dict[str, dict] = {
     "trial":  {"label": "🆓 無料トライアル（5本）",          "limit": 5,      "price": 0},
     "basic":  {"label": "⭐ ベーシック（月105本）",           "limit": 105,    "price": 50000},
     "pro":    {"label": "🚀 プロ（月505本）",                 "limit": 505,    "price": 200000},
-    "agency": {"label": "🏢 エージェンシー（月1,000本）",     "limit": 1000,   "price": 350000},
+    "agency": {"label": "🏢 エージェンシー（月1,005本）",     "limit": 1005,   "price": 350000},
     "test":   {"label": "🔧 テストユーザー（無制限）",         "limit": 999999, "price": 0},
 }
 
