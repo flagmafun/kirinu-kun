@@ -28,7 +28,7 @@ def _get_app_url() -> str:
         import streamlit as st
         return st.secrets["app"]["url"]
     except Exception:
-        return os.environ.get("APP_URL", "https://kirinu-kun.streamlit.app")
+        return os.environ.get("APP_URL", "https://kirinuki-kun.up.railway.app")
 
 
 def send_welcome_email(to_email: str) -> bool:
