@@ -5342,7 +5342,6 @@ def _make_loading_html(clip_num: int, total_clips: int,
   <span style="position:absolute;top:72%;left:4%;font-size:1em;color:#f87171;animation:ld-star 4s ease-in-out infinite 1.2s;">✦</span>
   <span style="position:absolute;top:82%;left:93%;font-size:.9em;color:#fbbf24;animation:ld-float 3.8s ease-in-out infinite .3s;">✦</span>
 
-  <!-- 切り抜きくん（3D風・可愛い）-->
   <div class="ld-chara">
     <svg viewBox="0 0 190 210" width="115" height="125" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -5420,7 +5419,6 @@ def _make_loading_html(clip_num: int, total_clips: int,
     </svg>
   </div>
 
-  <!-- 活動サイクル（企画→デザイン→編集）-->
   <div class="ld-act-wrap">
     <span class="ld-act-lbl" style="color:#FDD835;background:rgba(253,216,53,.15);animation:ld-act 6s ease-in-out infinite;">✏️ 企画中...</span>
     <span class="ld-act-lbl" style="color:#40C4FF;background:rgba(64,196,255,.15);animation:ld-act2 6s ease-in-out infinite;">🎨 デザイン中...</span>
@@ -5430,7 +5428,6 @@ def _make_loading_html(clip_num: int, total_clips: int,
   <div class="ld-title">🎬 Shorts 制作中</div>
   <div class="ld-subtitle">{short_title}</div>
 
-  <!-- 円形プログレスリング -->
   <div class="ld-ring-wrap">
     <svg width="136" height="136" viewBox="0 0 136 136">
       <defs>
@@ -5451,16 +5448,13 @@ def _make_loading_html(clip_num: int, total_clips: int,
     </div>
   </div>
 
-  <!-- 残り時間のみ表示 -->
   <div class="ld-stat">
     <div class="ld-stat-label">⏳ 残り時間</div>
     <div class="ld-stat-val">{rem_str}</div>
   </div>
 
-  <!-- クリップ進捗ドット -->
   <div class="ld-dots">{dots_html}</div>
 
-  <!-- 中断ボタン（ページリロードで中断）-->
   <button class="ld-cancel-btn" onclick="window.location.reload()">
     ↩ 前の画面に戻る（中断）
   </button>
