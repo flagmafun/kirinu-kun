@@ -141,13 +141,14 @@ def start_oauth2_flow() -> "subprocess.Popen":
     _OAUTH2_TOKEN_PATH にトークンが保存される。
     """
     _YTDLP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    # --simulate: 実際にはダウンロードしない。OAuth2 の認証フローだけ実行させる
+    # --skip-download: 認証・メタデータ取得は行うが動画ファイルはダウンロードしない
+    # --simulate は yt-dlp 2025+ で認証前に終了することがあるため使わない
     return subprocess.Popen(
         [
             "yt-dlp",
             "--username", "oauth2", "--password", "",
             "--cache-dir", str(_YTDLP_CACHE_DIR),
-            "--no-playlist", "--simulate",
+            "--no-playlist", "--skip-download",
             # 短い公開動画を使って認証フローを起動する
             "https://www.youtube.com/watch?v=jNQXAC9IVRw",
         ],
@@ -296,26 +297,46 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
         # n-challenge 失敗を cookies 失敗より先にチェック（優先順位が重要）
-        # n-challenge 失敗の副作用で "page needs to be reloaded" が stderr に混入し、
-        # _cookies_expired_in_stderr が誤って True を返すため。
-        if _nchallenge_failed_in_stderr(_stderr):
-            import importlib.util as _ilu
-            _node = _find_node_binary() or "未検出"
-            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
-            raise RuntimeError(
-                f"ダウンロード失敗: n-challenge 解決失敗\n\n"
-                f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
-                f"詳細: {_stderr[-400:]}"
+        if _nchallenge_failed_in_stderr(_stderr) or "sign in to confirm" in _stderr.lower():
+            # EJS/sign-in 失敗 → android_vr でリトライ（n-challenge 不要、認証不要）
+            _id_retry = subprocess.run(
+                ["yt-dlp", "--print", "id",
+                 "--no-playlist", "--no-check-certificates",
+                 "--extractor-args", "youtube:player_client=android_vr",
+                 url],
+                capture_output=True, text=True,
             )
-        if has_cookies and _cookies_expired_in_stderr(_stderr):
-            # cookies 期限切れ/セッション失効
-            # ★ android_vr フォールバックはしない（SABR で必ず失敗するため）
+            if _id_retry.returncode == 0:
+                id_result = _id_retry
+            else:
+                # android_vr も失敗 → ios でリトライ
+                _id_retry2 = subprocess.run(
+                    ["yt-dlp", "--print", "id",
+                     "--no-playlist", "--no-check-certificates",
+                     "--extractor-args", "youtube:player_client=ios",
+                     url],
+                    capture_output=True, text=True,
+                )
+                if _id_retry2.returncode == 0:
+                    id_result = _id_retry2
+                else:
+                    import importlib.util as _ilu
+                    _node = _find_node_binary() or "未検出"
+                    _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+                    raise RuntimeError(
+                        f"ダウンロード失敗: n-challenge / 認証エラー\n\n"
+                        f"🔧 診断情報: Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                        + _COOKIES_UPDATE_MSG
+                        + f"\n詳細: {_stderr[-400:]}"
+                    )
+        elif has_cookies and _cookies_expired_in_stderr(_stderr):
             raise RuntimeError(
                 _COOKIES_UPDATE_MSG + f"\n詳細: {_stderr[-400:]}"
             )
-        raise RuntimeError(
-            f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
-        )
+        elif id_result.returncode != 0:
+            raise RuntimeError(
+                f"yt-dlp --print id 失敗 (code {id_result.returncode}):\n{_stderr[-600:]}"
+            )
     video_id = id_result.stdout.strip()
     output_template = str(output_dir / f"{video_id}.%(ext)s")
 
@@ -363,26 +384,33 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             _err_web  = err
             _node_bin = _find_node_binary()
             _js_opts  = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
-            # 認証オプション: OAuth2 優先、なければ cookies
+            # 認証オプション:
+            #   _auth_web  = web/mweb 用（OAuth2 または cookies）
+            #   _auth_novid = android_vr/ios 用（OAuth2 のみ。cookies は NG: #12482）
+            #     ★ ios/android + cookies は NG: cookies 非対応クライアントなので
+            #        yt-dlp がスキップして "Only images available" になる。
             if has_oauth2_token():
-                _auth_opts = [
+                _auth_web   = [
                     "--cache-dir", str(_YTDLP_CACHE_DIR),
                     "--username", "oauth2", "--password", "",
                 ]
+                _auth_novid = _auth_web  # OAuth2 はクライアント非依存
             elif _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
-                _auth_opts = ["--cookies", str(_COOKIES_PATH)]
+                _auth_web   = ["--cookies", str(_COOKIES_PATH)]
+                _auth_novid = []  # cookies は android_vr/ios に渡さない
             else:
-                _auth_opts = []
+                _auth_web   = []
+                _auth_novid = []
             _fallbacks = [
-                # mweb: モバイル web（n-challenge あり）
+                # mweb: モバイル web（n-challenge あり、cookies 対応）
                 ("mweb",       ["--extractor-args", "youtube:player_client=mweb"]
-                               + _js_opts + _auth_opts),
-                # android_vr: n-challenge 不要（OAuth2 があれば認証も通る）
+                               + _js_opts + _auth_web),
+                # android_vr: n-challenge 不要（cookies を渡さない）
                 ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
-                               + _auth_opts),
-                # ios: n-challenge 不要（OAuth2 + ios = 最も安定）
+                               + _auth_novid),
+                # ios: n-challenge 不要（cookies を渡さない）
                 ("ios",        ["--extractor-args", "youtube:player_client=ios"]
-                               + _auth_opts),
+                               + _auth_novid),
             ]
             _fb_errors: dict = {}
             for _fb_name, _fb_opts in _fallbacks:
@@ -427,7 +455,10 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                         + _detail
                     )
 
-        raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
+        # フォールバックが成功した場合は result.returncode == 0 なので raise しない
+        # （for...break 後もここに到達するため returncode を再チェック）
+        if result.returncode != 0:
+            raise RuntimeError(f"yt-dlp失敗 (code {result.returncode}): {err[-500:]}")
 
     for ext in [".mp4", ".mkv", ".webm", ".m4v", ".mov"]:
         path = output_dir / f"{video_id}{ext}"
