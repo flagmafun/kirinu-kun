@@ -2437,18 +2437,21 @@ def step1():
                 try:
                     from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
 
-                    _anim = st.empty()
-                    _anim.markdown(_make_analysis_stage_html(
+                    # ステージ①: 動画情報取得
+                    _anim1 = st.empty()
+                    _anim1.markdown(_make_analysis_stage_html(
                         "動画情報を取得中...", "YouTube から動画のメタ情報を取得しています"
                     ), unsafe_allow_html=True)
                     info = get_video_info(url.strip())
-                    _anim.empty()
+                    _anim1.empty()
                     s.video_info = info
                     s["_file_upload_mode"] = False
                     st.write(f"✅ 動画タイトル: **{info['title'][:60]}**")
                     st.write(f"⏱ 尺: {int(info['duration']//60)}分{int(info['duration']%60)}秒")
 
-                    _anim.markdown(_make_analysis_stage_html(
+                    # ステージ②: 字幕取得
+                    _anim2 = st.empty()
+                    _anim2.markdown(_make_analysis_stage_html(
                         "字幕を取得中...", "複数のクライアントで自動字幕を取得しています"
                     ), unsafe_allow_html=True)
                     tmp = OUTPUT_DIR / "transcript"
@@ -2459,7 +2462,7 @@ def step1():
                         if current_id and not old_f.name.startswith(current_id):
                             old_f.unlink(missing_ok=True)
                     transcript = get_transcript(url.strip(), tmp)
-                    _anim.empty()
+                    _anim2.empty()
                     if transcript:
                         st.write(f"✅ 字幕取得完了（{len(transcript)} セグメント）")
                     else:
@@ -2821,14 +2824,14 @@ def step1():
                         _upload_dir.mkdir(parents=True, exist_ok=True)
                         _furl = _f_video_url.strip()
 
-                        # ① ダウンロード（アニメーション表示）
-                        _fanim = st.empty()
+                        # ① ダウンロード（ステージ専用 empty を作成）
+                        _fanim1 = st.empty()
                         _gdrive_match = _re.search(
                             r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)", _furl
                         )
                         if _gdrive_match:
                             _file_id = _gdrive_match.group(1)
-                            _fanim.markdown(_make_analysis_stage_html(
+                            _fanim1.markdown(_make_analysis_stage_html(
                                 "Google Drive からダウンロード中...",
                                 "ファイルサイズに応じて数十秒かかります"
                             ), unsafe_allow_html=True)
@@ -2841,7 +2844,7 @@ def step1():
                                     "共有設定が「リンクを知っている全員」になっているか確認してください。"
                                 )
                         else:
-                            _fanim.markdown(_make_analysis_stage_html(
+                            _fanim1.markdown(_make_analysis_stage_html(
                                 "動画をダウンロード中...", f"{_furl[:50]}..."
                             ), unsafe_allow_html=True)
                             import requests as _req
@@ -2852,7 +2855,7 @@ def step1():
                                 with open(_fpath, "wb") as _fp:
                                     for _chunk in _r.iter_content(chunk_size=8192):
                                         _fp.write(_chunk)
-                        _fanim.empty()
+                        _fanim1.empty()
                         st.write(f"✅ ダウンロード完了: `{_fpath.name}`")
                         _fstem = _fpath.stem[:50]
 
@@ -2870,15 +2873,16 @@ def step1():
                             raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
                         st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
 
-                        # ③ 文字起こし（faster-whisper・アニメーション表示）
+                        # ③ 文字起こし（ステージ専用 empty を作成）
                         _est_min = max(1, int(_dur / 60))
-                        _fanim.markdown(_make_analysis_stage_html(
+                        _fanim2 = st.empty()
+                        _fanim2.markdown(_make_analysis_stage_html(
                             "音声を文字起こし中...",
                             f"動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分かかります"
                         ), unsafe_allow_html=True)
                         from core.transcriber import transcribe_file as _transcribe
                         _ftranscript = _transcribe(_fpath)
-                        _fanim.empty()
+                        _fanim2.empty()
                         if _ftranscript:
                             st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
                         else:
@@ -2902,8 +2906,9 @@ def step1():
                         s["raw_path"]         = str(_fpath)
                         s["_file_upload_mode"] = True
 
-                        # ⑤ クリップ自動選定（文字起こし + description でAI生成）
-                        _fanim.markdown(_make_analysis_stage_html(
+                        # ⑤ クリップ自動選定（ステージ専用 empty を作成）
+                        _fanim3 = st.empty()
+                        _fanim3.markdown(_make_analysis_stage_html(
                             "AIがクリップを選定中...",
                             f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出"
                         ), unsafe_allow_html=True)
@@ -2914,7 +2919,7 @@ def step1():
                             video_title=_title,
                             description=_desc,
                         )
-                        _fanim.empty()
+                        _fanim3.empty()
                         s.clips = _fclips
                         st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
 
