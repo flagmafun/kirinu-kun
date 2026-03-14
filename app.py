@@ -2699,12 +2699,25 @@ def step1():
             help="MP4 / MOV / MKV / WebM / M4V 形式に対応しています",
             key="s1_file_uploader",
         )
+        _f_video_title = st.text_input(
+            "動画タイトル（任意）",
+            placeholder="例：【完全解説】Pythonの使い方",
+            key="s1_file_title",
+            help="クリップのタイトル・説明文生成に使われます",
+        )
+        _f_description = st.text_area(
+            "動画の説明・内容メモ（任意）",
+            placeholder="例：この動画ではPythonの基本文法からWeb開発まで解説しています。特にfor文・関数・ライブラリの使い方が中心です。",
+            key="s1_file_desc",
+            height=80,
+            help="AIがクリップタイトル・説明文・採点を生成する際の参考にします。多いほど精度が上がります。",
+        )
 
         if _uf is not None:
             st.markdown("")
+            _file_error = None
             if st.button("📁 解析開始", type="primary", use_container_width=True,
                          key="analyze_file_btn"):
-                _file_error = None
                 with st.status("ファイルを解析中...", expanded=True) as _fstatus:
                     try:
                         import subprocess as _sp
@@ -2733,8 +2746,9 @@ def step1():
                             raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
                         st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
 
-                        # ③ video_info を組み立て
-                        _title = _fstem
+                        # ③ video_info を組み立て（タイトルは入力値優先、なければファイル名）
+                        _title = _f_video_title.strip() or _fstem
+                        _desc  = _f_description.strip()
                         _finfo = {
                             "url":         "",
                             "id":          _fstem[:11],
@@ -2744,18 +2758,19 @@ def step1():
                             "uploader":    "",
                             "view_count":  0,
                             "chapters":    [],
-                            "description": "",
+                            "description": _desc,
                         }
                         s.video_info          = _finfo
                         s["raw_path"]         = str(_fpath)
                         s["_file_upload_mode"] = True
 
-                        # ④ クリップ自動選定（字幕なし → 時間均等分割）
+                        # ④ クリップ自動選定（字幕なし → description を参考にAI生成）
                         from core.analyzer import auto_select_clips as _asc
                         _fclips = _asc(
                             _dur, [],
                             n_clips=int(n_clips), clip_sec=clip_sec,
                             video_title=_title,
+                            description=_desc,
                         )
                         s.clips = _fclips
                         st.write(f"✅ {len(_fclips)} 本のクリップを選定しました")
