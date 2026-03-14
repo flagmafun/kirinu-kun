@@ -5763,6 +5763,13 @@ def _generate_pipeline(clips: list, sched: dict):
     if _dl_ok and generated:
         s["generated_clips"] = generated
         s["sched_pending"]   = dict(sched)
+        # ダウンロード完了時点でカウント（アップロード時は二重カウントしない）
+        if _is_multi_user_mode() and _user_id:
+            try:
+                from core.usage_tracker import increment_usage
+                increment_usage(_user_id, len(generated))
+            except Exception:
+                pass
 
 
 # ── アップロードパイプライン（生成済みファイルをYouTubeへ投稿）──────────
@@ -5861,12 +5868,7 @@ def _upload_pipeline():
             state="complete",
         )
 
-        if _is_multi_user_mode() and _user_id and ok > 0:
-            try:
-                from core.usage_tracker import increment_usage
-                increment_usage(_user_id, ok)
-            except Exception:
-                pass
+        # ※ カウントは _generate_pipeline（ダウンロード時）で済んでいるためここでは加算しない
 
     s["generated_clips"] = []
     s["raw_path"]        = None
