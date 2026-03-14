@@ -358,6 +358,12 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
         _sign_in   = "sign in to confirm" in err_l
         _is_sabr   = "sabr" in err_l or "missing a url" in err_l
 
+        print(
+            f"[DL] プライマリ失敗 code={result.returncode} "
+            f"ejs={_ejs_fail} sign_in={_sign_in} 403={_is_403} sabr={_is_sabr}",
+            flush=True,
+        )
+
         # ① SABR（cookies なしの場合の特有エラー）
         if _is_sabr:
             raise RuntimeError(
@@ -368,92 +374,91 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                 + f"\n詳細: {err[-300:]}"
             )
 
-        # ② EJS / Sign-in / CDN 403 → 全て同じフォールバックチェーンへ
-        #    ios と android_vr は n-challenge 不要なので EJS が壊れていても動く可能性がある
-        if _ejs_fail or _sign_in or _is_403:
-            import importlib.util as _ilu
-            _node = _find_node_binary() or "未検出"
-            _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
-            if _ejs_fail:
-                print(
-                    f"[DL] n-challenge 失敗 → フォールバック試行 "
-                    f"Node={_node} yt-dlp-ejs={'✅' if _has_ejs else '❌'}",
-                    flush=True,
-                )
-
-            _err_web  = err
-            _node_bin = _find_node_binary()
-            _js_opts  = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
-            # 認証オプション:
-            #   _auth_web  = web/mweb 用（OAuth2 または cookies）
-            #   _auth_novid = android_vr/ios 用（OAuth2 のみ。cookies は NG: #12482）
-            #     ★ ios/android + cookies は NG: cookies 非対応クライアントなので
-            #        yt-dlp がスキップして "Only images available" になる。
-            if has_oauth2_token():
-                _auth_web   = [
-                    "--cache-dir", str(_YTDLP_CACHE_DIR),
-                    "--username", "oauth2", "--password", "",
-                ]
-                _auth_novid = _auth_web  # OAuth2 はクライアント非依存
-            elif _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
-                _auth_web   = ["--cookies", str(_COOKIES_PATH)]
-                _auth_novid = []  # cookies は android_vr/ios に渡さない
-            else:
-                _auth_web   = []
-                _auth_novid = []
-            _fallbacks = [
-                # mweb: モバイル web（n-challenge あり、cookies 対応）
-                ("mweb",       ["--extractor-args", "youtube:player_client=mweb"]
-                               + _js_opts + _auth_web),
-                # android_vr: n-challenge 不要（cookies を渡さない）
-                ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
-                               + _auth_novid),
-                # ios: n-challenge 不要（cookies を渡さない）
-                ("ios",        ["--extractor-args", "youtube:player_client=ios"]
-                               + _auth_novid),
+        # ② 条件判定に関わらず常にフォールバックチェーンを試みる
+        #    （エラー検出ロジックのミスマッチに依存しないための安全策）
+        import importlib.util as _ilu
+        _node    = _find_node_binary() or "未検出"
+        _has_ejs = _ilu.find_spec("yt_dlp_ejs") is not None
+        _err_web = err
+        _node_bin = _find_node_binary()
+        _js_opts  = ["--js-runtimes", f"node:{_node_bin}" if _node_bin else "node"]
+        # 認証オプション:
+        #   _auth_web   = web/mweb 用（OAuth2 または cookies）
+        #   _auth_novid = android_vr/ios 用（OAuth2 のみ。cookies は NG: #12482）
+        #     ★ ios/android + cookies は NG: cookies 非対応クライアントなので
+        #        yt-dlp がスキップして "Only images available" になる。
+        if has_oauth2_token():
+            _auth_web   = [
+                "--cache-dir", str(_YTDLP_CACHE_DIR),
+                "--username", "oauth2", "--password", "",
             ]
-            _fb_errors: dict = {}
-            for _fb_name, _fb_opts in _fallbacks:
-                _fb_base = ["--no-playlist", "--no-check-certificates"] + _fb_opts
-                _fb_cmd  = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
-                            "-o", output_template] + _fb_base + [url]
-                _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                if _fb_r.returncode == 0:
-                    result = _fb_r
-                    err    = ""
-                    break
-                _fb_errors[_fb_name] = _fb_r.stderr.decode("utf-8", errors="replace")
-                print(f"[DL] fallback {_fb_name} 失敗: {_fb_errors[_fb_name][-200:]}", flush=True)
+            _auth_novid = _auth_web  # OAuth2 はクライアント非依存
+        elif _COOKIES_PATH.exists() and _COOKIES_PATH.stat().st_size > 0:
+            _auth_web   = ["--cookies", str(_COOKIES_PATH)]
+            _auth_novid = []  # cookies は android_vr/ios に渡さない
+        else:
+            _auth_web   = []
+            _auth_novid = []
+        _fallbacks = [
+            # mweb: モバイル web（n-challenge あり、cookies 対応）
+            ("mweb",       ["--extractor-args", "youtube:player_client=mweb"]
+                           + _js_opts + _auth_web),
+            # android_vr: n-challenge 不要（cookies を渡さない）
+            ("android_vr", ["--extractor-args", "youtube:player_client=android_vr"]
+                           + _auth_novid),
+            # ios: n-challenge 不要（cookies を渡さない）
+            ("ios",        ["--extractor-args", "youtube:player_client=ios"]
+                           + _auth_novid),
+        ]
+        _fb_errors: dict = {}
+        for _fb_name, _fb_opts in _fallbacks:
+            _fb_base = ["--no-playlist", "--no-check-certificates"] + _fb_opts
+            _fb_cmd  = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
+                        "-o", output_template] + _fb_base + [url]
+            print(f"[DL] fallback {_fb_name} 試行中...", flush=True)
+            _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if _fb_r.returncode == 0:
+                print(f"[DL] fallback {_fb_name} 成功", flush=True)
+                result = _fb_r
+                err    = ""
+                break
+            _fb_errors[_fb_name] = _fb_r.stderr.decode("utf-8", errors="replace")
+            print(f"[DL] fallback {_fb_name} 失敗: {_fb_errors[_fb_name][-200:]}", flush=True)
+        else:
+            # 全フォールバック失敗 → 原因別メッセージ
+            _detail = f"\nweb: {_err_web[-300:]}"
+            for _n, _e in _fb_errors.items():
+                _detail += f"\n{_n}: {_e[-200:]}"
+            if _ejs_fail:
+                raise RuntimeError(
+                    "YouTube ダウンロード失敗（EJS/n-challenge + 全フォールバック失敗）\n\n"
+                    f"🔧 Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
+                    "ios/android_vr も失敗した場合は cookies が期限切れの可能性があります。\n"
+                    + _COOKIES_UPDATE_MSG
+                    + _detail
+                )
+            elif _sign_in:
+                raise RuntimeError(
+                    "YouTube 認証エラー（Sign in to confirm you're not a bot）\n\n"
+                    + _COOKIES_UPDATE_MSG
+                    + _detail
+                )
+            elif _is_403:
+                raise RuntimeError(
+                    "YouTube ダウンロード失敗（CDN 403 + 全フォールバック失敗）\n\n"
+                    + (
+                        "PO Token 問題または cookies が期限切れの可能性があります。\n"
+                        + _COOKIES_UPDATE_MSG
+                        if has_cookies else
+                        "IP がブロックされているか、cookies を設定してください。\n"
+                    )
+                    + _detail
+                )
             else:
-                # 全フォールバック失敗 → 原因別メッセージ
-                _detail = f"\nweb: {_err_web[-200:]}"
-                for _n, _e in _fb_errors.items():
-                    _detail += f"\n{_n}: {_e[-200:]}"
-                if _ejs_fail:
-                    raise RuntimeError(
-                        "YouTube ダウンロード失敗（EJS/n-challenge + 全フォールバック失敗）\n\n"
-                        f"🔧 Node.js={_node}  yt-dlp-ejs={'✅' if _has_ejs else '❌'}\n\n"
-                        "ios/android_vr も失敗した場合は cookies が期限切れの可能性があります。\n"
-                        + _COOKIES_UPDATE_MSG
-                        + _detail
-                    )
-                elif _sign_in:
-                    raise RuntimeError(
-                        "YouTube 認証エラー（Sign in to confirm you're not a bot）\n\n"
-                        + _COOKIES_UPDATE_MSG
-                        + _detail
-                    )
-                else:
-                    raise RuntimeError(
-                        "YouTube ダウンロード失敗（CDN 403 + 全フォールバック失敗）\n\n"
-                        + (
-                            "PO Token 問題または cookies が期限切れの可能性があります。\n"
-                            + _COOKIES_UPDATE_MSG
-                            if has_cookies else
-                            "IP がブロックされているか、cookies を設定してください。\n"
-                        )
-                        + _detail
-                    )
+                raise RuntimeError(
+                    f"YouTube ダウンロード失敗（全フォールバック失敗）\n"
+                    + _detail
+                )
 
         # フォールバックが成功した場合は result.returncode == 0 なので raise しない
         # （for...break 後もここに到達するため returncode を再チェック）
