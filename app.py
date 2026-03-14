@@ -2272,96 +2272,54 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
         <filter id="ksglow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
 
-      <!-- ── BODY（胴体・パーカー 3D風）── -->
-      <!-- 影 -->
       <ellipse cx="95" cy="200" rx="45" ry="8" fill="rgba(0,0,0,0.25)"/>
-      <!-- 肩・胴 -->
       <path d="M40 130 Q40 200 95 200 Q150 200 150 130 Q140 118 95 116 Q50 118 40 130Z" fill="url(#ksr)"/>
-      <!-- ハイライト -->
       <path d="M55 125 Q65 115 95 114 Q125 115 135 125 Q120 118 95 117 Q70 118 55 125Z" fill="rgba(255,255,255,0.18)"/>
-      <!-- フード衿 -->
       <path d="M72 120 Q95 132 118 120 Q110 138 95 140 Q80 138 72 120Z" fill="#FAFAFA"/>
       <path d="M80 122 Q95 130 110 122 Q103 134 95 136 Q87 134 80 122Z" fill="#F0F0F0"/>
-      <!-- ファスナー -->
       <line x1="95" y1="138" x2="95" y2="195" stroke="#FF8A80" stroke-width="2" stroke-dasharray="3,3"/>
-      <!-- 側面シャドウ -->
       <path d="M40 130 Q40 200 60 200 Q50 170 48 140Z" fill="rgba(0,0,0,0.12)"/>
       <path d="M150 130 Q150 200 130 200 Q140 170 142 140Z" fill="rgba(0,0,0,0.12)"/>
-
-      <!-- ── LEFT ARM（左腕・ハサミ）── -->
       <path d="M55 128 Q28 140 16 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
       <path d="M55 128 Q28 140 16 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
-      <!-- 手 -->
       <circle cx="13" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
-      <!-- ハサミ（アニメーション付き）-->
       <g transform="translate(-4,158)" style="transform-origin:8px 8px;animation:as-snip 1.8s ease-in-out infinite;">
-        <!-- 上刃 -->
         <path d="M8,8 L38,-8" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
         <path d="M8,8 L38,-8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-        <!-- 下刃 -->
         <path d="M8,8 L40,18" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
         <path d="M8,8 L40,18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
-        <!-- 持ち手リング（赤） -->
         <circle cx="3" cy="2" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
         <circle cx="3" cy="16" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
-        <!-- 金属感ハイライト -->
         <circle cx="3" cy="2" r="4" fill="rgba(255,255,255,0.3)"/>
         <circle cx="3" cy="16" r="4" fill="rgba(255,255,255,0.3)"/>
       </g>
-
-      <!-- ── RIGHT ARM（右腕・スマホ）── -->
       <path d="M135 128 Q162 140 174 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
       <path d="M135 128 Q162 140 174 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
-      <!-- 手 -->
       <circle cx="177" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
-      <!-- スマホ（アニメーション付き）-->
       <g transform="translate(164,144)" style="transform-origin:14px 22px;animation:as-phone 2.4s ease-in-out infinite;">
-        <!-- 本体 -->
         <rect x="0" y="0" width="28" height="44" rx="5" fill="#212121" stroke="#424242" stroke-width="1.5"/>
-        <!-- 画面 -->
         <rect x="2" y="3" width="24" height="36" rx="3" fill="#FAFAFA"/>
-        <!-- YouTube赤背景 -->
         <rect x="4" y="8" width="20" height="16" rx="3" fill="#FF0000"/>
-        <!-- 再生ボタン -->
         <polygon points="11,12 11,20 21,16" fill="white"/>
-        <!-- YouTubeロゴ文字 -->
         <text x="14" y="32" text-anchor="middle" font-size="5" fill="#333" font-weight="800" font-family="Arial,sans-serif">YouTube</text>
-        <!-- ホームバー -->
         <rect x="8" y="39" width="12" height="2" rx="1" fill="#9E9E9E"/>
-        <!-- 画面ハイライト -->
         <path d="M4,5 L8,5 L6,15" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
       </g>
-
-      <!-- ── HEAD（頭）── -->
       <circle cx="95" cy="78" r="44" fill="url(#ksk)" filter="url(#kssh)"/>
-      <!-- 頭のハイライト（3D感）-->
       <ellipse cx="78" cy="60" rx="20" ry="25" fill="rgba(255,255,255,0.18)" transform="rotate(-15 78 60)"/>
-
-      <!-- ── HAT（帽子）── -->
-      <!-- つば -->
       <path d="M48 62 Q95 54 142 62 Q138 74 95 75 Q52 74 48 62Z" fill="#263238" filter="url(#kssh)"/>
       <path d="M50 63 Q95 56 140 63 Q136 70 95 71 Q54 70 50 63Z" fill="#37474F"/>
-      <!-- つばハイライト -->
       <path d="M60 62 Q95 57 130 62 Q125 66 95 67 Q65 66 60 62Z" fill="rgba(255,255,255,0.08)"/>
-      <!-- クラウン（丸みある形）-->
       <path d="M60 62 Q62 18 95 14 Q128 18 130 62 Q112 56 95 55 Q78 56 60 62Z" fill="url(#ksh)" filter="url(#kssh)"/>
-      <!-- クラウンハイライト -->
       <ellipse cx="80" cy="30" rx="14" ry="8" fill="rgba(255,255,255,0.13)" transform="rotate(-20 80 30)"/>
-      <!-- AIバッジ（金色）-->
       <circle cx="95" cy="40" r="15" fill="#FDD835" stroke="#F9A825" stroke-width="2" filter="url(#ksglow)"/>
       <circle cx="95" cy="40" r="12" fill="#FFEE58"/>
       <circle cx="89" cy="35" r="3" fill="rgba(255,255,255,0.4)"/>
       <text x="95" y="46" text-anchor="middle" font-size="11" font-weight="900" fill="#1A237E" font-family="'Arial Black',sans-serif">AI</text>
-      <!-- 帽子の星 -->
       <text x="70" y="34" font-size="9" fill="#FFD700" opacity="0.9" style="animation:as-star 2s infinite;">★</text>
       <text x="112" y="28" font-size="7" fill="#FFD700" opacity="0.7">★</text>
-
-      <!-- ── EYES（目）── -->
-      <!-- 左目白目 -->
       <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
-      <!-- 右目白目 -->
       <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
-      <!-- 左まぶた（まばたきアニメ）-->
       <g style="transform-origin:74px 80px;animation:as-blink 4s ease-in-out infinite;">
         <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
         <circle cx="76" cy="82" r="12" fill="url(#ksey)"/>
@@ -2369,7 +2327,6 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
         <circle cx="80" cy="77" r="4" fill="white"/>
         <circle cx="72" cy="85" r="2" fill="white" opacity="0.7"/>
       </g>
-      <!-- 右まぶた（まばたきアニメ）-->
       <g style="transform-origin:116px 80px;animation:as-blink 4s ease-in-out infinite;">
         <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
         <circle cx="118" cy="82" r="12" fill="url(#ksey)"/>
@@ -2377,25 +2334,17 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
         <circle cx="122" cy="77" r="4" fill="white"/>
         <circle cx="114" cy="85" r="2" fill="white" opacity="0.7"/>
       </g>
-      <!-- 目の輝き（キラキラ星）-->
       <text x="64" y="72" font-size="10" fill="#FFD700" style="animation:as-star 1.5s infinite;">✦</text>
       <text x="122" y="70" font-size="8" fill="#FFD700" style="animation:as-star 1.5s infinite .3s;">✦</text>
-
-      <!-- ほっぺ（チーク）-->
       <ellipse cx="60" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
       <ellipse cx="130" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
-
-      <!-- 口（笑顔）-->
       <path d="M78 100 Q95 116 112 100" stroke="#C0392B" stroke-width="3.5" fill="none" stroke-linecap="round"/>
       <path d="M81 100 Q95 112 109 100" fill="white"/>
       <path d="M81 100 Q95 112 109 100" stroke="#E57373" stroke-width="1" fill="none"/>
-
-      <!-- 鼻 -->
       <ellipse cx="95" cy="94" rx="4" ry="3" fill="#FFAB40" opacity="0.7"/>
     </svg>
   </div>
 
-  <!-- 活動ラベル（企画→デザイン→編集サイクル）-->
   <div class="as-act-wrap">
     <span class="as-act-lbl" style="color:#FDD835;background:rgba(253,216,53,.15);animation:as-act 6s ease-in-out infinite;">✏️ 企画中...</span>
     <span class="as-act-lbl" style="color:#40C4FF;background:rgba(64,196,255,.15);animation:as-act2 6s ease-in-out infinite;">🎨 デザイン中...</span>
