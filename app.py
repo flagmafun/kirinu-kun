@@ -1465,6 +1465,33 @@ def render_admin_panel():
 
     st.divider()
 
+    # ── 使用本数の手動設定 ──
+    st.markdown("### 🔢 使用本数の手動設定")
+    _usage_emails = [u["email"] for u in users]
+    _usage_sel_email = st.selectbox("対象ユーザー", _usage_emails, key="_admin_usage_sel")
+    _usage_sel_user  = next((u for u in users if u["email"] == _usage_sel_email), None)
+    if _usage_sel_user:
+        _cur_used = int(_usage_sel_user.get("clips_used", 0) or 0)
+        col_used, col_used_btn = st.columns([2, 1])
+        _new_used = col_used.number_input(
+            "clips_used_this_month", min_value=0, max_value=99999,
+            value=_cur_used, step=1, key="_admin_usage_val",
+        )
+        if col_used_btn.button("💾 更新", type="primary", key="_admin_usage_save"):
+            try:
+                from core.auth import get_supabase_admin as _gsa_u
+                _sb_u = _gsa_u()
+                _sb_u.table("subscriptions").update({
+                    "clips_used_this_month": int(_new_used),
+                    "updated_at": datetime.utcnow().isoformat(),
+                }).eq("user_id", _usage_sel_user["id"]).execute()
+                st.success(f"✅ {_usage_sel_email} の使用本数を {int(_new_used)} に更新しました")
+                st.rerun()
+            except Exception as _ue:
+                st.error(f"更新エラー: {_ue}")
+
+    st.divider()
+
     # ── ユーザー削除 ──
     st.markdown("### 🗑️ ユーザー削除")
     st.markdown(
