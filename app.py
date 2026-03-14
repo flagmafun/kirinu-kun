@@ -2746,7 +2746,16 @@ def step1():
                             raise RuntimeError("動画の尺を取得できませんでした（ffprobe 失敗）")
                         st.write(f"⏱ 尺: {int(_dur//60)}分{int(_dur%60)}秒")
 
-                        # ③ video_info を組み立て（タイトルは入力値優先、なければファイル名）
+                        # ③ 文字起こし（faster-whisper）
+                        st.write("🎙️ 音声を文字起こし中... （動画の長さに比例して数分かかる場合があります）")
+                        from core.transcriber import transcribe_file as _transcribe
+                        _ftranscript = _transcribe(_fpath)
+                        if _ftranscript:
+                            st.write(f"✅ 文字起こし完了（{len(_ftranscript)} セグメント）")
+                        else:
+                            st.write("⚠️ 文字起こしを取得できませんでした → タイトル・説明文で代替します")
+
+                        # ④ video_info を組み立て（タイトルは入力値優先、なければファイル名）
                         _title = _f_video_title.strip() or _fstem
                         _desc  = _f_description.strip()
                         _finfo = {
@@ -2764,10 +2773,10 @@ def step1():
                         s["raw_path"]         = str(_fpath)
                         s["_file_upload_mode"] = True
 
-                        # ④ クリップ自動選定（字幕なし → description を参考にAI生成）
+                        # ⑤ クリップ自動選定（文字起こし + description でAI生成）
                         from core.analyzer import auto_select_clips as _asc
                         _fclips = _asc(
-                            _dur, [],
+                            _dur, _ftranscript,
                             n_clips=int(n_clips), clip_sec=clip_sec,
                             video_title=_title,
                             description=_desc,
