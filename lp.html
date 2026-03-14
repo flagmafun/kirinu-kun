@@ -1706,44 +1706,68 @@
         </div>
 
         <!-- プラン比較 -->
-        <div class="plans-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 28px;">
+        <div style="display:flex;flex-direction:column;gap:16px;margin:0 0 28px;">
 
           <!-- BASIC -->
-          <div style="position:relative;background:linear-gradient(135deg,rgba(251,146,60,0.15),rgba(234,88,12,0.08));border:2px solid var(--orange);border-radius:20px;padding:24px 20px;text-align:center;">
-            <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--orange);color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">まずはここから</div>
-            <div style="font-size:13px;font-weight:900;letter-spacing:2px;color:var(--orange-light);margin-bottom:6px;">BASIC</div>
-            <div style="font-size:28px;font-weight:900;color:var(--white);line-height:1.1;margin-bottom:2px;">105本<span style="font-size:14px;font-weight:500;color:var(--muted);">/月</span></div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">100本 + 無料5本</div>
-            <div style="font-size:12px;color:var(--muted);text-decoration:line-through;margin-bottom:2px;">通常 ¥100,000</div>
-            <div style="font-size:36px;font-weight:900;color:var(--orange);letter-spacing:-1px;line-height:1;">¥50,000</div>
-            <div style="margin-top:6px;"><span style="background:rgba(52,211,153,0.2);color:#34d399;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;">50% OFF</span></div>
-            <div style="font-size:11px;color:var(--muted);margin-top:8px;">🪙 1本あたり約500円</div>
+          <div style="position:relative;background:linear-gradient(135deg,rgba(251,146,60,0.15),rgba(234,88,12,0.06));border:2px solid var(--orange);border-radius:20px;padding:28px 24px;">
+            <div style="position:absolute;top:-13px;left:20px;background:var(--orange);color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">まずはここから</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div>
+                <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:var(--orange-light);margin-bottom:4px;">BASIC</div>
+                <div style="font-size:20px;font-weight:900;color:var(--white);margin-bottom:2px;">1チャンネル</div>
+                <div style="font-size:13px;color:var(--muted);">105本/月（100本 + 無料5本）</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:11px;color:var(--muted);text-decoration:line-through;">通常 ¥100,000</div>
+                <div style="font-size:34px;font-weight:900;color:var(--orange);letter-spacing:-1px;line-height:1.1;">¥50,000</div>
+                <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:4px;">
+                  <span style="background:rgba(52,211,153,0.2);color:#34d399;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;">50% OFF</span>
+                  <span style="font-size:11px;color:var(--muted);">🪙 1本≈500円</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- PRO -->
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:24px 20px;text-align:center;">
-            <div style="font-size:13px;font-weight:900;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">PRO</div>
-            <div style="font-size:28px;font-weight:900;color:var(--white);line-height:1.1;margin-bottom:2px;">505本<span style="font-size:14px;font-weight:500;color:var(--muted);">/月</span></div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">500本 + 無料5本</div>
-            <div style="font-size:12px;color:var(--muted);text-decoration:line-through;margin-bottom:2px;">通常 ¥500,000</div>
-            <div style="font-size:36px;font-weight:900;color:var(--white);letter-spacing:-1px;line-height:1;">¥200,000</div>
-            <div style="margin-top:6px;"><span style="background:rgba(52,211,153,0.2);color:#34d399;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;">60% OFF</span></div>
-            <div style="font-size:11px;color:var(--muted);margin-top:8px;">🪙 1本あたり約400円</div>
+          <div style="position:relative;background:linear-gradient(135deg,rgba(96,165,250,0.12),rgba(59,130,246,0.06));border:2px solid rgba(96,165,250,0.6);border-radius:20px;padding:28px 24px;">
+            <div style="position:absolute;top:-13px;left:20px;background:linear-gradient(90deg,#3b82f6,#2563eb);color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">複数アカウント対応</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div>
+                <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#93c5fd;margin-bottom:4px;">PRO</div>
+                <div style="font-size:20px;font-weight:900;color:var(--white);margin-bottom:2px;">複数チャンネル</div>
+                <div style="font-size:13px;color:var(--muted);">505本/月（500本 + 無料5本）</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:11px;color:var(--muted);text-decoration:line-through;">通常 ¥500,000</div>
+                <div style="font-size:34px;font-weight:900;color:#60a5fa;letter-spacing:-1px;line-height:1.1;">¥200,000</div>
+                <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:4px;">
+                  <span style="background:rgba(52,211,153,0.2);color:#34d399;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;">60% OFF</span>
+                  <span style="font-size:11px;color:var(--muted);">🪙 1本≈400円</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AGENCY -->
+          <div style="position:relative;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(109,40,217,0.06));border:2px solid rgba(139,92,246,0.7);border-radius:20px;padding:28px 24px;">
+            <div style="position:absolute;top:-13px;left:20px;background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">チャンネルを量産する</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div>
+                <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#a78bfa;margin-bottom:4px;">AGENCY</div>
+                <div style="font-size:20px;font-weight:900;color:var(--white);margin-bottom:2px;">3〜5チャンネル</div>
+                <div style="font-size:13px;color:var(--muted);">月1,000〜2,000本規模</div>
+                <div style="font-size:12px;color:#c4b5fd;margin-top:4px;">🏢 代理店・法人向け</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">モニター特別価格</div>
+                <div style="font-size:30px;font-weight:900;color:#a78bfa;letter-spacing:-1px;line-height:1.1;">¥500,000〜</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px;">要相談</div>
+              </div>
+            </div>
           </div>
 
         </div>
-
-        <!-- AGENCY プラン -->
-        <div style="position:relative;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(109,40,217,0.08));border:2px solid rgba(139,92,246,0.7);border-radius:20px;padding:28px 24px;margin:0 0 16px;text-align:center;">
-          <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:4px 14px;border-radius:20px;white-space:nowrap;">複数チャンネルを一括運用</div>
-          <div style="font-size:13px;font-weight:900;letter-spacing:2px;color:#a78bfa;margin-bottom:6px;">AGENCY</div>
-          <div style="font-size:14px;color:var(--muted);margin-bottom:4px;">3〜5チャンネル対応 / 月1,000〜2,000本規模</div>
-          <div style="font-size:13px;color:#c4b5fd;font-weight:600;margin-bottom:16px;">専用サポート・優先対応付き</div>
-          <div style="font-size:28px;font-weight:900;color:#a78bfa;letter-spacing:-1px;line-height:1;">¥500,000〜</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px;">（要相談）</div>
-          <div style="font-size:11px;color:#c4b5fd;margin-top:8px;">🏢 代理店・法人向け</div>
-        </div>
-        <div style="font-size:12px;color:var(--muted);margin:-16px 0 28px;text-align:center;">※ 1アカウントあたりの価格 / モニター限定100名</div>
+        <div style="font-size:12px;color:var(--muted);margin:-10px 0 28px;text-align:center;">※ モニター限定100名 / BASICは1アカウントあたりの価格</div>
 
         <!-- 無料プレゼント訴求 -->
         <div style="background:linear-gradient(135deg,rgba(52,211,153,0.15),rgba(16,185,129,0.08));border:2px solid rgba(52,211,153,0.5);border-radius:16px;padding:20px 24px;margin:0 0 28px;text-align:center;">
