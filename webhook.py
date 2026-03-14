@@ -9,6 +9,7 @@ Railway で別サービスとして起動:
   STRIPE_WEBHOOK_SECRET  - Stripe Webhook 署名シークレット
   STRIPE_PRICE_BASIC     - ベーシックプランの Stripe Price ID
   STRIPE_PRICE_PRO       - プロプランの Stripe Price ID
+  STRIPE_PRICE_AGENCY    - エージェンシープランの Stripe Price ID
   SUPABASE_URL           - Supabase プロジェクト URL
   SUPABASE_SERVICE_ROLE_KEY - Supabase サービスロールキー
 """
@@ -28,15 +29,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 app = FastAPI()
 
-stripe.api_key     = os.environ.get("STRIPE_SECRET_KEY", "")
-WEBHOOK_SECRET     = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_BASIC = os.environ.get("STRIPE_PRICE_BASIC", "")
-STRIPE_PRICE_PRO   = os.environ.get("STRIPE_PRICE_PRO",   "")
+stripe.api_key      = os.environ.get("STRIPE_SECRET_KEY",    "")
+WEBHOOK_SECRET      = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_BASIC  = os.environ.get("STRIPE_PRICE_BASIC",   "")
+STRIPE_PRICE_PRO    = os.environ.get("STRIPE_PRICE_PRO",     "")
+STRIPE_PRICE_AGENCY = os.environ.get("STRIPE_PRICE_AGENCY",  "")
 
 # Price ID → (plan名, clips_limit)
 PLAN_BY_PRICE: dict[str, tuple[str, int]] = {
-    STRIPE_PRICE_BASIC: ("basic", 105),
-    STRIPE_PRICE_PRO:   ("pro",   505),
+    STRIPE_PRICE_BASIC:  ("basic",  105),
+    STRIPE_PRICE_PRO:    ("pro",    505),
+    STRIPE_PRICE_AGENCY: ("agency", 1000),
 }
 
 
@@ -116,7 +119,12 @@ async def create_checkout(plan: str, user_id: str, app_url: str = ""):
     Stripe Checkout セッションを作成して URL を返す。
     Streamlit から呼び出す。
     """
-    price_id = STRIPE_PRICE_BASIC if plan == "basic" else STRIPE_PRICE_PRO
+    _price_map = {
+        "basic":  STRIPE_PRICE_BASIC,
+        "pro":    STRIPE_PRICE_PRO,
+        "agency": STRIPE_PRICE_AGENCY,
+    }
+    price_id = _price_map.get(plan, "")
     if not price_id:
         raise HTTPException(400, "Price ID が設定されていません")
 

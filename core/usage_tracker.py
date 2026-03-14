@@ -3,24 +3,27 @@
 - subscriptions テーブルの clips_limit / clips_used_this_month を参照
 - プラン定義:
     trial  : 5本（無料プレゼント）
-    basic  : 105本/月（100本 + 無料5本）
-    pro    : 505本/月（500本 + 無料5本）
+    basic  : 105本/月（100本 + 無料5本）  ¥50,000
+    pro    : 505本/月（500本 + 無料5本）  ¥200,000
+    agency : 1,000本/月（6〜10チャンネル）¥350,000
     test   : 無制限（テストユーザー）
 """
 from __future__ import annotations
 
 # プラン定義
 PLANS: dict[str, dict] = {
-    "trial": {"label": "🆓 無料トライアル（5本）",   "limit": 5,   "price": 0},
-    "basic": {"label": "⭐ ベーシック（月105本）",    "limit": 105, "price": 50000},
-    "pro":   {"label": "🚀 プロ（月505本）",          "limit": 505, "price": 200000},
-    "test":  {"label": "🔧 テストユーザー（無制限）", "limit": 999999, "price": 0},
+    "trial":  {"label": "🆓 無料トライアル（5本）",          "limit": 5,      "price": 0},
+    "basic":  {"label": "⭐ ベーシック（月105本）",           "limit": 105,    "price": 50000},
+    "pro":    {"label": "🚀 プロ（月505本）",                 "limit": 505,    "price": 200000},
+    "agency": {"label": "🏢 エージェンシー（月1,000本）",     "limit": 1000,   "price": 350000},
+    "test":   {"label": "🔧 テストユーザー（無制限）",         "limit": 999999, "price": 0},
 }
 
 # Stripe Price ID（Railway 環境変数から取得）
 import os
-STRIPE_PRICE_BASIC = os.environ.get("STRIPE_PRICE_BASIC", "")
-STRIPE_PRICE_PRO   = os.environ.get("STRIPE_PRICE_PRO",   "")
+STRIPE_PRICE_BASIC   = os.environ.get("STRIPE_PRICE_BASIC",   "")
+STRIPE_PRICE_PRO     = os.environ.get("STRIPE_PRICE_PRO",     "")
+STRIPE_PRICE_AGENCY  = os.environ.get("STRIPE_PRICE_AGENCY",  "")
 
 
 def get_plan_info(user_id: str) -> dict:

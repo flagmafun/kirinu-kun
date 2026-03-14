@@ -1400,10 +1400,11 @@ def render_admin_panel():
     st.markdown("### 👥 ユーザー一覧")
 
     _PLAN_LABELS = {
-        "trial": "🆓 無料トライアル（5本）",
-        "basic": "⭐ ベーシック（月105本）",
-        "pro":   "🚀 プロ（月505本）",
-        "test":  "🔧 テストユーザー（無制限）",
+        "trial":  "🆓 無料トライアル（5本）",
+        "basic":  "⭐ ベーシック（月105本）",
+        "pro":    "🚀 プロ（月505本）",
+        "agency": "🏢 エージェンシー（月1,000本）",
+        "test":   "🔧 テストユーザー（無制限）",
         # 旧プラン（後方互換）
         "free":     "🆓 無料",
         "lite":     "💡 ライト",
@@ -1438,8 +1439,8 @@ def render_admin_panel():
     # ── プラン変更 ──
     st.markdown("### ✏️ プラン変更")
 
-    _PLAN_OPTIONS = ["trial", "basic", "pro", "test"]
-    _PLAN_LIMITS  = {"trial": 5, "basic": 105, "pro": 505, "test": 999999}
+    _PLAN_OPTIONS = ["trial", "basic", "pro", "agency", "test"]
+    _PLAN_LIMITS  = {"trial": 5, "basic": 105, "pro": 505, "agency": 1000, "test": 999999}
 
     emails = [u["email"] for u in users]
     selected_email = st.selectbox("対象ユーザーを選択", emails, key="_admin_user_sel")
@@ -4280,10 +4281,12 @@ def _show_upgrade_ui(user_id: str):
     import os as _os
 
     try:
-        from core.usage_tracker import get_plan_info, STRIPE_PRICE_BASIC, STRIPE_PRICE_PRO
+        from core.usage_tracker import get_plan_info
         _pi = get_plan_info(user_id)
     except Exception:
         return
+
+    _current_plan = _pi.get("plan", "trial")
 
     _st.error(
         f"今月の生成枠（{_pi['limit']} 本）を使い切りました。"
@@ -4317,25 +4320,41 @@ def _show_upgrade_ui(user_id: str):
         except Exception:
             return None
 
-    _c1, _c2 = _st.columns(2)
-    with _c1:
-        _url_basic = _checkout_url("basic")
-        if _url_basic:
-            _st.link_button(
-                "⭐ ベーシック（月105本 / ¥50,000）",
-                _url_basic, use_container_width=True,
+    # ── 3プランを横並び ────────────────────────────────────────────
+    _plans_to_show = [
+        ("basic",  "⭐ ベーシック",  "月 105本",  "¥50,000 / 月",   "1チャンネル"),
+        ("pro",    "🚀 プロ",        "月 505本",  "¥200,000 / 月",  "複数チャンネル"),
+        ("agency", "🏢 エージェンシー", "月 1,000本", "¥350,000 / 月", "6〜10チャンネル"),
+    ]
+    _cols = _st.columns(3)
+    for (_plan_key, _plan_name, _clips_txt, _price_txt, _target_txt), _col in zip(_plans_to_show, _cols):
+        _is_current = (_plan_key == _current_plan)
+        with _col:
+            _st.markdown(
+                f"""<div style="border:1px solid {'#6366f1' if _is_current else '#e2e8f0'};
+                border-radius:10px;padding:14px 12px;text-align:center;
+                background:{'#f5f3ff' if _is_current else '#fff'};">
+                <div style="font-size:1.15rem;font-weight:700;">{_plan_name}</div>
+                <div style="font-size:1.6rem;font-weight:800;color:#6366f1;margin:6px 0;">{_clips_txt}</div>
+                <div style="font-size:0.85rem;color:#64748b;">{_target_txt}</div>
+                <div style="font-size:1.1rem;font-weight:700;margin:8px 0;">{_price_txt}</div>
+                </div>""",
+                unsafe_allow_html=True,
             )
-        else:
-            _st.info("ベーシックプラン：月105本 / ¥50,000\n管理者にお問い合わせください")
-    with _c2:
-        _url_pro = _checkout_url("pro")
-        if _url_pro:
-            _st.link_button(
-                "🚀 プロ（月505本 / ¥200,000）",
-                _url_pro, use_container_width=True, type="primary",
-            )
-        else:
-            _st.info("プロプラン：月505本 / ¥200,000\n管理者にお問い合わせください")
+            _st.markdown("")
+            if _is_current:
+                _st.info("現在のプラン", icon="✅")
+            else:
+                _url = _checkout_url(_plan_key)
+                if _url:
+                    _st.link_button(
+                        f"{_plan_name} に変更",
+                        _url,
+                        use_container_width=True,
+                        type="primary" if _plan_key == "pro" else "secondary",
+                    )
+                else:
+                    _st.caption("設定準備中")
 
 
 # ══════════════════════════════════════════════════════════
