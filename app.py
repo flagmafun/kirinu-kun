@@ -2687,13 +2687,24 @@ def step1():
     # タブ②: ファイルアップロード
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     with _tab_file:
-        st.markdown(
-            '<p style="font-size:12px;color:#64748b;margin-bottom:8px;">'
-            'Google Drive などに置いた動画の共有URLを貼ってください。'
-            'YouTube からダウンロードせずにそのまま処理します。'
-            '</p>',
-            unsafe_allow_html=True,
-        )
+        with st.expander("📖 使い方（Google Drive の場合）", expanded=False):
+            st.markdown("""
+**① Google Drive に動画をアップロード**
+
+**② 共有設定を変更**
+1. ファイルを右クリック →「共有」
+2. 「リンクを知っている全員」に変更
+3. 「リンクをコピー」
+
+**③ コピーしたURLをそのまま貼り付けてください**
+
+---
+**対応URL形式**
+- `https://drive.google.com/file/d/xxxx/view` — Google Drive
+- `https://dl.dropboxusercontent.com/...` — Dropbox 直リンク
+- `https://example.com/video.mp4` — mp4 直接URL
+""")
+
         _f_video_url = st.text_input(
             "動画ファイルのURL",
             placeholder="https://drive.google.com/file/d/xxxxxxxx/view?usp=sharing",
