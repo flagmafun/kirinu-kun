@@ -5761,9 +5761,11 @@ def _generate_pipeline(clips: list, sched: dict):
 
     # with ブロックの外：正常完了時のみセッション状態を更新
     if _dl_ok and generated:
+        # ダウンロード成功クリップにフラグを付けてカウント（後でアップロードしても二重カウントしない）
+        for _c in generated:
+            _c["already_counted"] = True
         s["generated_clips"] = generated
         s["sched_pending"]   = dict(sched)
-        # ダウンロード完了時点でカウント（アップロード時は二重カウントしない）
         if _is_multi_user_mode() and _user_id:
             try:
                 from core.usage_tracker import increment_usage
@@ -5868,7 +5870,18 @@ def _upload_pipeline():
             state="complete",
         )
 
-        # ※ カウントは _generate_pipeline（ダウンロード時）で済んでいるためここでは加算しない
+        # ダウンロード時に未カウントの成功クリップのみカウント（二重カウント防止）
+        if _is_multi_user_mode() and _user_id:
+            try:
+                from core.usage_tracker import increment_usage
+                _uncounted = sum(
+                    1 for r, c in zip(results, generated)
+                    if r.get("video_id") and not c.get("already_counted")
+                )
+                if _uncounted > 0:
+                    increment_usage(_user_id, _uncounted)
+            except Exception:
+                pass
 
     s["generated_clips"] = []
     s["raw_path"]        = None
