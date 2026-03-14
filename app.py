@@ -4358,12 +4358,12 @@ def _show_upgrade_ui(user_id: str):
 
     # ── 3プランを横並び ────────────────────────────────────────────
     _plans_to_show = [
-        ("basic",  "⭐ ベーシック",     "月 105本",   "100本 + 🎁5本",  "¥50,000 / 月",   "1チャンネル向け"),
-        ("pro",    "🚀 プロ",           "月 505本",   "500本 + 🎁5本",  "¥200,000 / 月",  "複数チャンネル向け"),
-        ("agency", "🏢 エージェンシー", "月 1,005本", "1,000本 + 🎁5本","¥350,000 / 月",  "チャンネルを量産する"),
+        ("basic",  "⭐ ベーシック",     "月 105本",   "100本 + 🎁5本",   "¥50,000 / 月",   "1チャンネル向け",      476),
+        ("pro",    "🚀 プロ",           "月 505本",   "500本 + 🎁5本",   "¥200,000 / 月",  "複数チャンネル向け",   396),
+        ("agency", "🏢 エージェンシー", "月 1,005本", "1,000本 + 🎁5本", "¥350,000 / 月",  "チャンネルを量産する", 348),
     ]
     _cols = _st.columns(3)
-    for (_plan_key, _plan_name, _clips_txt, _bonus_txt, _price_txt, _target_txt), _col in zip(_plans_to_show, _cols):
+    for (_plan_key, _plan_name, _clips_txt, _bonus_txt, _price_txt, _target_txt, _unit), _col in zip(_plans_to_show, _cols):
         _is_current = (_plan_key == _current_plan)
         with _col:
             _st.markdown(
@@ -4372,11 +4372,12 @@ def _show_upgrade_ui(user_id: str):
                 background:{'#f5f3ff' if _is_current else '#fff'};">
                 <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px;">{_plan_name}</div>
                 <div style="font-size:1.7rem;font-weight:800;color:#6366f1;line-height:1.2;">{_clips_txt}</div>
-                <div style="font-size:0.8rem;color:#16a34a;font-weight:600;margin:4px 0 6px;">
+                <div style="font-size:0.8rem;color:#16a34a;font-weight:600;margin:4px 0 4px;">
                   {_bonus_txt}
                 </div>
-                <div style="font-size:0.82rem;color:#64748b;margin-bottom:6px;">{_target_txt}</div>
-                <div style="font-size:1.05rem;font-weight:700;color:#1e293b;">{_price_txt}</div>
+                <div style="font-size:0.82rem;color:#64748b;margin-bottom:4px;">{_target_txt}</div>
+                <div style="font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:3px;">{_price_txt}</div>
+                <div style="font-size:0.78rem;color:#94a3b8;">1本あたり 約 ¥{_unit:,}</div>
                 </div>""",
                 unsafe_allow_html=True,
             )
