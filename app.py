@@ -4294,17 +4294,13 @@ def _show_upgrade_ui(user_id: str):
         icon="🚫",
     )
 
-    _app_url = ""
-    try:
-        _app_url = _st.secrets.get("app", {}).get("url", "")
-    except Exception:
-        pass
+    _app_url = _get_app_url()
 
     def _checkout_url(plan: str) -> str | None:
         try:
             import stripe as _stripe
-            _stripe.api_key = _st.secrets.get("stripe", {}).get("secret_key", "")
-            price_id = _st.secrets.get("stripe", {}).get(f"price_{plan}", "")
+            _stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
+            price_id = os.environ.get(f"STRIPE_PRICE_{plan.upper()}", "")
             if not _stripe.api_key or not price_id:
                 return None
             sess = _stripe.checkout.Session.create(
