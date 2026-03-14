@@ -2488,6 +2488,10 @@ def step1():
             _s1_is_test   = _pi_s1.get("is_test", False)
             _s1_remaining = _pi_s1["remaining"] if not _s1_is_test else None
             _s1_max_clips = 50 if _s1_is_test else max(1, _pi_s1["remaining"])
+            # 残り0本 → アップグレード画面を表示してブロック
+            if not _s1_is_test and _s1_remaining == 0:
+                _show_upgrade_ui(s["user_id"])
+                st.stop()
         except Exception:
             pass
 
