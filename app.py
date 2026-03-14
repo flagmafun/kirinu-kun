@@ -1106,7 +1106,7 @@ def _init():
         "schedule": {
             "start_date":    str((datetime.now() + timedelta(days=1)).date()),
             "start_time":    "10:00",
-            "interval_hours": 24,
+            "interval_hours": 8,
         },
         "results":         [],
         "running":         False,
@@ -3668,7 +3668,7 @@ def step3():
             s.schedule = {
                 "start_date": _now.strftime("%Y-%m-%d"),
                 "start_time": "09:00",
-                "interval_hours": "24",
+                "interval_hours": "8",
                 "category_id": "22",
             }
             s["_download_only_mode"] = True
@@ -4107,7 +4107,7 @@ def step3():
             s.schedule = {
                 "start_date": _now.strftime("%Y-%m-%d"),
                 "start_time": "09:00",
-                "interval_hours": "24",
+                "interval_hours": "8",
                 "category_id": "22",
             }
             s["_download_only_mode"] = True
@@ -4163,7 +4163,7 @@ def step4():
     with col2:
         interval_h = st.number_input(
             "投稿間隔（時間）", min_value=1, max_value=720,
-            value=int(sched.get("interval_hours", 24)),
+            value=int(sched.get("interval_hours", 8)),
         )
         category = st.selectbox(
             "カテゴリー",
