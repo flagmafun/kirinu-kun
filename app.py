@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-YouTube Shorts 自動切り抜き・投稿予約アプリ
-1本の動画URL → 10本のShortsを自動選定 → 予約投稿
+YouTubeショート 自動切り抜き・投稿予約アプリ
+1本の動画URL → 10本のショートを自動選定 → 予約投稿
 """
 import os
 import sys
@@ -1246,7 +1246,7 @@ body{{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="bt">
       <div class="cc">動画の&quot;おいしい瞬間&quot;を切り抜くヒーロー</div>
       <div class="nm">切り抜きくん</div>
-      <div class="tg">YouTube Shorts 自動作成ツール</div>
+      <div class="tg">YouTubeショート 自動作成ツール</div>
     </div>
   </button>
   <div class="sp"></div>
@@ -2388,6 +2388,11 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
       <filter id="pg-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <filter id="pg-soft"><feGaussianBlur stdDeviation="1.5"/></filter>
       <filter id="pg-food"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="rgba(160,50,0,.8)"/></filter>
+      <!-- リムを輪っか（リング）にするマスク：中央を透明にして鍋の内部を見えるようにする -->
+      <mask id="pg-rim-mask">
+        <rect x="0" y="0" width="260" height="185" fill="white"/>
+        <ellipse cx="130" cy="88" rx="52" ry="12" fill="black"/>
+      </mask>
     </defs>
 
     <!-- 地面の影 -->
@@ -2452,7 +2457,7 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
     <circle cx="142" cy="76" r="2" fill="rgba(255,160,50,.6)" style="animation:ck-splash 1.7s ease-out infinite .15s;"/>
 
     <!-- 鍋の縁（リム）← 食材の上に描画してフレーム効果 -->
-    <ellipse cx="130" cy="90" rx="62" ry="17" fill="url(#pg-rim)" filter="url(#pg-sh)"/>
+    <ellipse cx="130" cy="90" rx="62" ry="17" fill="url(#pg-rim)" mask="url(#pg-rim-mask)" filter="url(#pg-sh)"/>
     <ellipse cx="130" cy="86" rx="57" ry="12" fill="none" stroke="rgba(255,220,130,.35)" stroke-width="2"/>
     <ellipse cx="121" cy="84" rx="28" ry="6" fill="rgba(255,255,200,.1)"/>
 
@@ -2512,6 +2517,85 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
 """
 
 
+def _make_complete_html() -> str:
+    """解析完了時のお皿盛り付け演出HTML。"""
+    return """
+<style>
+@keyframes dm-shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes dm-plate-in{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}80%{transform:scale(.95) rotate(-2deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes dm-food-in{0%{transform:translateY(-80px) rotate(-45deg) scale(0);opacity:0}70%{transform:translateY(5px) rotate(5deg) scale(1.2);opacity:1}100%{transform:translateY(0) rotate(0deg) scale(1);opacity:1}}
+@keyframes dm-steam{0%{transform:translateY(0) scaleX(1);opacity:.5}50%{transform:translateY(-28px) scaleX(1.3);opacity:.25}100%{transform:translateY(-60px) scaleX(.4);opacity:0}}
+@keyframes dm-sparkle{0%,100%{transform:scale(0);opacity:0}50%{transform:scale(1);opacity:1}}
+@keyframes dm-title-in{0%{opacity:0;transform:translateY(14px) scale(.8)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes dm-glow-pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+.dm-card{
+  background:radial-gradient(ellipse at 50% 30%,#1c0c00 0%,#050505 70%);
+  border:1.5px solid rgba(251,191,36,.45);border-radius:20px;
+  padding:20px 14px 18px;
+  font-family:-apple-system,'Hiragino Sans',sans-serif;
+  position:relative;overflow:hidden;text-align:center;
+}
+.dm-glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(55px);}
+.dm-title{font-size:22px;font-weight:900;margin-bottom:5px;
+  background:linear-gradient(90deg,#fbbf24,#f59e0b,#fcd34d,#f97316,#fbbf24);background-size:300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:dm-shimmer 1.8s linear infinite,dm-title-in .6s ease-out .8s both;
+  letter-spacing:.05em;}
+.dm-sub{font-size:12.5px;color:#d97706;font-weight:700;opacity:0;animation:dm-title-in .5s ease-out 1.2s forwards;}
+</style>
+<div class="dm-card">
+  <div class="dm-glow" style="width:280px;height:180px;background:rgba(251,191,36,.2);top:-70px;left:50%;transform:translateX(-50%);"></div>
+  <div class="dm-glow" style="width:160px;height:160px;background:rgba(234,88,12,.16);bottom:-60px;right:-20px;"></div>
+  <div class="dm-glow" style="width:130px;height:130px;background:rgba(234,88,12,.13);bottom:-50px;left:-15px;"></div>
+  <svg viewBox="0 0 260 170" width="224" height="148" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block;margin:0 auto 4px;">
+    <defs>
+      <radialGradient id="dm-plate" cx="40%" cy="35%">
+        <stop offset="0%" stop-color="#fffbf0"/><stop offset="30%" stop-color="#f8f0dc"/>
+        <stop offset="70%" stop-color="#e8d8b0"/><stop offset="100%" stop-color="#c8b890"/>
+      </radialGradient>
+      <radialGradient id="dm-rim" cx="50%" cy="50%">
+        <stop offset="0%" stop-color="#f0e0b8"/><stop offset="80%" stop-color="#d4b870"/>
+        <stop offset="100%" stop-color="#b89840"/>
+      </radialGradient>
+      <radialGradient id="dm-shadow" cx="50%" cy="50%">
+        <stop offset="0%" stop-color="rgba(0,0,0,.55)"/><stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+      <filter id="dm-gf"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="dm-sh"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="rgba(0,0,0,.75)"/></filter>
+    </defs>
+    <ellipse cx="130" cy="162" rx="90" ry="10" fill="url(#dm-shadow)"/>
+    <!-- お皿 登場 -->
+    <g style="transform-origin:130px 118px;animation:dm-plate-in .7s cubic-bezier(.34,1.56,.64,1) .1s both;">
+      <ellipse cx="132" cy="150" rx="72" ry="15" fill="rgba(0,0,0,.38)"/>
+      <ellipse cx="130" cy="136" rx="72" ry="18" fill="url(#dm-rim)" filter="url(#dm-sh)"/>
+      <ellipse cx="130" cy="131" rx="60" ry="13" fill="url(#dm-plate)"/>
+      <ellipse cx="112" cy="126" rx="24" ry="7" fill="rgba(255,255,255,.38)" transform="rotate(-12 112 126)"/>
+      <ellipse cx="130" cy="131" rx="60" ry="13" fill="none" stroke="rgba(255,230,160,.3)" stroke-width="1.5"/>
+    </g>
+    <!-- 食材が次々と盛り付けられる -->
+    <text x="102" y="129" font-size="28" filter="url(#dm-gf)" style="transform-origin:116px 115px;animation:dm-food-in .5s cubic-bezier(.34,1.56,.64,1) .35s both;">🥩</text>
+    <text x="128" y="124" font-size="22" filter="url(#dm-gf)" style="transform-origin:139px 113px;animation:dm-food-in .5s cubic-bezier(.34,1.56,.64,1) .52s both;">🥕</text>
+    <text x="145" y="130" font-size="22" filter="url(#dm-gf)" style="transform-origin:156px 119px;animation:dm-food-in .5s cubic-bezier(.34,1.56,.64,1) .68s both;">🥦</text>
+    <text x="115" y="138" font-size="20" filter="url(#dm-gf)" style="transform-origin:125px 128px;animation:dm-food-in .5s cubic-bezier(.34,1.56,.64,1) .82s both;">🍄</text>
+    <text x="137" y="136" font-size="18" filter="url(#dm-gf)" style="transform-origin:146px 127px;animation:dm-food-in .5s cubic-bezier(.34,1.56,.64,1) .95s both;">🧅</text>
+    <!-- 蒸気（熱々） -->
+    <path d="M114,110 Q107,95 114,80 Q121,66 114,52" stroke="rgba(255,255,255,.32)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:dm-steam 1.8s ease-out infinite 1.2s;"/>
+    <path d="M130,106 Q123,89 130,72 Q137,57 130,43" stroke="rgba(255,240,200,.26)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:dm-steam 2.1s ease-out infinite 1.5s;"/>
+    <path d="M146,110 Q139,93 146,76 Q153,61 146,47" stroke="rgba(255,255,255,.29)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:dm-steam 1.95s ease-out infinite 1.7s;"/>
+    <!-- キラキラ -->
+    <text x="66" y="92" font-size="18" style="transform-origin:75px 82px;animation:dm-sparkle .6s ease-in-out .9s both,dm-sparkle 2s ease-in-out 2s infinite;">✨</text>
+    <text x="178" y="88" font-size="16" style="transform-origin:186px 79px;animation:dm-sparkle .6s ease-in-out 1.1s both,dm-sparkle 2.2s ease-in-out 2.2s infinite;">⭐</text>
+    <text x="70" y="144" font-size="15" style="transform-origin:78px 136px;animation:dm-sparkle .5s ease-in-out 1.3s both,dm-sparkle 2.5s ease-in-out 2.4s infinite;">✨</text>
+    <text x="176" y="146" font-size="14" style="transform-origin:183px 138px;animation:dm-sparkle .5s ease-in-out 1.05s both,dm-sparkle 2.3s ease-in-out 2.1s infinite;">🌟</text>
+    <text x="40" y="116" font-size="16" style="animation:dm-sparkle .5s ease-in-out 1.45s both,dm-glow-pulse 2s ease-in-out 2s infinite;">💛</text>
+    <text x="196" y="114" font-size="14" style="animation:dm-sparkle .5s ease-in-out 1.65s both,dm-glow-pulse 2.3s ease-in-out 2.3s infinite;">💫</text>
+  </svg>
+  <div class="dm-title">🍽️ できあがり！</div>
+  <div class="dm-sub">クリップの選定が完了しました 🎉</div>
+</div>
+"""
+
+
 # ══════════════════════════════════════════════════════════
 # STEP 1 — URL 入力 & 解析
 # ══════════════════════════════════════════════════════════
@@ -2551,7 +2635,7 @@ def step1():
       <span style="background:linear-gradient(90deg,#f97316 0%,#ef4444 100%);
                    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
                    background-clip:text;">おいしい瞬間</span>を<br>
-      Shortsに自動で切り抜き
+      ショートに自動で切り抜き
     </div>
 
     <div style="position:relative;font-size:12.5px;color:#94a3b8;font-weight:500;line-height:1.7;">
@@ -3131,6 +3215,10 @@ def step1():
     
                     _save_session(info, clips)
                     status.update(label="解析完了！", state="complete")
+                    _done_ph = st.empty()
+                    _show_stage_html(_done_ph, _make_complete_html(), height=330)
+                    import time as _tc; _tc.sleep(2.2)
+                    _done_ph.empty()
                     s.step = 2
                     st.rerun()
     
@@ -3184,7 +3272,7 @@ def step1():
 </style>
 <div class="fi-wrap">
   <div class="fi-box fi-ok">
-    <div class="fi-title">✅ Shortsに向いている動画</div>
+    <div class="fi-title">✅ ショートに向いている動画</div>
     <div class="fi-item">▸ トーク・解説・Vlog系</div>
     <div class="fi-item">▸ 5〜60分程度の長さ</div>
     <div class="fi-item">▸ 音声がはっきりしている</div>
@@ -3486,6 +3574,10 @@ def step1():
 
                         _save_session(_finfo, _fclips)
                         _fstatus.update(label="解析完了！", state="complete")
+                        _fdone_ph = st.empty()
+                        _show_stage_html(_fdone_ph, _make_complete_html(), height=330)
+                        import time as _ftc; _ftc.sleep(2.2)
+                        _fdone_ph.empty()
                         s.step = 2
                         st.rerun()
 
@@ -3523,7 +3615,7 @@ _BOTTOM_H  = 132   # 底部エリア固定高さ (224:132 ≈ 1.7:1 横長)
 
 def _render_clip_preview(clip: dict, idx: int, video_id: str):
     """
-    9:16 Shorts プレビューカード（縦型・テーマ対応版）
+    9:16 ショートプレビューカード（縦型・テーマ対応版）
     ┌──────────────┐
     │ ⚡ キャッチ  │
     │ TITLE TEXT   │  ← テーマグラデーション
@@ -3758,7 +3850,7 @@ def step2():
     st.markdown("""
     <div style="padding:24px 40px 0;margin-left:-40px;margin-right:-40px;">
       <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
-        🎨 Shorts のデザインを設定しよう
+        🎨 ショートのデザインを設定しよう
       </div>
       <div style="font-size:13px;color:#64748b;margin-bottom:8px;">
         全クリップを<strong style="color:#1e293b;">同じデザインで統一</strong>するか、
@@ -4583,7 +4675,7 @@ def step3():
                 clip["title"] = st.text_input(
                     "📝 タイトル",
                     value=clip.get("title", ""),
-                    key=f"title_{i}", placeholder="Shorts タイトル（〜40文字）",
+                    key=f"title_{i}", placeholder="ショートタイトル（〜40文字）",
                     help="YouTubeの動画タイトルに使われます。検索・おすすめ表示に直結するため再生数への影響が最も大きいフィールドです。",
                 )
             with r2:
@@ -5507,7 +5599,7 @@ def step5():
         _btn_label = (
             f"▶️  {len(enabled_clips)} 本のクリップを生成"
             if _want_dl
-            else f"▶️  {len(enabled_clips)} 本のShortsを作成・予約投稿"
+            else f"▶️  {len(enabled_clips)} 本のショートを作成・予約投稿"
         )
 
         col_back, col_run = st.columns([1, 3])
@@ -5869,7 +5961,7 @@ def _make_loading_html(clip_num: int, total_clips: int,
     <span class="ld-act-lbl" style="color:#FF8A80;background:rgba(255,138,128,.15);animation:ld-act3 6s ease-in-out infinite;">✂️ 編集中...</span>
   </div>
 
-  <div class="ld-title">🎬 Shorts 制作中</div>
+  <div class="ld-title">🎬 ショート制作中</div>
   <div class="ld-subtitle">{short_title}</div>
 
   <div class="ld-ring-wrap">
@@ -6099,7 +6191,7 @@ def _run_pipeline(clips: list, sched: dict):
 
         for i, clip in (enumerate(clips) if _dl_ok else ()):
             pct  = i / len(clips)  # 開始時点の進捗
-            title = clip["title"] or f"Shorts {clip['index']}"
+            title = clip["title"] or f"ショート{clip['index']}"
             hashtags = clip.get("hashtags", "#Shorts")
             _rv_links = sched.get("related_video_urls") or []
             _rv_block = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links)) if (_rv_links and sched.get("related_add_desc", True)) else ""
@@ -6320,7 +6412,7 @@ def _generate_pipeline(clips: list, sched: dict):
 
             for i, clip in enumerate(clips):
                 pct   = i / len(clips)   # 開始時点の進捗（完了したクリップ数ベース）
-                title = clip["title"] or f"Shorts {clip['index']}"
+                title = clip["title"] or f"ショート{clip['index']}"
                 hashtags    = clip.get("hashtags", "#Shorts")
                 _rv_links2  = sched.get("related_video_urls") or []
                 _rv_block2  = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links2)) if (_rv_links2 and sched.get("related_add_desc", True)) else ""
