@@ -2895,6 +2895,7 @@ def step1():
         _analyze_error = None
         if st.button("🔍 解析開始", type="primary", use_container_width=True,
                      disabled=not url.strip(), key="analyze_yt_btn"):
+            _done_ph = st.empty()   # ← status の外側に置く（status 折りたたみ後も見える）
             with st.status("動画を解析中...", expanded=True) as status:
                 try:
                     from core.analyzer import get_video_info, get_transcript, auto_select_clips, get_transcript_debug
@@ -3215,7 +3216,6 @@ def step1():
     
                     _save_session(info, clips)
                     status.update(label="解析完了！", state="complete")
-                    _done_ph = st.empty()
                     _show_stage_html(_done_ph, _make_complete_html(), height=330)
                     import time as _tc; _tc.sleep(2.2)
                     _done_ph.empty()
@@ -3360,6 +3360,7 @@ def step1():
             if _f_input_method == "🔗 URLを入力" and not _f_video_url.strip():
                 st.error("URLを入力してください")
             else:
+                _fdone_ph = st.empty()   # ← status の外側に置く（status 折りたたみ後も見える）
                 with st.status("ファイルを解析中...", expanded=True) as _fstatus:
                     try:
                         import subprocess as _sp
@@ -3574,7 +3575,6 @@ def step1():
 
                         _save_session(_finfo, _fclips)
                         _fstatus.update(label="解析完了！", state="complete")
-                        _fdone_ph = st.empty()
                         _show_stage_html(_fdone_ph, _make_complete_html(), height=330)
                         import time as _ftc; _ftc.sleep(2.2)
                         _fdone_ph.empty()
