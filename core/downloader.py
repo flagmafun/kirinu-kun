@@ -272,7 +272,7 @@ def get_video_info(url: str) -> dict:
     url = _clean_url(url)
     result = subprocess.run(
         ["yt-dlp", "--dump-json"] + _get_ytdlp_base() + [url],
-        capture_output=True, text=True, check=True
+        capture_output=True, text=True, check=True, timeout=60
     )
     return json.loads(result.stdout)
 
@@ -292,7 +292,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     # video_id 取得
     id_result = subprocess.run(
         ["yt-dlp", "--print", "id"] + base + [url],
-        capture_output=True, text=True
+        capture_output=True, text=True, timeout=60
     )
     if id_result.returncode != 0:
         _stderr = (id_result.stderr or id_result.stdout or "").strip()
@@ -304,7 +304,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                  "--no-playlist", "--no-check-certificates",
                  "--extractor-args", "youtube:player_client=android_vr",
                  url],
-                capture_output=True, text=True,
+                capture_output=True, text=True, timeout=60,
             )
             if _id_retry.returncode == 0:
                 id_result = _id_retry
@@ -315,7 +315,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                      "--no-playlist", "--no-check-certificates",
                      "--extractor-args", "youtube:player_client=ios",
                      url],
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, timeout=60,
                 )
                 if _id_retry2.returncode == 0:
                     id_result = _id_retry2
@@ -347,7 +347,14 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
     cmd = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
            "-o", output_template] + base + [url]
 
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=900)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            "YouTube ダウンロードがタイムアウトしました（15分）。\n"
+            "動画が非常に長いか、接続が不安定です。\n"
+            "時間をおいて再試行してください。"
+        )
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
         err_l = err.lower()
@@ -416,7 +423,11 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
             _fb_cmd  = ["yt-dlp", "-f", fmt, "--merge-output-format", "mp4",
                         "-o", output_template] + _fb_base + [url]
             print(f"[DL] fallback {_fb_name} 試行中...", flush=True)
-            _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600)
+            except subprocess.TimeoutExpired:
+                _fb_errors[_fb_name] = "タイムアウト（10分超過）"
+                continue
             if _fb_r.returncode == 0:
                 print(f"[DL] fallback {_fb_name} 成功", flush=True)
                 result = _fb_r

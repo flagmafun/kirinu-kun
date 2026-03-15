@@ -2221,7 +2221,21 @@ def _show_stage_html(ph, html: str, height: int = 370) -> None:
 
 
 # ── Step1 解析ステージ用ローディングカード ─────────────────
-def _make_analysis_stage_html(title: str, detail: str = "") -> str:
+def _get_wait_note(elapsed: float) -> str:
+    """経過時間に応じた気遣いメッセージを返す"""
+    if elapsed < 30:
+        return ""
+    elif elapsed < 90:
+        return "⏳ 動画のサイズによっては数分かかる場合があります"
+    elif elapsed < 180:
+        return "☕ まだ処理中です。コーヒーでも飲みながらお待ちください"
+    elif elapsed < 360:
+        return "🙏 もう少しかかります。ページを閉じないでください"
+    else:
+        return "💪 完了まで今しばらくお待ちください。頑張ってます！"
+
+
+def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
     """切り抜きくんキャラクター（3D風・可愛い）によるローディングカード。
     企画→デザイン→編集の3活動をサイクルアニメーションで表示。
     """
@@ -2264,6 +2278,10 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
 .as-spinner{{width:22px;height:22px;border-radius:50%;
   border:3px solid rgba(139,92,246,.2);border-top-color:#f87171;
   animation:as-spin .7s linear infinite;}}
+.as-note{{font-size:11px;color:rgba(251,191,36,.85);text-align:center;
+  margin-top:10px;padding:5px 14px;max-width:260px;line-height:1.5;
+  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.15);
+  border-radius:10px;}}
 </style>
 <div class="as-card">
   <div class="as-glow" style="width:200px;height:200px;background:rgba(194,65,12,.15);top:-80px;left:-60px;"></div>
@@ -2361,6 +2379,7 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
   <div class="as-title">{title}</div>
   {'<div class="as-badge"><span class="as-dot"></span><span>' + detail + '</span></div>' if detail else ''}
   <div class="as-spinner"></div>
+  {'<div class="as-note">' + note + '</div>' if note else ''}
 </div>
 """
 
@@ -3076,37 +3095,109 @@ def step1():
                             )
                             if _gdrive_match:
                                 _file_id = _gdrive_match.group(1)
-                                _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                    "動画のおいしいところ分析中",
-                                    "ファイルサイズに応じて数十秒かかります"
-                                ))
                                 import gdown as _gdown
+                                import threading as _gdt
+                                import time as _gdt_time
                                 _fpath = _upload_dir / f"{_file_id}.mp4"
-                                _dl_result = _gdown.download(
-                                    id=_file_id, output=str(_fpath),
-                                    quiet=False, fuzzy=True,
-                                )
-                                if not _fpath.exists() or _fpath.stat().st_size == 0:
-                                    raise RuntimeError(
-                                        "Google Drive からダウンロードできませんでした。\n\n"
-                                        "原因として考えられること：\n"
-                                        "・共有設定が「リンクを知っている全員」になっていない\n"
-                                        "・ファイルではなくフォルダのリンクを貼り付けている\n"
-                                        "・ファイルが大きすぎる（目安: 2GB以上）\n\n"
-                                        "対処: ファイルを右クリック → 共有 → 「リンクを知っている全員」に変更してください。"
-                                    )
+                                _gd_res: list = [None, None]  # [path, error]
+                                _gd_done = _gdt.Event()
+
+                                def _gdown_worker(_fid=_file_id, _fp=_fpath, _res=_gd_res, _ev=_gd_done):
+                                    try:
+                                        _gdown.download(id=_fid, output=str(_fp), quiet=True, fuzzy=True)
+                                        if not _fp.exists() or _fp.stat().st_size == 0:
+                                            _res[1] = RuntimeError(
+                                                "ご不便をおかけして申し訳ありません🙇\n\n"
+                                                "Google Drive からダウンロードできませんでした。\n\n"
+                                                "確認してほしいこと：\n"
+                                                "① 共有設定が「リンクを知っている全員」になっているか\n"
+                                                "② フォルダではなくファイル単体のリンクか\n"
+                                                "   （drive.google.com/file/d/... の形式）\n"
+                                                "③ ファイルサイズが 2GB 以内か\n\n"
+                                                "設定変更後にもう一度お試しください。"
+                                            )
+                                        else:
+                                            _res[0] = _fp
+                                    except Exception as _ge:
+                                        _res[1] = RuntimeError(
+                                            f"ご不便をおかけして申し訳ありません🙇\n\n"
+                                            f"Google Drive ダウンロード中にエラーが発生しました。\n"
+                                            f"原因: {_ge}\n\n"
+                                            f"共有設定を確認して、もう一度お試しください。"
+                                        )
+                                    finally:
+                                        _ev.set()
+
+                                _gdt.Thread(target=_gdown_worker, daemon=True).start()
+                                _gd_t0 = _gdt_time.time()
+                                _GD_TIMEOUT = 600  # 10分
+
+                                while not _gd_done.wait(timeout=10.0):
+                                    _el = _gdt_time.time() - _gd_t0
+                                    if _el > _GD_TIMEOUT:
+                                        raise RuntimeError(
+                                            "ご不便をおかけして申し訳ありません🙇\n\n"
+                                            "Google Drive からのダウンロードが 10 分を超えたため中断しました。\n\n"
+                                            "考えられる原因：\n"
+                                            "・ファイルが非常に大きい（2GB 以上）\n"
+                                            "・インターネット接続が不安定\n\n"
+                                            "ファイルを圧縮・分割するか、直接アップロードをお試しください。"
+                                        )
+                                    _show_stage_html(_fanim1, _make_analysis_stage_html(
+                                        "動画のおいしいところ分析中",
+                                        f"Google Drive からダウンロード中... {int(_el//60)}分{int(_el%60):02d}秒",
+                                        note=_get_wait_note(_el),
+                                    ))
+
+                                if _gd_res[1]:
+                                    raise _gd_res[1]
                             else:
-                                _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                    "動画のおいしいところ分析中", f"{_furl[:50]}..."
-                                ))
                                 import requests as _req
+                                import time as _url_time
                                 _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
                                 _fpath = _upload_dir / _fname
-                                with _req.get(_furl, stream=True, timeout=300) as _r:
-                                    _r.raise_for_status()
-                                    with open(_fpath, "wb") as _fp:
-                                        for _chunk in _r.iter_content(chunk_size=8192):
-                                            _fp.write(_chunk)
+                                _show_stage_html(_fanim1, _make_analysis_stage_html(
+                                    "動画のおいしいところ分析中",
+                                    f"接続中... {_furl[:40]}...",
+                                ))
+                                try:
+                                    with _req.get(_furl, stream=True, timeout=300) as _r:
+                                        _r.raise_for_status()
+                                        _total_bytes = int(_r.headers.get("Content-Length", 0))
+                                        _dl_bytes = 0
+                                        _url_t0 = _url_time.time()
+                                        _last_ui = 0.0
+                                        with open(_fpath, "wb") as _fp:
+                                            for _chunk in _r.iter_content(chunk_size=65536):
+                                                _fp.write(_chunk)
+                                                _dl_bytes += len(_chunk)
+                                                _now = _url_time.time()
+                                                if _now - _last_ui >= 3.0:
+                                                    _last_ui = _now
+                                                    _el = _now - _url_t0
+                                                    if _total_bytes > 0:
+                                                        _pct = int(_dl_bytes / _total_bytes * 100)
+                                                        _detail = f"ダウンロード中... {_pct}%（{_dl_bytes//1048576}MB / {_total_bytes//1048576}MB）"
+                                                    else:
+                                                        _detail = f"ダウンロード中... {_dl_bytes//1048576}MB 取得済み"
+                                                    _show_stage_html(_fanim1, _make_analysis_stage_html(
+                                                        "動画のおいしいところ分析中",
+                                                        _detail,
+                                                        note=_get_wait_note(_el),
+                                                    ))
+                                except _req.exceptions.Timeout:
+                                    raise RuntimeError(
+                                        "ご不便をおかけして申し訳ありません🙇\n\n"
+                                        "URL からのダウンロードがタイムアウトしました（5分）。\n"
+                                        "接続が不安定か、ファイルが大きすぎます。\n"
+                                        "しばらく待ってからもう一度お試しください。"
+                                    )
+                                except _req.exceptions.HTTPError as _he:
+                                    raise RuntimeError(
+                                        f"ご不便をおかけして申し訳ありません🙇\n\n"
+                                        f"URL へのアクセスが拒否されました（{_he}）。\n"
+                                        f"URL が正しいか、ファイルが公開されているかを確認してください。"
+                                    )
                             _fanim1.empty()
                         st.write(f"✅ ファイル準備完了: `{_fpath.name}`")
                         _fstem = _fpath.stem[:50]
@@ -5479,12 +5570,45 @@ def _run_pipeline(clips: list, sched: dict):
                 status.update(label="ファイルエラー", state="error")
         else:
             st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
-            try:
-                raw_path = download_video(video_info["url"], _user_out / "raw")
-                st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
-                _dl_ok = True
-            except Exception as e:
-                err_msg = str(e)
+            import threading as _dl_th
+            import time as _dl_time
+            _dl_res: list = [None, None]  # [path, error]
+            _dl_ev = _dl_th.Event()
+
+            def _dl_worker(_url=video_info["url"], _out=_user_out / "raw",
+                           _res=_dl_res, _ev=_dl_ev):
+                try:
+                    _res[0] = download_video(_url, _out)
+                except Exception as _de:
+                    _res[1] = _de
+                finally:
+                    _ev.set()
+
+            _dl_th.Thread(target=_dl_worker, daemon=True).start()
+            _dl_ph = st.empty()
+            _dl_t0 = _dl_time.time()
+            _DL_TIMEOUT = 900  # 15分
+
+            while not _dl_ev.wait(timeout=5.0):
+                _el = _dl_time.time() - _dl_t0
+                if _el > _DL_TIMEOUT:
+                    _dl_res[1] = RuntimeError(
+                        "ダウンロードが 15 分を超えたため中断しました。\n"
+                        "動画が非常に長いか、接続が不安定です。\n"
+                        "しばらく待ってからもう一度お試しください。"
+                    )
+                    _dl_ev.set()
+                    break
+                _show_stage_html(_dl_ph, _make_analysis_stage_html(
+                    "動画のおいしいところ分析中",
+                    f"YouTube から動画を取得中... {int(_el//60)}分{int(_el%60):02d}秒",
+                    note=_get_wait_note(_el),
+                ), height=400)
+
+            _dl_ph.empty()
+
+            if _dl_res[1]:
+                err_msg = str(_dl_res[1])
                 hint = ""
                 if "403" in err_msg or "IP制限" in err_msg:
                     _ck = CREDS_DIR / "cookies.txt"
@@ -5500,8 +5624,17 @@ def _run_pipeline(clips: list, sched: dict):
                             "\n\n💡 cookies が設定されていません。\n"
                             "管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
                         )
-                s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
+                elif "タイムアウト" in err_msg:
+                    hint = "\n\n⏱ 動画の長さを短くするか、時間をおいて再試行してください。"
+                s["pipeline_error"] = (
+                    "ご不便をおかけして申し訳ありません🙇\n\n"
+                    f"ダウンロードに失敗しました。\n{err_msg}{hint}"
+                )
                 status.update(label="ダウンロード失敗", state="error")
+            else:
+                raw_path = _dl_res[0]
+                st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
+                _dl_ok = True
 
         # ② 各クリップを処理（ダウンロード成功時のみ）
         import time as _time
