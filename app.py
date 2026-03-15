@@ -3897,24 +3897,26 @@ def step3():
   }
   .ai-dot{width:8px;height:8px;border-radius:50%;background:#7c3aed;
     box-shadow:0 0 6px #7c3aed;display:inline-block;}
-  .ai-fields{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+  .ai-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .ai-field{
     background:#fff;border:1.5px solid rgba(139,92,246,.2);
-    border-radius:12px;padding:12px 14px;
+    border-radius:12px;padding:10px 12px;
+    display:flex;align-items:center;gap:12px;
   }
-  .ai-field-icon{font-size:20px;margin-bottom:6px;}
-  .ai-field-name{font-size:15px;font-weight:800;color:#1e1b4b;margin-bottom:4px;}
-  .ai-field-dest{font-size:12px;color:#4b5563;margin-bottom:8px;line-height:1.5;}
-  .ai-field-impact{display:flex;align-items:center;gap:4px;margin-bottom:6px;}
-  .ai-stars{font-size:13px;}
+  .ai-field-icon{font-size:22px;flex-shrink:0;}
+  .ai-field-body{flex:1;min-width:0;}
+  .ai-field-name{font-size:14px;font-weight:800;color:#1e1b4b;margin-bottom:2px;}
+  .ai-field-dest{font-size:11px;color:#4b5563;margin-bottom:4px;line-height:1.4;}
+  .ai-field-impact{display:flex;align-items:center;gap:4px;margin-bottom:4px;}
+  .ai-stars{font-size:12px;}
   .stars-high{color:#f97316;}
   .stars-mid{color:#d1d5db;}
   .ai-field-impact-label{font-size:11px;color:#374151;font-weight:600;}
   .ai-badge{
     display:inline-flex;align-items:center;gap:4px;
     background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);
-    border-radius:100px;padding:3px 10px;font-size:11px;
-    color:#6d28d9;font-weight:700;letter-spacing:.04em;margin-top:4px;
+    border-radius:100px;padding:2px 8px;font-size:10px;
+    color:#6d28d9;font-weight:700;letter-spacing:.04em;
   }
 </style>
 <div class="s3-wrap">
@@ -3932,48 +3934,56 @@ def step3():
     <div class="ai-fields">
       <div class="ai-field">
         <div class="ai-field-icon">📝</div>
-        <div class="ai-field-name">タイトル</div>
-        <div class="ai-field-dest">YouTubeの動画タイトル<br>検索・おすすめに表示</div>
-        <div class="ai-field-impact">
-          <span class="ai-stars stars-high">★★★</span>
-          <span class="ai-field-impact-label">クリック率に直結</span>
+        <div class="ai-field-body">
+          <div class="ai-field-name">タイトル</div>
+          <div class="ai-field-dest">YouTubeタイトル・検索・おすすめに表示</div>
+          <div class="ai-field-impact">
+            <span class="ai-stars stars-high">★★★</span>
+            <span class="ai-field-impact-label">クリック率に直結</span>
+          </div>
+          <div class="ai-badge">🤖 AI生成</div>
         </div>
-        <div class="ai-badge">🤖 AI生成</div>
       </div>
-      <div class="ai-field" style="border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05);">
+      <div class="ai-field" style="border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.04);">
         <div class="ai-field-icon">⚡</div>
-        <div class="ai-field-name">キャッチコピー</div>
-        <div class="ai-field-dest">動画画面の上部に<br>テキストとして焼き込まれる</div>
-        <div class="ai-field-impact">
-          <span class="ai-stars stars-high">★★★</span>
-          <span class="ai-field-impact-label">視聴継続率に直結</span>
+        <div class="ai-field-body">
+          <div class="ai-field-name">キャッチコピー</div>
+          <div class="ai-field-dest">動画画面にテキストとして焼き込まれる</div>
+          <div class="ai-field-impact">
+            <span class="ai-stars stars-high">★★★</span>
+            <span class="ai-field-impact-label">視聴継続率に直結</span>
+          </div>
+          <div class="ai-badge" style="background:rgba(251,191,36,.15);border-color:rgba(217,119,6,.4);color:#92400e;">🤖 AI生成</div>
         </div>
-        <div class="ai-badge" style="background:rgba(251,191,36,.15);border-color:rgba(217,119,6,.4);color:#92400e;">🤖 AI生成</div>
       </div>
       <div class="ai-field">
         <div class="ai-field-icon">📄</div>
-        <div class="ai-field-name">説明文</div>
-        <div class="ai-field-dest">YouTubeの概要欄に<br>表示されるテキスト</div>
-        <div class="ai-field-impact">
-          <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
-          <span class="ai-field-impact-label">SEO・概要欄</span>
+        <div class="ai-field-body">
+          <div class="ai-field-name">説明文</div>
+          <div class="ai-field-dest">YouTubeの概要欄に表示されるテキスト</div>
+          <div class="ai-field-impact">
+            <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
+            <span class="ai-field-impact-label">SEO・概要欄</span>
+          </div>
+          <div class="ai-badge">🤖 AI生成</div>
         </div>
-        <div class="ai-badge">🤖 AI生成</div>
       </div>
       <div class="ai-field">
         <div class="ai-field-icon">＃</div>
-        <div class="ai-field-name">ハッシュタグ</div>
-        <div class="ai-field-dest">YouTubeの概要欄に<br>追加されるタグ</div>
-        <div class="ai-field-impact">
-          <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
-          <span class="ai-field-impact-label">SEO・タグ検索</span>
+        <div class="ai-field-body">
+          <div class="ai-field-name">ハッシュタグ</div>
+          <div class="ai-field-dest">YouTubeの概要欄に追加されるタグ</div>
+          <div class="ai-field-impact">
+            <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
+            <span class="ai-field-impact-label">SEO・タグ検索</span>
+          </div>
+          <div class="ai-badge">🤖 AI生成</div>
         </div>
-        <div class="ai-badge">🤖 AI生成</div>
       </div>
     </div>
   </div>
 </div>
-""", height=295)
+""", height=400)
 
     # ── ページ上部ナビゲーション ──
     _ec_top3 = sum(1 for c in s.clips if c.get("enabled", True))
