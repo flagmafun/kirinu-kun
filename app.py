@@ -2211,6 +2211,15 @@ def render_video_banner():
     """, unsafe_allow_html=True)
 
 
+# ── ステージHTML表示ヘルパー（st.markdown はSVGをsanitizeするため components.html を使用）──
+def _show_stage_html(ph, html: str, height: int = 370) -> None:
+    """st.empty() プレースホルダーに components.html でHTMLを描画する。
+    st.markdown は SVG/filter 要素をサニタイズして生テキストになるため使用不可。"""
+    import streamlit.components.v1 as _cv1
+    with ph:
+        _cv1.html(html, height=height, scrolling=False)
+
+
 # ── Step1 解析ステージ用ローディングカード ─────────────────
 def _make_analysis_stage_html(title: str, detail: str = "") -> str:
     """切り抜きくんキャラクター（3D風・可愛い）によるローディングカード。
@@ -2621,9 +2630,9 @@ def step1():
 
                     # ステージ①: 動画情報取得
                     _anim1 = st.empty()
-                    _anim1.markdown(_make_analysis_stage_html(
+                    _show_stage_html(_anim1, _make_analysis_stage_html(
                         "動画情報を取得中...", "YouTube から動画のメタ情報を取得しています"
-                    ), unsafe_allow_html=True)
+                    ))
                     info = get_video_info(url.strip())
                     _anim1.empty()
                     s.video_info = info
@@ -2633,9 +2642,9 @@ def step1():
 
                     # ステージ②: 字幕取得
                     _anim2 = st.empty()
-                    _anim2.markdown(_make_analysis_stage_html(
+                    _show_stage_html(_anim2, _make_analysis_stage_html(
                         "字幕を取得中...", "複数のクライアントで自動字幕を取得しています"
-                    ), unsafe_allow_html=True)
+                    ))
                     tmp = OUTPUT_DIR / "transcript"
                     tmp.mkdir(parents=True, exist_ok=True)
                     # 今回の動画と無関係な古いjson3を削除（別動画の字幕が混入しないよう）
@@ -3050,9 +3059,9 @@ def step1():
                         # ローカルファイルアップロードの場合
                         _fanim1 = st.empty()
                         if _f_input_method == "💻 ファイルをアップロード" and _f_uploaded_file is not None:
-                            _fanim1.markdown(_make_analysis_stage_html(
+                            _show_stage_html(_fanim1, _make_analysis_stage_html(
                                 "ファイルを保存中...", _f_uploaded_file.name
-                            ), unsafe_allow_html=True)
+                            ))
                             _fpath = _upload_dir / _f_uploaded_file.name
                             with open(_fpath, "wb") as _fp:
                                 _fp.write(_f_uploaded_file.getbuffer())
@@ -3069,10 +3078,10 @@ def step1():
                             )
                             if _gdrive_match:
                                 _file_id = _gdrive_match.group(1)
-                                _fanim1.markdown(_make_analysis_stage_html(
+                                _show_stage_html(_fanim1, _make_analysis_stage_html(
                                     "Google Drive からダウンロード中...",
                                     "ファイルサイズに応じて数十秒かかります"
-                                ), unsafe_allow_html=True)
+                                ))
                                 import gdown as _gdown
                                 _fpath = _upload_dir / f"{_file_id}.mp4"
                                 _dl_result = _gdown.download(
@@ -3089,9 +3098,9 @@ def step1():
                                         "対処: ファイルを右クリック → 共有 → 「リンクを知っている全員」に変更してください。"
                                     )
                             else:
-                                _fanim1.markdown(_make_analysis_stage_html(
+                                _show_stage_html(_fanim1, _make_analysis_stage_html(
                                     "動画をダウンロード中...", f"{_furl[:50]}..."
-                                ), unsafe_allow_html=True)
+                                ))
                                 import requests as _req
                                 _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
                                 _fpath = _upload_dir / _fname
@@ -3121,10 +3130,10 @@ def step1():
                         # ③ 文字起こし（ステージ専用 empty を作成）
                         _est_min = max(1, int(_dur / 60))
                         _fanim2 = st.empty()
-                        _fanim2.markdown(_make_analysis_stage_html(
+                        _show_stage_html(_fanim2, _make_analysis_stage_html(
                             "音声を文字起こし中...",
                             f"動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分かかります"
-                        ), unsafe_allow_html=True)
+                        ))
                         from core.transcriber import transcribe_file as _transcribe
                         _ftranscript = _transcribe(_fpath)
                         _fanim2.empty()
@@ -3153,10 +3162,10 @@ def step1():
 
                         # ⑤ クリップ自動選定（ステージ専用 empty を作成）
                         _fanim3 = st.empty()
-                        _fanim3.markdown(_make_analysis_stage_html(
+                        _show_stage_html(_fanim3, _make_analysis_stage_html(
                             "AIがクリップを選定中...",
                             f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出"
-                        ), unsafe_allow_html=True)
+                        ))
                         from core.analyzer import auto_select_clips as _asc
                         _fclips = _asc(
                             _dur, _ftranscript,
@@ -5573,9 +5582,10 @@ def _run_pipeline(clips: list, sched: dict):
                         _rem_r = _tr_r
                     else:
                         _rem_r = None
-                    _time_ph_r.markdown(
+                    _show_stage_html(
+                        _time_ph_r,
                         _make_loading_html(i + 1, len(clips), _el, _rem_r, title),
-                        unsafe_allow_html=True,
+                        height=600,
                     )
                 _cs_thread_r.join()
                 _elapsed_r = _time.time() - _clip_t0_r
@@ -5793,9 +5803,10 @@ def _generate_pipeline(clips: list, sched: dict):
                             _rem_arg  = _total
                         else:
                             _rem_arg  = None
-                        _time_ph.markdown(
+                        _show_stage_html(
+                            _time_ph,
                             _make_loading_html(i + 1, len(clips), _elapsed, _rem_arg, title),
-                            unsafe_allow_html=True,
+                            height=600,
                         )
                     _cs_thread.join()
                     _elapsed_final = _time.time() - _clip_t0
