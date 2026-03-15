@@ -3293,6 +3293,8 @@ def step1():
                                                         "動画のおいしいところ分析中",
                                                         _detail,
                                                         note=_get_wait_note(_el),
+                                                        pct=10 + int(_pct * 0.05) if _total_bytes > 0 else 12,
+                                                        remaining=None,
                                                     ))
                                 except _req.exceptions.Timeout:
                                     raise RuntimeError(
@@ -5975,16 +5977,18 @@ def _run_pipeline(clips: list, sched: dict):
 
     _dl_ok   = False
     raw_path = None
+    # 鍋アニメ用プレースホルダ（st.statusの外に作成 → 白ボックスに覆われない）
+    _pipeline_anim_r = st.empty()
     with st.status("処理中...", expanded=False) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
         if _is_file_mode:
             raw_path = Path(s["raw_path"])
-            st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
+            print(f"[PIPELINE] アップロード済みファイル使用: {raw_path.name}", flush=True)
             _dl_ok = True
         else:
-            st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
+            print(f"[PIPELINE] ダウンロード開始: {video_info['url'][:60]}", flush=True)
             import threading as _dl_th
             import time as _dl_time
             _dl_res: list = [None, None]  # [path, error]
@@ -6000,7 +6004,7 @@ def _run_pipeline(clips: list, sched: dict):
                     _ev.set()
 
             _dl_th.Thread(target=_dl_worker, daemon=True).start()
-            _dl_ph = st.empty()
+            _dl_ph = _pipeline_anim_r  # statusの外のプレースホルダを使用
             _dl_t0       = _dl_time.time()
             _output_raw  = _user_out / "raw"
             _output_raw.mkdir(parents=True, exist_ok=True)
@@ -6073,10 +6077,14 @@ def _run_pipeline(clips: list, sched: dict):
                     _detail = f"YouTube に接続中... {int(_el)}秒"
                     _note   = _get_wait_note(_el)
 
+                # 経過時間ベースでpct推定（ダウンロード = 全体の0→30%）
+                _dl_pct = min(29, int(_el / 120 * 30))
                 _show_stage_html(_dl_ph, _make_analysis_stage_html(
-                    "動画のおいしいところ分析中",
+                    "元動画をダウンロード中",
                     _detail,
                     note=_note,
+                    pct=_dl_pct,
+                    remaining=None,
                 ), height=420)
 
             _dl_ph.empty()
@@ -6114,7 +6122,7 @@ def _run_pipeline(clips: list, sched: dict):
         import time as _time
         import threading as _threading
         _clip_times_run = []  # 各クリップの実処理秒数（残り時間推定用）
-        _time_ph_r = st.empty()   # アニメ用プレースホルダ（ループ間で使い回す）
+        _time_ph_r = _pipeline_anim_r  # statusの外のプレースホルダを使用
 
         for i, clip in (enumerate(clips) if _dl_ok else ()):
             pct  = i / len(clips)  # 開始時点の進捗
@@ -6211,9 +6219,13 @@ def _run_pipeline(clips: list, sched: dict):
                 _clip_times_run.append(_elapsed_r)
                 import gc as _gc; _gc.collect()  # クリップ間メモリ解放
 
-                # アップロード
-                st.write(f"☁️ **{i+1}本目: アップロード中** "
-                         f"— 予約: `{jst_dt.strftime('%Y/%m/%d %H:%M')} JST`")
+                # アップロード（アニメ表示してから同期実行）
+                _up_pct_r = int((i + 0.75) / len(clips) * 100)
+                _show_stage_html(_time_ph_r, _make_analysis_stage_html(
+                    f"☁️ クリップ {i+1}/{len(clips)} をYouTubeに投稿中",
+                    f"予約投稿: {jst_dt.strftime('%Y/%m/%d %H:%M')} JST",
+                    pct=_up_pct_r, remaining=None,
+                ), height=520)
                 video_id = upload_shorts(
                     shorts_path, title, description, tags, utc_dt, category,
                     playlist_id=sched.get("playlist_id"),
@@ -6221,6 +6233,7 @@ def _run_pipeline(clips: list, sched: dict):
                     age_restricted=bool(sched.get("age_restricted", False)),
                     token_json=_yt_token,  # マルチユーザー: per-user token
                 )
+                _time_ph_r.empty()
 
                 # 関連動画コメント投稿
                 if sched.get("post_related_comment") and sched.get("related_video_urls"):
@@ -6317,21 +6330,27 @@ def _generate_pipeline(clips: list, sched: dict):
     generated = []
     _dl_ok    = False  # ダウンロード成功フラグ（with内でreturnしないための制御変数）
 
+    # 鍋アニメ用プレースホルダ（st.statusの外に作成 → 白ボックスに覆われない）
+    _pipeline_anim_g = st.empty()
     with st.status("処理中...", expanded=False) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
         if _is_file_mode2:
             raw_path = Path(s["raw_path"])
-            st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
             print(f"[PIPELINE] ファイルアップロードモード: {raw_path}", flush=True)
             _dl_ok = True
         else:
-            st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
+            print(f"[PIPELINE] ダウンロード開始: {video_info['url'][:60]}", flush=True)
+            _show_stage_html(_pipeline_anim_g, _make_analysis_stage_html(
+                "元動画をダウンロード中",
+                "YouTube から動画を取得しています...",
+                pct=15, remaining=None,
+            ), height=420)
             try:
                 raw_path = download_video(video_info["url"], _user_out / "raw")
+                _pipeline_anim_g.empty()
                 print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
-                st.write(f"✅ ダウンロード完了: `{raw_path.name}`")
                 _dl_ok = True
             except Exception as e:
                 print(f"[PIPELINE] ダウンロード失敗: {e}", flush=True)
@@ -6343,6 +6362,7 @@ def _generate_pipeline(clips: list, sched: dict):
                         hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。cookies が期限切れの可能性があります。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
                     else:
                         hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
+                _pipeline_anim_g.empty()
                 s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
                 status.update(label="ダウンロード失敗", state="error")
                 # ← return しない：with ブロックを自然に終了させる
@@ -6353,7 +6373,7 @@ def _generate_pipeline(clips: list, sched: dict):
             import time as _time
             import threading as _threading
             _clip_times = []  # 各クリップの実処理秒数を記録（残り時間推定用）
-            _time_ph = st.empty()   # アニメ用プレースホルダ（ループ間で使い回す）
+            _time_ph = _pipeline_anim_g  # statusの外のプレースホルダを使用
 
             for i, clip in enumerate(clips):
                 pct   = i / len(clips)   # 開始時点の進捗（完了したクリップ数ベース）
@@ -6549,7 +6569,9 @@ def _upload_pipeline():
 
     results = []
 
-    with st.status("アップロード中...", expanded=True) as status:
+    # 鍋アニメ用プレースホルダ（st.statusの外に作成）
+    _pipeline_anim_u = st.empty()
+    with st.status("アップロード中...", expanded=False) as status:
         prog = st.progress(0, text="アップロード準備中...")
 
         for i, clip in enumerate(generated):
@@ -6566,7 +6588,13 @@ def _upload_pipeline():
                 utc_dt = None
 
             prog.progress(pct, text=f"[{i+1}/{len(generated)}] {title[:40]}")
-            st.write(f"☁️ **{i+1}本目: アップロード中** — 予約: `{publish_jst} JST`")
+            # 鍋アニメ表示
+            _up_pct_u = int(i / len(generated) * 100)
+            _show_stage_html(_pipeline_anim_u, _make_analysis_stage_html(
+                f"☁️ クリップ {i+1}/{len(generated)} をYouTubeに投稿中",
+                f"予約投稿: {publish_jst} JST",
+                pct=_up_pct_u, remaining=None,
+            ), height=520)
 
             try:
                 video_id = upload_shorts(
@@ -6606,8 +6634,9 @@ def _upload_pipeline():
                     "publish_jst": publish_jst,
                     "status":      f"❌ {e}",
                 })
-                st.write(f"❌ **エラー [{i+1}本目]**: {e}")
+                print(f"[UPLOAD] エラー [{i+1}本目]: {e}", flush=True)
             finally:
+                _pipeline_anim_u.empty()  # アップロード完了後アニメ消去
                 try:
                     shorts_path.unlink(missing_ok=True)
                 except Exception:
