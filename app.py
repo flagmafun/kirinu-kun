@@ -3142,6 +3142,44 @@ def step1():
     # タブ②: ファイルアップロード
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     with _tab_file:
+        # ── 推奨元動画の条件 ──
+        import streamlit.components.v1 as _cv1_file_info
+        _cv1_file_info.html("""
+<style>
+  body{margin:0;padding:0;font-family:-apple-system,'Hiragino Sans',sans-serif;}
+  .fi-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
+  .fi-box{border-radius:12px;padding:12px 14px;}
+  .fi-ok{background:#f0fdf4;border:1.5px solid #86efac;}
+  .fi-ng{background:#fff7ed;border:1.5px solid #fdba74;}
+  .fi-title{font-size:12px;font-weight:800;margin-bottom:8px;}
+  .fi-ok .fi-title{color:#15803d;}
+  .fi-ng .fi-title{color:#c2410c;}
+  .fi-item{font-size:11.5px;color:#374151;line-height:1.5;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;}
+  .fi-tip{margin-top:8px;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:9px 14px;font-size:11.5px;color:#1e40af;line-height:1.6;}
+</style>
+<div class="fi-wrap">
+  <div class="fi-box fi-ok">
+    <div class="fi-title">✅ Shortsに向いている動画</div>
+    <div class="fi-item">▸ トーク・解説・Vlog系</div>
+    <div class="fi-item">▸ 5〜60分程度の長さ</div>
+    <div class="fi-item">▸ 音声がはっきりしている</div>
+    <div class="fi-item">▸ 日本語 / 英語の内容</div>
+    <div class="fi-item">▸ 横型（16:9）動画</div>
+  </div>
+  <div class="fi-box fi-ng">
+    <div class="fi-title">⚠️ 精度が下がりやすい動画</div>
+    <div class="fi-item">▸ BGMや効果音が大きい</div>
+    <div class="fi-item">▸ 無音・字幕なしの動画</div>
+    <div class="fi-item">▸ 3分未満の短い動画</div>
+    <div class="fi-item">▸ 複数人が同時に話す</div>
+    <div class="fi-item">▸ 縦型・正方形動画</div>
+  </div>
+</div>
+<div class="fi-tip">
+  💡 AIはトランスクリプト（音声の文字起こし）をもとに「おいしいシーン」を選定します。しゃべりが多い動画ほど精度が上がります。
+</div>
+""", height=230)
+
         with st.expander("📖 使い方（Google Drive の場合）", expanded=False):
             st.markdown("""
 **① Google Drive に動画をアップロード**
