@@ -5108,11 +5108,10 @@ def step5():
         </style>""", unsafe_allow_html=True)
         _ppl_total = max(len(_ppl_clips), 1)
         _ppl_anim_ph = st.empty()
-        _show_stage_html(_ppl_anim_ph, _make_loading_html(
-            clip_num=1, total_clips=_ppl_total,
-            elapsed=0, remaining=None,
-            clip_title="準備中...",
-        ), height=600)
+        _show_stage_html(_ppl_anim_ph, _make_analysis_stage_html(
+            f"🎬 {_ppl_total}本のクリップを生成中...",
+            "動画のおいしいところを調理しています",
+        ), height=480)
 
         print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
         try:
@@ -6288,10 +6287,17 @@ def _run_pipeline(clips: list, sched: dict):
                         _rem_r = _tr_r
                     else:
                         _rem_r = None
+                    _el_str  = f"{int(_el//60)}分{int(_el%60):02d}秒" if _el >= 60 else f"{int(_el)}秒"
+                    _rem_str_r = (f"残り約{int(_rem_r//60)}分{int(_rem_r%60):02d}秒" if _rem_r is not None and _rem_r >= 60
+                                 else f"残り約{int(_rem_r)}秒" if _rem_r is not None
+                                 else "残り時間推定中...")
                     _show_stage_html(
                         _time_ph_r,
-                        _make_loading_html(i + 1, len(clips), _el, _rem_r, title),
-                        height=600,
+                        _make_analysis_stage_html(
+                            f"✂️ クリップ {i+1}/{len(clips)} 変換中",
+                            f"📡 {_rem_str_r}（経過 {_el_str}）　{title[:28]}",
+                        ),
+                        height=480,
                     )
                 _cs_thread_r.join()
                 _elapsed_r = _time.time() - _clip_t0_r
@@ -6529,10 +6535,17 @@ def _generate_pipeline(clips: list, sched: dict):
                             _rem_arg  = _total
                         else:
                             _rem_arg  = None
+                        _el2_str  = f"{int(_elapsed//60)}分{int(_elapsed%60):02d}秒" if _elapsed >= 60 else f"{int(_elapsed)}秒"
+                        _rem_str2 = (f"残り約{int(_rem_arg//60)}分{int(_rem_arg%60):02d}秒" if _rem_arg is not None and _rem_arg >= 60
+                                    else f"残り約{int(_rem_arg)}秒" if _rem_arg is not None
+                                    else "残り時間推定中...")
                         _show_stage_html(
                             _time_ph,
-                            _make_loading_html(i + 1, len(clips), _elapsed, _rem_arg, title),
-                            height=600,
+                            _make_analysis_stage_html(
+                                f"✂️ クリップ {i+1}/{len(clips)} 変換中",
+                                f"📡 {_rem_str2}（経過 {_el2_str}）　{title[:28]}",
+                            ),
+                            height=480,
                         )
                     _cs_thread.join()
                     _elapsed_final = _time.time() - _clip_t0
