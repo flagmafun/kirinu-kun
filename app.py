@@ -5497,9 +5497,52 @@ def step5():
       </svg>
       <div class="cko-title">🎬 クリップを調理中...</div>
       <div class="cko-sub">動画のおいしいところを抽出しています</div>
-      <div class="cko-spinner"></div>`;
+      <div class="ck-ring-wrap" style="margin-top:14px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <defs>
+            <linearGradient id="cko-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fbbf24"/>
+              <stop offset="50%" stop-color="#f97316"/>
+              <stop offset="100%" stop-color="#ef4444"/>
+            </linearGradient>
+          </defs>
+          <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(251,146,60,0.15)" stroke-width="8"/>
+          <circle id="cko-ring-arc" cx="55" cy="55" r="46" fill="none"
+            stroke="url(#cko-ring-grad)" stroke-width="8"
+            stroke-linecap="round" stroke-dasharray="289"
+            stroke-dashoffset="289"
+            style="transform:rotate(-90deg);transform-origin:55px 55px;transition:stroke-dashoffset 1s ease;"/>
+          <text id="cko-ring-pct" x="55" y="60" text-anchor="middle"
+            font-size="18" font-weight="800" fill="#fbbf24" font-family="-apple-system,sans-serif">0%</text>
+        </svg>
+        <div id="cko-ring-rem" style="font-size:13px;color:rgba(253,186,116,.85);font-family:-apple-system,sans-serif;">残り時間推定中...</div>
+      </div>`;
       d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;opacity:1;';
       par.body.appendChild(d);
+      // リングゲージと残り時間を経過時間ベースで更新
+      var _cko_start = Date.now();
+      var _cko_max_pct = 85;   // 最大85%（完了まで自動で100%にしない）
+      var _cko_full_ms = 600000; // 10分で85%想定
+      function _cko_update(){
+        var elapsed = Date.now() - _cko_start;
+        var pct = Math.min(_cko_max_pct, Math.round(elapsed / _cko_full_ms * 100));
+        var rem_sec = Math.max(0, (_cko_full_ms - elapsed) / 1000);
+        var pctEl  = par.getElementById('cko-ring-pct');
+        var remEl  = par.getElementById('cko-ring-rem');
+        var arcEl  = par.getElementById('cko-ring-arc');
+        if(pctEl) pctEl.textContent = pct + '%';
+        if(arcEl) arcEl.style.strokeDashoffset = String(289 * (1 - pct / 100));
+        if(remEl){
+          if(elapsed < 8000){
+            remEl.textContent = '残り時間推定中...';
+          } else {
+            var rm = Math.floor(rem_sec / 60), rs = Math.floor(rem_sec % 60);
+            remEl.textContent = rm > 0 ? '残り約' + rm + '分' + String(rs).padStart(2,'0') + '秒' : '残り約' + Math.floor(rem_sec) + '秒';
+          }
+        }
+      }
+      var _cko_prog = setInterval(_cko_update, 1000);
+      _cko_update();
       // Stop ボタンが「出現 → 消滅」した瞬間に除去（出現前に消えても誤判定しない）
       var stopBtnSeen = false;
       var poll = setInterval(function(){
@@ -5508,12 +5551,13 @@ def step5():
           stopBtnSeen = true;  // Stopボタン確認 = パイプライン実行中
         } else if(stopBtnSeen){
           // 一度出現してから消えた = 処理完了
+          clearInterval(_cko_prog);
           removeOverlay();
           clearInterval(poll);
         }
       }, 300);
       // 最大5分で強制除去（安全策）
-      setTimeout(function(){ removeOverlay(); clearInterval(poll); }, 300000);
+      setTimeout(function(){ clearInterval(_cko_prog); removeOverlay(); clearInterval(poll); }, 300000);
     }, {once: false});
   }
   attachBtn();
