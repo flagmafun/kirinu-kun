@@ -5551,22 +5551,37 @@ def step5():
       </div>`;
       d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;opacity:1;';
       par.body.appendChild(d);
-      // リングゲージと残り時間を経過時間ベースで更新
-      var _cko_start   = Date.now();
-      var _cko_full_ms = __EST_MS__; // Python側で計算した推定時間(ms)
-      var _cko_extra_pct = 85;       // 推定時間内での最大%（超過後はゆっくり増加）
-      function _cko_update(){
-        var elapsed = Date.now() - _cko_start;
+
+      // ── タイマー・停止検知を親ウィンドウで実行（iframeが破棄されても継続） ──
+      var WIN = window.parent;
+      // 既存インターバルをクリア（ページ再描画時の重複防止）
+      if(WIN._cko_timer_v2){ WIN.clearInterval(WIN._cko_timer_v2); }
+      if(WIN._cko_poll_v2){  WIN.clearInterval(WIN._cko_poll_v2);  }
+      // 開始時刻を親ウィンドウに保存（iframe破棄後も保持）
+      WIN._cko_start_v2    = Date.now();
+      WIN._cko_full_ms_v2  = __EST_MS__;
+      WIN._cko_seen_stop_v2 = false;
+
+      function _cko_remove(){
+        if(WIN._cko_timer_v2){ WIN.clearInterval(WIN._cko_timer_v2); WIN._cko_timer_v2=null; }
+        if(WIN._cko_poll_v2){  WIN.clearInterval(WIN._cko_poll_v2);  WIN._cko_poll_v2=null;  }
+        WIN._cko_start_v2 = null;
+        var el = par.getElementById('ck-pot-overlay-v2');
+        if(el){ el.style.transition='opacity .5s'; el.style.opacity='0'; WIN.setTimeout(function(){el.remove();},520); }
+      }
+
+      WIN._cko_timer_v2 = WIN.setInterval(function(){
+        if(!par.getElementById('ck-pot-overlay-v2')){ WIN.clearInterval(WIN._cko_timer_v2); return; }
+        var elapsed = Date.now() - (WIN._cko_start_v2 || Date.now());
+        var full    = WIN._cko_full_ms_v2 || __EST_MS__;
         var pct, rem_sec;
-        if(elapsed <= _cko_full_ms){
-          // 推定時間内: 0→85%
-          pct     = Math.round(elapsed / _cko_full_ms * _cko_extra_pct);
-          rem_sec = Math.max(0, (_cko_full_ms - elapsed) / 1000);
+        if(elapsed <= full){
+          pct     = Math.round(elapsed / full * 85);
+          rem_sec = Math.max(0, (full - elapsed) / 1000);
         } else {
-          // 推定時間超過: 85→99%にゆっくり増加（10秒で+0.5%）
-          var over = (elapsed - _cko_full_ms) / 1000;
-          pct     = Math.min(99, Math.round(_cko_extra_pct + over / 10 * 0.5));
-          rem_sec = 0;
+          var over = (elapsed - full) / 1000;
+          pct     = Math.min(99, Math.round(85 + over / 10 * 0.5));
+          rem_sec = -1; // 超過
         }
         var pctEl = par.getElementById('cko-ring-pct');
         var remEl = par.getElementById('cko-ring-rem');
@@ -5574,37 +5589,25 @@ def step5():
         if(pctEl) pctEl.textContent = pct + '%';
         if(arcEl) arcEl.style.strokeDashoffset = String(289 * (1 - pct / 100));
         if(remEl){
-          if(elapsed < 3000){
-            var rm0 = Math.floor(rem_sec/60), rs0 = Math.floor(rem_sec%60);
-            remEl.textContent = rm0 > 0 ? '残り約'+rm0+'分'+String(rs0).padStart(2,'0')+'秒（推定）' : '残り約'+Math.floor(rem_sec)+'秒（推定）';
-          } else if(rem_sec > 0){
+          if(rem_sec >= 0){
             var rm = Math.floor(rem_sec/60), rs = Math.floor(rem_sec%60);
             remEl.textContent = rm > 0 ? '残り約'+rm+'分'+String(rs).padStart(2,'0')+'秒' : '残り約'+Math.floor(rem_sec)+'秒';
           } else {
-            var tot_sec = Math.floor(elapsed / 1000);
-            var tot_m = Math.floor(tot_sec / 60), tot_s = tot_sec % 60;
-            var tot_str = tot_m > 0 ? tot_m+'分'+String(tot_s).padStart(2,'0')+'秒' : tot_s+'秒';
-            remEl.textContent = 'じっくり調理中... 経過 '+tot_str;
+            var tot = Math.floor(elapsed/1000);
+            var tm = Math.floor(tot/60), ts = tot%60;
+            remEl.textContent = 'じっくり調理中... 経過 '+(tm>0?tm+'分'+String(ts).padStart(2,'0')+'秒':ts+'秒');
           }
         }
-      }
-      var _cko_prog = setInterval(_cko_update, 1000);
-      _cko_update();
-      // Stop ボタンが「出現 → 消滅」した瞬間に除去（出現前に消えても誤判定しない）
-      var stopBtnSeen = false;
-      var poll = setInterval(function(){
+      }, 1000);
+
+      // Stop ボタン「出現→消滅」で除去（親ウィンドウで実行）
+      WIN._cko_poll_v2 = WIN.setInterval(function(){
         var stopBtn = par.querySelector('button[aria-label="Stop"]');
-        if(stopBtn){
-          stopBtnSeen = true;  // Stopボタン確認 = パイプライン実行中
-        } else if(stopBtnSeen){
-          // 一度出現してから消えた = 処理完了
-          clearInterval(_cko_prog);
-          removeOverlay();
-          clearInterval(poll);
-        }
+        if(stopBtn){ WIN._cko_seen_stop_v2 = true; }
+        else if(WIN._cko_seen_stop_v2){ _cko_remove(); }
       }, 300);
-      // 最大5分で強制除去（安全策）
-      setTimeout(function(){ clearInterval(_cko_prog); removeOverlay(); clearInterval(poll); }, 300000);
+      // 最大10分で強制除去
+      WIN.setTimeout(function(){ _cko_remove(); }, 600000);
     }, {once: false});
   }
   attachBtn();

@@ -612,7 +612,7 @@ def create_shorts(
                 "-x264-params", "no-mbtree=1:rc-lookahead=0:ref=1",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
-                "-threads", "1",
+                "-threads", "2",
                 str(output_path),
             ]
         else:
@@ -629,7 +629,7 @@ def create_shorts(
                 "-x264-params", "no-mbtree=1:rc-lookahead=0:ref=1",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
-                "-threads", "1",
+                "-threads", "2",
                 str(output_path),
             ]
 
