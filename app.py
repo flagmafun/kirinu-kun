@@ -2948,8 +2948,9 @@ def step1():
                     # ステージ①: 動画情報取得
                     _anim1 = st.empty()
                     _show_stage_html(_anim1, _make_analysis_stage_html(
-                        "動画のおいしいところ分析中", "YouTube から動画のメタ情報を取得しています"
-                    ))
+                        "動画のおいしいところ分析中", "YouTube から動画のメタ情報を取得しています",
+                        pct=10, remaining=None,
+                    ), height=520)
                     info = get_video_info(url.strip())
                     _anim1.empty()
                     s.video_info = info
@@ -2960,8 +2961,9 @@ def step1():
                     # ステージ②: 字幕取得
                     _anim2 = st.empty()
                     _show_stage_html(_anim2, _make_analysis_stage_html(
-                        "動画のおいしいところ分析中", "複数のクライアントで自動字幕を取得しています"
-                    ))
+                        "動画のおいしいところ分析中", "複数のクライアントで自動字幕を取得しています",
+                        pct=35, remaining=None,
+                    ), height=520)
                     tmp = OUTPUT_DIR / "transcript"
                     tmp.mkdir(parents=True, exist_ok=True)
                     # 今回の動画と無関係な古いjson3を削除（別動画の字幕が混入しないよう）
@@ -2982,266 +2984,15 @@ def step1():
                                 for _d in _dbg:
                                     st.code(_d)
 
-                    # ── AI選定ローディングアニメーション（クッキング演出）──
+                    # ── AI選定ローディングアニメーション ──
                     _seg_count = len(transcript) if transcript else 0
                     _nc = int(n_clips)
-                    # A: フィルムコマ（色違いのシーンブロック）
-                    _scene_colors = [
-                        "#1e3a5f","#1a3a1a","#3a1a1a","#2d1f00","#1a1a3a",
-                        "#2a1a2a","#1e3a2a","#3a2a1a","#1a2a3a","#2a3a1a",
-                        "#3a1a2a","#1a3a3a","#2a2a1a","#1f1a3a","#3a2a2a",
-                    ]
-                    _scenes = "".join(
-                        f'<div class="scene" style="background:{c}"></div>'
-                        for c in _scene_colors
-                    )
-                    # C: 鍋バブル（大きさ・位置・タイミングをばらす）
-                    _bubbles = "".join(
-                        f'<div class="bub" style="'
-                        f'width:{4+i%3}px;height:{4+i%3}px;'
-                        f'left:{15+i*14}%;'
-                        f'animation-delay:{round(i*0.28,2)}s"></div>'
-                        for i in range(6)
-                    )
-                    # クリップチップ（最大10個表示、超過分は +N本 バッジ）
-                    _show = min(_nc, 10)
-                    _citems = "".join(
-                        f'<div class="ci" style="animation-delay:{round(0.6+j*0.2,2)}s">'
-                        f'✂ {j}本目</div>'
-                        for j in range(1, _show + 1)
-                    )
-                    if _nc > 10:
-                        _citems += (
-                            f'<div class="ci" style="animation-delay:{round(0.6+_show*0.2,2)}s;'
-                            f'background:rgba(251,191,36,.25);border-color:rgba(251,191,36,.7);">'
-                            f'+ {_nc - 10}本</div>'
-                        )
-                    import streamlit.components.v1 as _cai
-                    _cai.html(f"""
-    <style>
-    *{{box-sizing:border-box;margin:0;padding:0;
-       font-family:-apple-system,'Hiragino Sans',sans-serif;}}
-    body{{background:transparent;overflow:hidden;}}
-    
-    /* ── カード ── */
-    .card{{
-      background:linear-gradient(135deg,#1c0a00 0%,#2d1500 50%,#1c0a00 100%);
-      border-radius:14px;padding:16px 16px 14px;
-      border:1px solid rgba(251,191,36,.28);
-    }}
-    
-    /* ── ヘッダー ── */
-    .hd{{display:flex;align-items:center;gap:8px;margin-bottom:13px;}}
-    .badge{{
-      background:linear-gradient(135deg,#f97316,#dc2626);
-      border-radius:5px;padding:3px 8px;font-size:10px;
-      font-weight:800;color:#fff;letter-spacing:.05em;flex-shrink:0;
-    }}
-    .htitle{{font-size:13px;font-weight:700;color:#fef3c7;}}
-    .dots span{{animation:blink 1.2s infinite;color:#f97316;}}
-    .dots span:nth-child(2){{animation-delay:.25s;}}
-    .dots span:nth-child(3){{animation-delay:.5s;}}
-    @keyframes blink{{0%,100%{{opacity:.1;}}50%{{opacity:1;}}}}
-    
-    /* ══ A: フィルムリール ══ */
-    .film-wrap{{position:relative;margin-bottom:11px;}}
-    .film{{
-      height:34px;border-radius:6px;overflow:hidden;
-      background:#0c0c18;border:1px solid rgba(255,255,255,.08);
-      position:relative;display:flex;align-items:center;
-    }}
-    /* スプロケット穴（上下） */
-    .film::before,.film::after{{
-      content:'';position:absolute;left:0;right:0;height:6px;
-      background:repeating-linear-gradient(
-        90deg,transparent 0,transparent 16px,
-        rgba(255,255,255,.13) 16px,rgba(255,255,255,.13) 24px);
-      z-index:2;
-    }}
-    .film::before{{top:2px;}}
-    .film::after{{bottom:2px;}}
-    /* シーンブロック */
-    .scenes{{
-      display:flex;align-items:center;gap:1px;
-      padding:8px 2px;z-index:1;width:100%;height:100%;
-    }}
-    .scene{{flex:1;height:18px;border-radius:1px;opacity:.7;}}
-    /* ✂️ ハサミ */
-    .scissors{{
-      position:absolute;top:50%;left:-32px;
-      transform:translateY(-50%) rotate(90deg);
-      font-size:20px;z-index:6;
-      animation:snip 2.6s linear infinite;
-      filter:drop-shadow(0 0 7px rgba(249,115,22,.9));
-    }}
-    @keyframes snip{{0%{{left:-32px;}}100%{{left:108%;}}}}
-    /* カット光跡 */
-    .cutline{{
-      position:absolute;top:0;left:-32px;
-      width:2px;height:100%;z-index:5;
-      background:linear-gradient(180deg,transparent,#f97316 40%,#fbbf24 60%,transparent);
-      animation:snip 2.6s linear infinite;opacity:.8;
-    }}
-    /* スパーク */
-    .spark{{
-      position:absolute;border-radius:50%;
-      background:#fbbf24;z-index:7;
-      animation:spark 2.6s linear infinite;
-      pointer-events:none;
-    }}
-    @keyframes spark{{
-      0%,60%{{opacity:0;transform:translate(0,0) scale(0);}}
-      65%{{opacity:1;transform:translate(var(--dx),var(--dy)) scale(1);}}
-      80%{{opacity:.5;}}
-      100%,61%{{opacity:0;transform:translate(calc(var(--dx)*1.8),calc(var(--dy)*1.8)) scale(.2);}}
-    }}
-    
-    /* ══ B+C 横並び ══ */
-    .cook-row{{display:flex;gap:8px;margin-bottom:11px;}}
-    
-    /* ── B: フライパン ── */
-    .pan-box{{
-      flex:1;background:rgba(249,115,22,.08);
-      border:1px solid rgba(249,115,22,.25);
-      border-radius:10px;padding:8px 8px 6px;
-      text-align:center;position:relative;overflow:hidden;
-    }}
-    .box-lbl{{font-size:9px;font-weight:800;letter-spacing:.05em;margin-bottom:3px;}}
-    .pan-lbl{{color:#c2410c;}}
-    .pan-emoji{{font-size:26px;display:block;line-height:1;
-      animation:sizzle .35s ease-in-out infinite alternate;
-      transform-origin:center bottom;}}
-    @keyframes sizzle{{
-      0%{{transform:rotate(-3deg) scale(1);}}
-      100%{{transform:rotate(3deg) scale(1.07);}}
-    }}
-    /* 油はね */
-    .drop{{
-      position:absolute;border-radius:50%;
-      background:rgba(251,191,36,.65);
-      animation:dropsplash .7s ease-out infinite;
-    }}
-    @keyframes dropsplash{{
-      0%{{transform:scale(0);opacity:.8;}}
-      100%{{transform:scale(2.2);opacity:0;}}
-    }}
-    /* 炎 */
-    .flame{{
-      position:absolute;bottom:4px;right:8px;
-      font-size:13px;
-      animation:flicker .4s ease-in-out infinite alternate;
-    }}
-    @keyframes flicker{{0%{{transform:scale(1) rotate(-4deg);}}100%{{transform:scale(1.15) rotate(3deg);}}}}
-    
-    /* ── C: 鍋 ── */
-    .pot-box{{
-      flex:1;background:rgba(99,102,241,.08);
-      border:1px solid rgba(99,102,241,.25);
-      border-radius:10px;padding:8px 8px 6px;
-      text-align:center;position:relative;overflow:hidden;
-    }}
-    .pot-lbl{{color:#4f46e5;}}
-    .pot-emoji{{font-size:26px;display:block;line-height:1;}}
-    /* バブル */
-    .bub{{
-      position:absolute;border-radius:50%;
-      background:rgba(99,102,241,.55);
-      animation:bubup 1.4s ease-in infinite;bottom:8px;
-    }}
-    @keyframes bubup{{
-      0%{{transform:translateY(0) scale(1);opacity:.7;}}
-      100%{{transform:translateY(-32px) scale(.2);opacity:0;}}
-    }}
-    /* 湯気 */
-    .steam{{
-      position:absolute;width:3px;height:3px;border-radius:50%;
-      background:rgba(255,255,255,.35);
-      animation:steamup 1.3s ease-out infinite;
-    }}
-    @keyframes steamup{{
-      0%{{opacity:.6;transform:translateY(0) scale(1);}}
-      100%{{opacity:0;transform:translateY(-22px) scale(.2);}}
-    }}
-    
-    /* ══ クリップチップ ══ */
-    .chips{{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}}
-    .ci{{
-      background:rgba(251,191,36,.12);
-      border:1px solid rgba(251,191,36,.4);
-      border-radius:5px;padding:3px 8px;
-      font-size:11px;color:#fde68a;
-      opacity:0;animation:ci-in .4s ease forwards;
-    }}
-    @keyframes ci-in{{
-      from{{opacity:0;transform:translateY(5px);}}
-      to{{opacity:1;transform:translateY(0);}}
-    }}
-    
-    /* ══ ステータス ══ */
-    .st{{display:flex;align-items:center;gap:7px;}}
-    .sp{{
-      width:12px;height:12px;flex-shrink:0;border-radius:50%;
-      border:2px solid rgba(249,115,22,.3);border-top-color:#f97316;
-      animation:spin .75s linear infinite;
-    }}
-    @keyframes spin{{to{{transform:rotate(360deg);}}}}
-    .stxt{{font-size:11px;color:#d97706;}}
-    </style>
-    
-    <div class="card">
-      <!-- ヘッダー -->
-      <div class="hd">
-        <div class="badge">✂️ AI</div>
-        <div class="htitle">おいしい瞬間を仕込み中
-          <span class="dots"><span>.</span><span>.</span><span>.</span></span>
-        </div>
-      </div>
-    
-      <!-- A: フィルムリールをハサミでカット -->
-      <div class="film-wrap">
-        <div class="film">
-          <div class="scenes">{_scenes}</div>
-        </div>
-        <div class="scissors">✂️</div>
-        <div class="cutline"></div>
-        <div class="spark" style="width:4px;height:4px;top:30%;--dx:-6px;--dy:-8px;animation-delay:.1s"></div>
-        <div class="spark" style="width:3px;height:3px;top:60%;--dx:7px;--dy:-6px;animation-delay:.15s"></div>
-        <div class="spark" style="width:5px;height:5px;top:45%;--dx:-8px;--dy:5px;animation-delay:.08s"></div>
-        <div class="spark" style="width:3px;height:3px;top:25%;--dx:5px;--dy:7px;animation-delay:.2s"></div>
-      </div>
-    
-      <!-- B+C: フライパン & 鍋 -->
-      <div class="cook-row">
-        <!-- B: フライパンで炒める -->
-        <div class="pan-box">
-          <div class="box-lbl pan-lbl">🔥 おいしいシーンを炒める</div>
-          <span class="pan-emoji">🍳</span>
-          <div class="drop" style="width:5px;height:5px;bottom:12px;left:28%;animation-delay:0s"></div>
-          <div class="drop" style="width:4px;height:4px;bottom:12px;left:52%;animation-delay:.25s"></div>
-          <div class="drop" style="width:6px;height:6px;bottom:12px;left:70%;animation-delay:.5s"></div>
-          <div class="flame">🔥</div>
-        </div>
-        <!-- C: 鍋でエキスを抽出 -->
-        <div class="pot-box">
-          <div class="box-lbl pot-lbl">♨️ おいしさを抽出中</div>
-          <span class="pot-emoji">🫕</span>
-          {_bubbles}
-          <div class="steam" style="left:35%;bottom:34px;animation-delay:.1s"></div>
-          <div class="steam" style="left:55%;bottom:34px;animation-delay:.55s"></div>
-          <div class="steam" style="left:70%;bottom:34px;animation-delay:.9s"></div>
-        </div>
-      </div>
-    
-      <!-- クリップチップ -->
-      <div class="chips">{_citems}</div>
-    
-      <!-- ステータス -->
-      <div class="st">
-        <div class="sp"></div>
-        <div class="stxt">{_seg_count} セグメントの字幕から {_nc} 本のおいしい瞬間を仕込み中...</div>
-      </div>
-    </div>
-    """, height=310, scrolling=False)
+                    _anim3 = st.empty()
+                    _show_stage_html(_anim3, _make_analysis_stage_html(
+                        "AIがおいしいところを選んでいます",
+                        f"字幕 {_seg_count} セグメントから {_nc} 本を抽出中...",
+                        pct=65, remaining=None,
+                    ), height=520)
     
                     clips = auto_select_clips(
                         info["duration"], transcript,
@@ -3249,6 +3000,7 @@ def step1():
                         video_title=info.get("title", ""),
                         description=info.get("description", ""),
                     )
+                    _anim3.empty()
                     s.clips = clips
                     st.write(f"✅ {len(clips)} 本のクリップを選定しました")
     
@@ -3429,8 +3181,9 @@ def step1():
                         _fanim1 = st.empty()
                         if _f_input_method == "💻 ファイルをアップロード" and _f_uploaded_file is not None:
                             _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                "動画のおいしいところ分析中", _f_uploaded_file.name
-                            ))
+                                "動画のおいしいところ分析中", f"ファイルを保存中... {_f_uploaded_file.name}",
+                                pct=10, remaining=None,
+                            ), height=520)
                             _fpath = _upload_dir / _f_uploaded_file.name
                             with open(_fpath, "wb") as _fp:
                                 _fp.write(_f_uploaded_file.getbuffer())
@@ -3498,8 +3251,8 @@ def step1():
                                     _show_stage_html(_fanim1, _make_analysis_stage_html(
                                         "動画のおいしいところ分析中",
                                         f"Google Drive からダウンロード中... {int(_el//60)}分{int(_el%60):02d}秒",
-                                        note=_get_wait_note(_el),
-                                    ))
+                                        pct=20, remaining=None,
+                                    ), height=520)
 
                                 if _gd_res[1]:
                                     raise _gd_res[1]
@@ -3511,7 +3264,8 @@ def step1():
                                 _show_stage_html(_fanim1, _make_analysis_stage_html(
                                     "動画のおいしいところ分析中",
                                     f"接続中... {_furl[:40]}...",
-                                ))
+                                    pct=15, remaining=None,
+                                ), height=520)
                                 try:
                                     with _req.get(_furl, stream=True, timeout=300) as _r:
                                         _r.raise_for_status()
@@ -3573,8 +3327,9 @@ def step1():
                         _fanim2 = st.empty()
                         _show_stage_html(_fanim2, _make_analysis_stage_html(
                             "動画のおいしいところ分析中",
-                            f"動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分かかります"
-                        ))
+                            f"音声を文字起こし中... 動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分",
+                            pct=50, remaining=float(_est_min * 90),
+                        ), height=520)
                         from core.transcriber import transcribe_file as _transcribe
                         _ftranscript = _transcribe(_fpath)
                         _fanim2.empty()
@@ -3604,9 +3359,10 @@ def step1():
                         # ⑤ クリップ自動選定（ステージ専用 empty を作成）
                         _fanim3 = st.empty()
                         _show_stage_html(_fanim3, _make_analysis_stage_html(
-                            "動画のおいしいところ分析中",
-                            f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出"
-                        ))
+                            "AIがおいしいところを選んでいます",
+                            f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出中...",
+                            pct=80, remaining=None,
+                        ), height=520)
                         from core.analyzer import auto_select_clips as _asc
                         _fclips = _asc(
                             _dur, _ftranscript,
