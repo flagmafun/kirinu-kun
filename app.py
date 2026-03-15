@@ -2283,8 +2283,43 @@ def _get_dl_context_note(elapsed: float, speed_mbps: float = 0.0) -> str:
         return "💪 長い動画はどうしても時間がかかります。もう少しです！"
 
 
-def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
+def _make_analysis_stage_html(title: str, detail: str = "", note: str = "", pct: int = -1, remaining = None) -> str:
     """3D 料理鍋アニメーション（蓋なし・食材が中で煮込まれている）+ ステータス表示のローディングカード。"""
+    # ─ 輪ゲージ HTML 生成 ─
+    if pct >= 0:
+        import math as _ckm
+        _ck_r   = 46
+        _ck_c   = 2 * _ckm.pi * _ck_r
+        _ck_off = _ck_c * (1 - min(pct, 100) / 100)
+        if remaining is None:
+            _ck_rem = "推定中..."
+        elif remaining >= 60:
+            _ck_rem = f"残り約{int(remaining//60)}分{int(remaining%60):02d}秒"
+        else:
+            _ck_rem = f"残り約{int(remaining)}秒"
+        _ck_ring_html = f'''<div class="ck-ring-wrap">
+  <svg width="110" height="110" viewBox="0 0 110 110" style="transform:rotate(-90deg)">
+    <defs>
+      <linearGradient id="ck-rg-{pct}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ef4444"/>
+        <stop offset="40%" stop-color="#f97316"/>
+        <stop offset="100%" stop-color="#fbbf24"/>
+      </linearGradient>
+    </defs>
+    <circle cx="55" cy="55" r="{_ck_r}" fill="none" stroke="rgba(255,146,60,.12)" stroke-width="10"/>
+    <circle cx="55" cy="55" r="{_ck_r}" fill="none" stroke="url(#ck-rg-{pct})" stroke-width="10"
+            stroke-linecap="round"
+            stroke-dasharray="{_ck_c:.1f}"
+            stroke-dashoffset="{_ck_off:.1f}"
+            style="transition:stroke-dashoffset .6s ease;filter:drop-shadow(0 0 5px rgba(251,146,60,.6));"/>
+  </svg>
+  <div class="ck-ring-inner">
+    <div class="ck-ring-pct">{pct}%</div>
+    <div class="ck-ring-rem">{_ck_rem}</div>
+  </div>
+</div>'''
+    else:
+        _ck_ring_html = ""
     return f"""
 <style>
 @keyframes ck-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
@@ -2338,6 +2373,12 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
 .ck-spinner{{width:22px;height:22px;border-radius:50%;
   border:3px solid rgba(251,146,60,.2);border-top-color:#f97316;
   animation:ck-spin .75s linear infinite;margin:0 auto;}}
+.ck-ring-wrap{{position:relative;width:110px;height:110px;margin:6px auto 8px;}}
+.ck-ring-inner{{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;}}
+.ck-ring-pct{{font-size:22px;font-weight:800;color:#fbbf24;line-height:1;
+  text-shadow:0 0 10px rgba(251,191,36,.6);}}
+.ck-ring-rem{{font-size:10.5px;color:rgba(253,186,116,.8);margin-top:2px;font-weight:600;}}
 </style>
 <div class="ck-card">
   <div class="ck-glow" style="width:260px;height:160px;background:rgba(234,88,12,.22);top:-60px;left:50%;transform:translateX(-50%);"></div>
@@ -2511,6 +2552,10 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
   </svg>
 
   <div class="ck-title">{title}</div>
+
+  <!-- 輪ゲージ（pct >= 0 のときのみ） -->
+  {_ck_ring_html}
+
   {f'<div class="ck-status"><span class="ck-status-icon">📡</span>{detail}</div>' if detail else ''}
   <div class="ck-spinner"></div>
 </div>
@@ -5111,7 +5156,8 @@ def step5():
         _show_stage_html(_ppl_anim_ph, _make_analysis_stage_html(
             f"🎬 {_ppl_total}本のクリップを生成中...",
             "動画のおいしいところを調理しています",
-        ), height=480)
+            pct=0, remaining=None,
+        ), height=540)
 
         print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
         try:
@@ -6295,9 +6341,11 @@ def _run_pipeline(clips: list, sched: dict):
                         _time_ph_r,
                         _make_analysis_stage_html(
                             f"✂️ クリップ {i+1}/{len(clips)} 変換中",
-                            f"📡 {_rem_str_r}（経過 {_el_str}）　{title[:28]}",
+                            f"経過 {_el_str}　{title[:24]}",
+                            pct=int(i / len(clips) * 100),
+                            remaining=_rem_r,
                         ),
-                        height=480,
+                        height=540,
                     )
                 _cs_thread_r.join()
                 _elapsed_r = _time.time() - _clip_t0_r
@@ -6543,9 +6591,11 @@ def _generate_pipeline(clips: list, sched: dict):
                             _time_ph,
                             _make_analysis_stage_html(
                                 f"✂️ クリップ {i+1}/{len(clips)} 変換中",
-                                f"📡 {_rem_str2}（経過 {_el2_str}）　{title[:28]}",
+                                f"経過 {_el2_str}　{title[:24]}",
+                                pct=int(i / len(clips) * 100),
+                                remaining=_rem_arg,
                             ),
-                            height=480,
+                            height=540,
                         )
                     _cs_thread.join()
                     _elapsed_final = _time.time() - _clip_t0
