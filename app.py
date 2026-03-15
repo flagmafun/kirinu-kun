@@ -3873,16 +3873,105 @@ def step3():
     render_stepbar(3)
     render_video_banner()
 
-    st.markdown("""
-    <div style="padding:28px 40px 0;margin-left:-40px;margin-right:-40px;">
-      <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;">
-        ✂️ クリップを確認・編集
+    import streamlit.components.v1 as _cv1_s3hdr
+    _cv1_s3hdr.html("""
+<style>
+  body{margin:0;padding:0;font-family:-apple-system,'Hiragino Sans',sans-serif;}
+  .s3-wrap{padding:4px 0 0;}
+  .s3-heading{font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;}
+  .s3-sub{font-size:13px;color:#64748b;margin-bottom:18px;}
+  .ai-banner{
+    background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);
+    border:1px solid rgba(139,92,246,.35);
+    border-radius:16px;padding:18px 20px 16px;position:relative;overflow:hidden;
+    margin-bottom:4px;
+  }
+  .ai-banner-glow{
+    position:absolute;border-radius:50%;filter:blur(50px);pointer-events:none;
+  }
+  .ai-banner-title{
+    font-size:11px;font-weight:800;letter-spacing:.12em;
+    color:#a78bfa;margin-bottom:10px;display:flex;align-items:center;gap:6px;
+  }
+  .ai-dot{width:6px;height:6px;border-radius:50%;background:#a78bfa;
+    box-shadow:0 0 6px #a78bfa;display:inline-block;}
+  .ai-fields{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+  .ai-field{
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    border-radius:12px;padding:12px 14px;
+  }
+  .ai-field-icon{font-size:18px;margin-bottom:6px;}
+  .ai-field-name{font-size:12px;font-weight:800;color:#f1f5f9;margin-bottom:3px;}
+  .ai-field-dest{font-size:10px;color:#94a3b8;margin-bottom:6px;line-height:1.4;}
+  .ai-field-impact{display:flex;align-items:center;gap:4px;}
+  .ai-stars{font-size:11px;}
+  .stars-high{color:#f97316;}
+  .stars-mid{color:#64748b;}
+  .ai-field-impact-label{font-size:9.5px;color:#64748b;}
+  .ai-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);
+    border-radius:100px;padding:2px 8px;font-size:9px;
+    color:#c4b5fd;font-weight:700;letter-spacing:.05em;margin-top:8px;
+  }
+</style>
+<div class="s3-wrap">
+  <div class="s3-heading">✂️ クリップを確認・編集</div>
+  <div class="s3-sub">AIが自動生成した内容を確認・編集できます。タイトルとキャッチコピーが再生数に最も影響します。</div>
+
+  <div class="ai-banner">
+    <div class="ai-banner-glow" style="width:300px;height:300px;background:rgba(139,92,246,.12);top:-100px;right:-60px;"></div>
+    <div class="ai-banner-glow" style="width:200px;height:200px;background:rgba(249,115,22,.08);bottom:-80px;left:-40px;"></div>
+
+    <div class="ai-banner-title">
+      <span class="ai-dot"></span> AI が自動生成したフィールドと効果
+    </div>
+
+    <div class="ai-fields">
+      <div class="ai-field">
+        <div class="ai-field-icon">📝</div>
+        <div class="ai-field-name">タイトル</div>
+        <div class="ai-field-dest">YouTubeの動画タイトル<br>検索・おすすめに表示</div>
+        <div class="ai-field-impact">
+          <span class="ai-stars stars-high">★★★</span>
+          <span class="ai-field-impact-label">クリック率に直結</span>
+        </div>
+        <div class="ai-badge">🤖 AI生成</div>
       </div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px;">
-        自動選定されたクリップを確認してください。タイトル・説明・時間帯は自由に編集できます。
+      <div class="ai-field" style="border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05);">
+        <div class="ai-field-icon">⚡</div>
+        <div class="ai-field-name">キャッチコピー</div>
+        <div class="ai-field-dest">動画画面の上部に<br>テキストとして焼き込まれる</div>
+        <div class="ai-field-impact">
+          <span class="ai-stars stars-high">★★★</span>
+          <span class="ai-field-impact-label">視聴継続率に直結</span>
+        </div>
+        <div class="ai-badge" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.3);color:#fde68a;">🤖 AI生成</div>
+      </div>
+      <div class="ai-field">
+        <div class="ai-field-icon">📄</div>
+        <div class="ai-field-name">説明文</div>
+        <div class="ai-field-dest">YouTubeの概要欄に<br>表示されるテキスト</div>
+        <div class="ai-field-impact">
+          <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
+          <span class="ai-field-impact-label">SEO・概要欄</span>
+        </div>
+        <div class="ai-badge">🤖 AI生成</div>
+      </div>
+      <div class="ai-field">
+        <div class="ai-field-icon">＃</div>
+        <div class="ai-field-name">ハッシュタグ</div>
+        <div class="ai-field-dest">YouTubeの概要欄に<br>追加されるタグ</div>
+        <div class="ai-field-impact">
+          <span class="ai-stars stars-high">★★</span><span class="ai-stars stars-mid">★</span>
+          <span class="ai-field-impact-label">SEO・タグ検索</span>
+        </div>
+        <div class="ai-badge">🤖 AI生成</div>
       </div>
     </div>
-    """, unsafe_allow_html=True)
+  </div>
+</div>
+""", height=295)
 
     # ── ページ上部ナビゲーション ──
     _ec_top3 = sum(1 for c in s.clips if c.get("enabled", True))
@@ -4307,21 +4396,6 @@ def step3():
                     '<div class="transcript-box no-transcript">（字幕なし）</div>',
                     unsafe_allow_html=True,
                 )
-
-            # フィールド凡例
-            st.markdown(
-                '<div style="font-size:10.5px;color:#64748b;margin:6px 0 10px;'
-                'display:flex;flex-wrap:wrap;gap:10px;line-height:1.6;">'
-                '<span>📝 タイトル <span style="color:#f97316;font-weight:700;">→ YouTube検索・クリック率 ★★★</span></span>'
-                '<span style="color:#cbd5e1;">｜</span>'
-                '<span>⚡ キャッチコピー <span style="color:#f97316;font-weight:700;">→ 動画画面に焼き込み・視聴継続率 ★★★</span></span>'
-                '<span style="color:#cbd5e1;">｜</span>'
-                '<span>📄 説明文 <span style="color:#94a3b8;">→ YouTube概要欄・SEO ★★</span></span>'
-                '<span style="color:#cbd5e1;">｜</span>'
-                '<span>＃ ハッシュタグ <span style="color:#94a3b8;">→ YouTube概要欄・SEO ★</span></span>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
 
             # 編集フォーム
             r1, r2, r3, r4 = st.columns([1, 1, 1, 0.5])
