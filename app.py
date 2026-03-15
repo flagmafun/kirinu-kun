@@ -2222,17 +2222,33 @@ def _show_stage_html(ph, html: str, height: int = 370) -> None:
 
 # ── Step1 解析ステージ用ローディングカード ─────────────────
 def _get_wait_note(elapsed: float) -> str:
-    """経過時間に応じた気遣いメッセージを返す"""
+    """経過時間に応じた気遣いメッセージを返す（汎用）"""
     if elapsed < 30:
         return ""
     elif elapsed < 90:
         return "⏳ 動画のサイズによっては数分かかる場合があります"
     elif elapsed < 180:
-        return "☕ まだ処理中です。コーヒーでも飲みながらお待ちください"
+        return "☕ コーヒーでも飲みながらお待ちください。まだ処理中です"
     elif elapsed < 360:
         return "🙏 もう少しかかります。ページを閉じないでください"
     else:
-        return "💪 完了まで今しばらくお待ちください。頑張ってます！"
+        return "💪 頑張ってます！完了まで今しばらくお待ちください"
+
+
+def _get_dl_context_note(elapsed: float, speed_mbps: float = 0.0) -> str:
+    """ダウンロード中の気遣いメッセージ（通信速度・経過時間を考慮）"""
+    if elapsed < 20:
+        return ""
+    if 0 < speed_mbps < 0.5:
+        return f"📡 通信速度が遅めです（{speed_mbps:.1f} MB/s）。動画が長いほど待ち時間が増えます ☕"
+    elif elapsed < 60:
+        return "⏳ 動画の長さや通信環境によって待ち時間が変わります"
+    elif elapsed < 180:
+        return "☕ 長い動画ほど時間がかかります。コーヒーでも飲みながらお待ちください"
+    elif elapsed < 360:
+        return "🙏 まだ処理中です。ページを閉じないでください"
+    else:
+        return "💪 長い動画はどうしても時間がかかります。もう少しです！"
 
 
 def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
@@ -5586,24 +5602,83 @@ def _run_pipeline(clips: list, sched: dict):
 
             _dl_th.Thread(target=_dl_worker, daemon=True).start()
             _dl_ph = st.empty()
-            _dl_t0 = _dl_time.time()
-            _DL_TIMEOUT = 900  # 15分
+            _dl_t0       = _dl_time.time()
+            _output_raw  = _user_out / "raw"
+            _output_raw.mkdir(parents=True, exist_ok=True)
+            _last_size      = 0
+            _last_size_time = _dl_t0
+            _prev_size      = 0
+            _prev_speed_t   = _dl_t0
+            _speed_mbps     = 0.0
+            _STALL_TIMEOUT  = 300   # 5分間サイズ変化なし = ハング
+            _ABS_TIMEOUT    = 7200  # 2時間の絶対上限
 
             while not _dl_ev.wait(timeout=5.0):
-                _el = _dl_time.time() - _dl_t0
-                if _el > _DL_TIMEOUT:
+                _now = _dl_time.time()
+                _el  = _now - _dl_t0
+
+                # 絶対タイムアウト（2時間）
+                if _el > _ABS_TIMEOUT:
                     _dl_res[1] = RuntimeError(
-                        "ダウンロードが 15 分を超えたため中断しました。\n"
-                        "動画が非常に長いか、接続が不安定です。\n"
-                        "しばらく待ってからもう一度お試しください。"
+                        "2時間を超えたため中断しました。\n"
+                        "動画が非常に長いか、通信環境が極めて不安定です。"
                     )
                     _dl_ev.set()
                     break
+
+                # .part ファイル含む全ファイルサイズを監視
+                _cur_size = 0
+                if _output_raw.exists():
+                    for _f in _output_raw.iterdir():
+                        try:
+                            _cur_size += _f.stat().st_size
+                        except OSError:
+                            pass
+
+                # 速度計算（5秒ごと更新）
+                _dt = _now - _prev_speed_t
+                if _dt >= 5.0:
+                    _speed_mbps   = (_cur_size - _prev_size) / _dt / 1_048_576
+                    _prev_size    = _cur_size
+                    _prev_speed_t = _now
+
+                # 進捗があればタイマーリセット
+                if _cur_size > _last_size:
+                    _last_size      = _cur_size
+                    _last_size_time = _now
+
+                _stall_sec = _now - _last_size_time
+
+                # 5分間停止 = 本当にハング
+                if _stall_sec > _STALL_TIMEOUT and _last_size > 0:
+                    _dl_res[1] = RuntimeError(
+                        "ダウンロードが5分間停止しました。\n"
+                        "通信が切断されたか、サーバーが応答していません。\n"
+                        "接続を確認してもう一度お試しください。"
+                    )
+                    _dl_ev.set()
+                    break
+
+                # UI 更新
+                _size_mb = _cur_size // 1_048_576
+                if _stall_sec > 30 and _last_size > 0:
+                    # 進捗が止まってきた
+                    _detail = f"⚠️ {int(_stall_sec//60)}分{int(_stall_sec%60)}秒間進捗なし... {_size_mb}MB 取得済み"
+                    _note   = "📡 通信が不安定かもしれません。そのままお待ちください"
+                elif _cur_size > 0 and _speed_mbps > 0.01:
+                    # 正常にダウンロード中
+                    _detail = f"取得中 {_size_mb}MB 完了（{_speed_mbps:.1f} MB/s）"
+                    _note   = _get_dl_context_note(_el, _speed_mbps)
+                else:
+                    # まだ接続中 or 開始直後
+                    _detail = f"YouTube に接続中... {int(_el)}秒"
+                    _note   = _get_wait_note(_el)
+
                 _show_stage_html(_dl_ph, _make_analysis_stage_html(
                     "動画のおいしいところ分析中",
-                    f"YouTube から動画を取得中... {int(_el//60)}分{int(_el%60):02d}秒",
-                    note=_get_wait_note(_el),
-                ), height=400)
+                    _detail,
+                    note=_note,
+                ), height=420)
 
             _dl_ph.empty()
 

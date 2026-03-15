@@ -348,12 +348,12 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
            "-o", output_template] + base + [url]
 
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=900)
+        # 2時間の絶対タイムアウト（UI側の5分ストール検知が先に発動するため余裕を持たせる）
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=7200)
     except subprocess.TimeoutExpired:
         raise RuntimeError(
-            "YouTube ダウンロードがタイムアウトしました（15分）。\n"
-            "動画が非常に長いか、接続が不安定です。\n"
-            "時間をおいて再試行してください。"
+            "YouTube ダウンロードが2時間を超えたため中断しました。\n"
+            "動画が非常に長いか、接続が極めて不安定です。"
         )
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
@@ -424,7 +424,7 @@ def download_video(url: str, output_dir: Path, progress_callback=None) -> Path:
                         "-o", output_template] + _fb_base + [url]
             print(f"[DL] fallback {_fb_name} 試行中...", flush=True)
             try:
-                _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600)
+                _fb_r = subprocess.run(_fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3600)
             except subprocess.TimeoutExpired:
                 _fb_errors[_fb_name] = "タイムアウト（10分超過）"
                 continue
