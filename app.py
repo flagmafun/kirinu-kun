@@ -2284,145 +2284,205 @@ def _get_dl_context_note(elapsed: float, speed_mbps: float = 0.0) -> str:
 
 
 def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
-    """3D 料理鍋アニメーションによるローディングカード。"""
+    """3D 料理鍋アニメーション + 目立つステータス表示のローディングカード。"""
     return f"""
 <style>
 @keyframes ck-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
-@keyframes ck-bubble{{0%{{transform:translateY(0) scale(.8);opacity:.9}}80%{{opacity:.4}}100%{{transform:translateY(-50px) scale(1.8);opacity:0}}}}
-@keyframes ck-steam{{0%{{transform:translateY(0) scaleX(1) rotate(0deg);opacity:.55}}100%{{transform:translateY(-70px) scaleX(.5) rotate(8deg);opacity:0}}}}
-@keyframes ck-bob{{0%,100%{{transform:translateY(0) rotate(-4deg)}}50%{{transform:translateY(-8px) rotate(4deg)}}}}
-@keyframes ck-sway{{0%,100%{{transform:translateX(0) rotate(-6deg)}}50%{{transform:translateX(5px) rotate(6deg)}}}}
+@keyframes ck-bubble{{0%{{transform:translateY(0) scale(.7);opacity:.95}}70%{{opacity:.5}}100%{{transform:translateY(-55px) scale(2);opacity:0}}}}
+@keyframes ck-steam{{0%{{transform:translateY(0) scaleX(1);opacity:.6}}50%{{transform:translateY(-35px) scaleX(1.3);opacity:.3}}100%{{transform:translateY(-75px) scaleX(.5);opacity:0}}}}
+@keyframes ck-bob{{0%,100%{{transform:translateY(0) rotate(-5deg) scale(1)}}50%{{transform:translateY(-10px) rotate(5deg) scale(1.1)}}}}
+@keyframes ck-sway{{0%,100%{{transform:translateX(0) rotate(-8deg)}}50%{{transform:translateX(6px) rotate(8deg)}}}}
 @keyframes ck-spin{{to{{transform:rotate(360deg)}}}}
-@keyframes ck-pulse{{0%,100%{{opacity:.5;transform:scale(.85)}}50%{{opacity:1;transform:scale(1.25)}}}}
-@keyframes ck-flicker{{0%,100%{{transform:scaleY(1) scaleX(1)}}50%{{transform:scaleY(1.12) scaleX(.92)}}}}
+@keyframes ck-pulse{{0%,100%{{opacity:.45;transform:scale(.8)}}50%{{opacity:1;transform:scale(1.3)}}}}
+@keyframes ck-flicker{{0%,100%{{transform:scaleY(1) scaleX(1);opacity:.85}}33%{{transform:scaleY(1.18) scaleX(.9);opacity:1}}66%{{transform:scaleY(.92) scaleX(1.05);opacity:.9}}}}
+@keyframes ck-ladle{{0%{{transform:rotate(-30deg) translateX(0)}}25%{{transform:rotate(10deg) translateX(8px)}}50%{{transform:rotate(40deg) translateX(12px)}}75%{{transform:rotate(10deg) translateX(8px)}}100%{{transform:rotate(-30deg) translateX(0)}}}}
+@keyframes ck-drip{{0%{{transform:translateY(0) scale(1);opacity:.9}}100%{{transform:translateY(30px) scale(.3);opacity:0}}}}
+@keyframes ck-float-in{{0%,100%{{transform:translateY(0) rotate(-5deg) scale(1)}}50%{{transform:translateY(-12px) rotate(5deg) scale(1.08)}}}}
+@keyframes ck-particle{{0%{{transform:translate(0,0) scale(1);opacity:.8}}100%{{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}}}
+@keyframes ck-status-pulse{{0%,100%{{opacity:.75}}50%{{opacity:1}}}}
+@keyframes ck-wave{{0%{{transform:scaleX(1)}}50%{{transform:scaleX(.96)}}100%{{transform:scaleX(1)}}}}
 .ck-card{{
-  background:radial-gradient(ellipse at 50% 10%,#2a1000 0%,#0a0400 75%);
-  border:1.5px solid rgba(251,146,60,.4);border-radius:18px;
-  padding:16px 14px 14px;
+  background:radial-gradient(ellipse at 50% 0%,#3a1400 0%,#0d0400 65%);
+  border:1.5px solid rgba(251,146,60,.45);border-radius:20px;
+  padding:18px 14px 16px;
   font-family:-apple-system,'Hiragino Sans',sans-serif;
   position:relative;overflow:hidden;text-align:center;
 }}
-.ck-glow{{position:absolute;border-radius:50%;pointer-events:none;filter:blur(45px);}}
-.ck-title{{font-size:15px;font-weight:800;margin-bottom:9px;
-  background:linear-gradient(90deg,#fbbf24,#f97316,#ef4444,#fbbf24);background-size:300%;
+.ck-glow{{position:absolute;border-radius:50%;pointer-events:none;filter:blur(50px);}}
+.ck-title{{font-size:16px;font-weight:800;margin-bottom:12px;
+  background:linear-gradient(90deg,#fbbf24,#f97316,#ef4444,#fb923c,#fbbf24);background-size:300%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  animation:ck-shimmer 2.5s linear infinite;}}
-.ck-badge{{
-  display:inline-flex;align-items:center;gap:7px;
-  background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.28);
-  border-radius:100px;padding:5px 15px;margin-bottom:11px;
-  font-size:11.5px;color:#fed7aa;font-weight:500;
-  max-width:290px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:ck-shimmer 2.2s linear infinite;}}
+.ck-status{{
+  margin:0 auto 12px;
+  background:rgba(251,146,60,.12);
+  border:1.5px solid rgba(251,146,60,.35);
+  border-radius:14px;padding:9px 18px;
+  font-size:13px;font-weight:700;color:#fed7aa;
+  line-height:1.5;max-width:320px;
+  animation:ck-status-pulse 2s ease-in-out infinite;
 }}
-.ck-dot{{width:6px;height:6px;border-radius:50%;background:#f97316;flex-shrink:0;
-  animation:ck-pulse 1.2s ease-in-out infinite;}}
-.ck-spinner{{width:20px;height:20px;border-radius:50%;
-  border:2.5px solid rgba(251,146,60,.2);border-top-color:#f97316;
-  animation:ck-spin .8s linear infinite;margin:0 auto;}}
-.ck-note{{font-size:11px;color:rgba(253,186,116,.85);margin-top:10px;
-  padding:5px 14px;background:rgba(251,146,60,.07);
-  border:1px solid rgba(251,146,60,.15);border-radius:10px;line-height:1.5;}}
+.ck-status-icon{{font-size:15px;margin-right:5px;}}
+.ck-spinner{{width:22px;height:22px;border-radius:50%;
+  border:3px solid rgba(251,146,60,.2);border-top-color:#f97316;
+  animation:ck-spin .75s linear infinite;margin:0 auto;}}
 </style>
 <div class="ck-card">
-  <div class="ck-glow" style="width:240px;height:140px;background:rgba(234,88,12,.18);top:-50px;left:50%;transform:translateX(-50%);"></div>
-  <div class="ck-glow" style="width:120px;height:120px;background:rgba(251,146,60,.12);bottom:-40px;right:-20px;"></div>
-  <div class="ck-glow" style="width:100px;height:100px;background:rgba(239,68,68,.1);bottom:-30px;left:-10px;"></div>
+  <div class="ck-glow" style="width:260px;height:160px;background:rgba(234,88,12,.22);top:-60px;left:50%;transform:translateX(-50%);"></div>
+  <div class="ck-glow" style="width:140px;height:140px;background:rgba(251,146,60,.15);bottom:-50px;right:-10px;"></div>
+  <div class="ck-glow" style="width:110px;height:110px;background:rgba(239,68,68,.12);bottom:-40px;left:-10px;"></div>
 
-  <svg viewBox="0 0 240 170" width="210" height="149" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block;margin:0 auto 4px;">
+  <svg viewBox="0 0 260 185" width="224" height="160" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block;margin:0 auto 6px;">
     <defs>
       <linearGradient id="pg-side" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#1c0800"/>
-        <stop offset="28%" stop-color="#4a1e06"/>
-        <stop offset="58%" stop-color="#6b2e0c"/>
-        <stop offset="100%" stop-color="#2a1000"/>
+        <stop offset="0%" stop-color="#1a0700"/>
+        <stop offset="22%" stop-color="#5a2508"/>
+        <stop offset="55%" stop-color="#7a3410"/>
+        <stop offset="85%" stop-color="#4a1c06"/>
+        <stop offset="100%" stop-color="#200900"/>
       </linearGradient>
       <linearGradient id="pg-rim" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#a07040"/>
-        <stop offset="50%" stop-color="#6b4820"/>
-        <stop offset="100%" stop-color="#3d2408"/>
+        <stop offset="0%" stop-color="#c09050"/>
+        <stop offset="45%" stop-color="#7a5228"/>
+        <stop offset="100%" stop-color="#3e2408"/>
       </linearGradient>
-      <radialGradient id="pg-liq" cx="48%" cy="42%">
-        <stop offset="0%" stop-color="#ff7c2a"/>
-        <stop offset="45%" stop-color="#e85504"/>
-        <stop offset="100%" stop-color="#7c1e00"/>
+      <radialGradient id="pg-liq" cx="45%" cy="38%">
+        <stop offset="0%" stop-color="#ff9040"/>
+        <stop offset="35%" stop-color="#f06010"/>
+        <stop offset="70%" stop-color="#c03a00"/>
+        <stop offset="100%" stop-color="#6a1500"/>
       </radialGradient>
-      <radialGradient id="pg-lhl" cx="38%" cy="32%">
-        <stop offset="0%" stop-color="rgba(255,220,120,.75)"/>
-        <stop offset="100%" stop-color="rgba(255,100,20,.0)"/>
+      <radialGradient id="pg-lhl" cx="35%" cy="28%">
+        <stop offset="0%" stop-color="rgba(255,240,150,.85)"/>
+        <stop offset="60%" stop-color="rgba(255,160,60,.3)"/>
+        <stop offset="100%" stop-color="rgba(255,80,0,.0)"/>
       </radialGradient>
-      <radialGradient id="pg-flame" cx="50%" cy="75%">
+      <radialGradient id="pg-flame1" cx="50%" cy="80%">
+        <stop offset="0%" stop-color="#fff9c4"/>
+        <stop offset="25%" stop-color="#ffb300"/>
+        <stop offset="60%" stop-color="#f44336"/>
+        <stop offset="100%" stop-color="rgba(183,28,28,0)"/>
+      </radialGradient>
+      <radialGradient id="pg-flame2" cx="50%" cy="70%">
         <stop offset="0%" stop-color="#fff59d"/>
-        <stop offset="35%" stop-color="#ff8f00"/>
+        <stop offset="40%" stop-color="#ff8f00"/>
         <stop offset="100%" stop-color="rgba(244,67,54,0)"/>
       </radialGradient>
       <linearGradient id="pg-lid" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#8a5828"/>
-        <stop offset="55%" stop-color="#5a3810"/>
-        <stop offset="100%" stop-color="#3a2408"/>
+        <stop offset="0%" stop-color="#9a6030"/>
+        <stop offset="50%" stop-color="#6a4018"/>
+        <stop offset="100%" stop-color="#3e2408"/>
       </linearGradient>
-      <filter id="pg-sh"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="rgba(0,0,0,.65)"/></filter>
-      <filter id="pg-gf"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="pg-ladle" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#d0d0d0"/>
+        <stop offset="100%" stop-color="#808080"/>
+      </linearGradient>
+      <filter id="pg-sh"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,.7)"/></filter>
+      <filter id="pg-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="pg-soft"><feGaussianBlur stdDeviation="1.5"/></filter>
     </defs>
 
-    <ellipse cx="120" cy="162" rx="78" ry="9" fill="rgba(0,0,0,.4)"/>
+    <!-- 地面の影 -->
+    <ellipse cx="130" cy="178" rx="85" ry="10" fill="rgba(0,0,0,.45)"/>
 
+    <!-- コンロの輝き -->
+    <ellipse cx="130" cy="167" rx="55" ry="10" fill="rgba(255,120,0,.18)" filter="url(#pg-soft)" style="animation:ck-wave 1.5s ease-in-out infinite;"/>
+
+    <!-- 炎 レイヤー3 (base) -->
+    <g style="animation:ck-flicker .5s ease-in-out infinite alternate .2s;">
+      <path d="M82,164 Q100,130 130,150 Q160,130 178,164" fill="url(#pg-flame1)" opacity=".9"/>
+    </g>
+    <!-- 炎 レイヤー2 -->
     <g style="animation:ck-flicker .35s ease-in-out infinite alternate;">
-      <ellipse cx="120" cy="150" rx="42" ry="7" fill="rgba(255,140,0,.14)"/>
-      <path d="M88,148 Q100,124 120,140 Q140,124 152,148" fill="url(#pg-flame)" opacity=".85"/>
-      <path d="M94,148 Q106,130 120,141 Q134,130 146,148" fill="rgba(255,240,80,.35)"/>
+      <path d="M88,164 Q105,138 130,152 Q155,138 172,164" fill="url(#pg-flame2)" opacity=".85"/>
+      <path d="M94,164 Q110,144 130,155 Q150,144 166,164" fill="rgba(255,245,100,.4)"/>
     </g>
-    <g style="animation:ck-flicker .28s ease-in-out infinite alternate .12s;">
-      <path d="M96,149 Q108,134 120,143 Q132,134 144,149" fill="url(#pg-flame)" opacity=".55"/>
+    <!-- 炎 レイヤー1 (top) -->
+    <g style="animation:ck-flicker .28s ease-in-out infinite alternate .1s;">
+      <path d="M97,165 Q113,148 130,157 Q147,148 163,165" fill="rgba(255,255,180,.5)"/>
     </g>
 
-    <ellipse cx="120" cy="148" rx="64" ry="13" fill="#1c0800" filter="url(#pg-sh)"/>
-    <path d="M56,148 Q56,92 68,86 L172,86 Q184,92 184,148 Z" fill="url(#pg-side)"/>
-    <path d="M68,86 L78,148" stroke="rgba(255,255,255,.05)" stroke-width="10" stroke-linecap="round"/>
-    <path d="M172,86 L162,148" stroke="rgba(0,0,0,.25)" stroke-width="10" stroke-linecap="round"/>
-    <ellipse cx="120" cy="86" rx="56" ry="15" fill="url(#pg-rim)" filter="url(#pg-sh)"/>
-    <ellipse cx="120" cy="83" rx="52" ry="11" fill="none" stroke="rgba(255,210,120,.3)" stroke-width="1.5"/>
+    <!-- 鍋本体 -->
+    <!-- 底楕円 -->
+    <ellipse cx="130" cy="163" rx="70" ry="14" fill="#180700" filter="url(#pg-sh)"/>
+    <!-- 側面 -->
+    <path d="M60,163 Q60,98 74,90 L186,90 Q200,98 200,163 Z" fill="url(#pg-side)"/>
+    <!-- 側面ハイライト・シャドウ -->
+    <path d="M74,90 L86,163" stroke="rgba(255,200,80,.08)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M186,90 L174,163" stroke="rgba(0,0,0,.3)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M130,90 L130,163" stroke="rgba(0,0,0,.08)" stroke-width="6"/>
+    <!-- 鍋の縁（リム） -->
+    <ellipse cx="130" cy="90" rx="62" ry="17" fill="url(#pg-rim)" filter="url(#pg-sh)"/>
+    <!-- リム ハイライト -->
+    <ellipse cx="130" cy="86" rx="57" ry="12" fill="none" stroke="rgba(255,220,130,.35)" stroke-width="2"/>
+    <ellipse cx="121" cy="84" rx="28" ry="6" fill="rgba(255,255,200,.1)"/>
 
-    <ellipse cx="120" cy="88" rx="50" ry="13" fill="url(#pg-liq)"/>
-    <ellipse cx="112" cy="85" rx="30" ry="8" fill="url(#pg-lhl)" opacity=".95"/>
-    <ellipse cx="120" cy="88" rx="50" ry="13" fill="none" stroke="rgba(255,200,80,.18)" stroke-width="1.5">
-      <animate attributeName="rx" values="50;47;50" dur="1.6s" repeatCount="indefinite"/>
-      <animate attributeName="ry" values="13;11.5;13" dur="1.6s" repeatCount="indefinite"/>
+    <!-- 液体 -->
+    <ellipse cx="130" cy="92" rx="55" ry="15" fill="url(#pg-liq)"/>
+    <ellipse cx="120" cy="88" rx="34" ry="10" fill="url(#pg-lhl)" opacity=".9"/>
+    <!-- 液面波紋アニメーション -->
+    <ellipse cx="130" cy="92" rx="55" ry="15" fill="none" stroke="rgba(255,180,60,.25)" stroke-width="2">
+      <animate attributeName="rx" values="55;51;55" dur="1.4s" repeatCount="indefinite"/>
+      <animate attributeName="ry" values="15;13;15" dur="1.4s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="130" cy="92" rx="38" ry="10" fill="none" stroke="rgba(255,220,100,.15)" stroke-width="1.5">
+      <animate attributeName="rx" values="38;35;38" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
+      <animate attributeName="ry" values="10;8;10" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
     </ellipse>
 
-    <path d="M62,100 Q32,94 30,108 Q28,122 62,118" stroke="url(#pg-rim)" stroke-width="11" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
-    <path d="M62,100 Q32,94 30,108 Q28,122 62,118" stroke="rgba(255,200,100,.2)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    <path d="M178,100 Q208,94 210,108 Q212,122 178,118" stroke="url(#pg-rim)" stroke-width="11" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
-    <path d="M178,100 Q208,94 210,108 Q212,122 178,118" stroke="rgba(255,200,100,.2)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <!-- 取っ手（左） -->
+    <path d="M66,108 Q32,100 30,116 Q28,132 66,128" stroke="url(#pg-rim)" stroke-width="12" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
+    <path d="M66,108 Q32,100 30,116 Q28,132 66,128" stroke="rgba(255,210,120,.25)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- 取っ手（右） -->
+    <path d="M194,108 Q228,100 230,116 Q232,132 194,128" stroke="url(#pg-rim)" stroke-width="12" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
+    <path d="M194,108 Q228,100 230,116 Q232,132 194,128" stroke="rgba(255,210,120,.25)" stroke-width="4" fill="none" stroke-linecap="round"/>
 
-    <ellipse cx="120" cy="78" rx="56" ry="15" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
-    <ellipse cx="111" cy="74" rx="30" ry="8" fill="rgba(255,255,255,.09)" transform="rotate(-8 111 74)"/>
-    <ellipse cx="120" cy="70" rx="14" ry="6" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
-    <ellipse cx="116" cy="68" rx="7" ry="3" fill="rgba(255,255,255,.12)"/>
+    <!-- 蓋 -->
+    <ellipse cx="130" cy="81" rx="62" ry="17" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
+    <ellipse cx="120" cy="76" rx="34" ry="10" fill="rgba(255,255,255,.1)" transform="rotate(-10 120 76)"/>
+    <ellipse cx="130" cy="71" rx="16" ry="7" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
+    <ellipse cx="125" cy="69" rx="8" ry="3.5" fill="rgba(255,255,200,.14)"/>
 
-    <circle cx="104" cy="86" r="4.5" fill="rgba(255,210,110,.75)" style="animation:ck-bubble 1.5s ease-out infinite;"/>
-    <circle cx="128" cy="84" r="3" fill="rgba(255,160,60,.85)" style="animation:ck-bubble 1.9s ease-out infinite .55s;"/>
-    <circle cx="114" cy="90" r="3.5" fill="rgba(255,230,130,.65)" style="animation:ck-bubble 1.3s ease-out infinite .2s;"/>
-    <circle cx="138" cy="87" r="4" fill="rgba(255,130,40,.7)" style="animation:ck-bubble 2.1s ease-out infinite 1s;"/>
-    <circle cx="96" cy="89" r="2.5" fill="rgba(255,200,80,.8)" style="animation:ck-bubble 1.7s ease-out infinite 1.3s;"/>
+    <!-- しゃもじ（お玉）-->
+    <g style="transform-origin:145px 75px;animation:ck-ladle 3s ease-in-out infinite;">
+      <line x1="145" y1="75" x2="162" y2="30" stroke="url(#pg-ladle)" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="162" cy="27" rx="9" ry="6" fill="url(#pg-ladle)" filter="url(#pg-glow)"/>
+      <ellipse cx="160" cy="25" rx="4" ry="2.5" fill="rgba(255,255,255,.4)"/>
+    </g>
 
-    <path d="M100,62 Q93,46 100,30 Q107,14 100,0" stroke="rgba(255,255,255,.22)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite;"/>
-    <path d="M120,60 Q113,42 120,26 Q127,10 120,-2" stroke="rgba(255,255,255,.18)" stroke-width="4.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite .7s;"/>
-    <path d="M140,62 Q133,46 140,30 Q147,16 140,2" stroke="rgba(255,255,255,.2)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite 1.4s;"/>
+    <!-- 泡 (多め・バリエーション) -->
+    <circle cx="112" cy="89" r="5" fill="rgba(255,220,120,.8)" style="animation:ck-bubble 1.4s ease-out infinite;"/>
+    <circle cx="134" cy="87" r="3.5" fill="rgba(255,170,60,.9)" style="animation:ck-bubble 1.8s ease-out infinite .5s;"/>
+    <circle cx="120" cy="94" r="4" fill="rgba(255,240,140,.7)" style="animation:ck-bubble 1.2s ease-out infinite .2s;"/>
+    <circle cx="148" cy="90" r="4.5" fill="rgba(255,130,40,.75)" style="animation:ck-bubble 2s ease-out infinite .9s;"/>
+    <circle cx="102" cy="92" r="3" fill="rgba(255,200,80,.85)" style="animation:ck-bubble 1.6s ease-out infinite 1.2s;"/>
+    <circle cx="155" cy="86" r="2.5" fill="rgba(255,180,60,.8)" style="animation:ck-bubble 1.3s ease-out infinite .7s;"/>
+    <circle cx="126" cy="96" r="2" fill="rgba(255,230,100,.7)" style="animation:ck-bubble 1.7s ease-out infinite 1.5s;"/>
+    <circle cx="142" cy="94" r="3" fill="rgba(255,150,50,.8)" style="animation:ck-bubble 2.2s ease-out infinite .3s;"/>
 
-    <text x="22" y="78" font-size="20" style="animation:ck-bob 2.3s ease-in-out infinite;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🥕</text>
-    <text x="186" y="72" font-size="18" style="animation:ck-bob 2.9s ease-in-out infinite .4s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🧅</text>
-    <text x="14" y="118" font-size="16" style="animation:ck-sway 3.1s ease-in-out infinite .9s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🌿</text>
-    <text x="192" y="122" font-size="17" style="animation:ck-bob 2.5s ease-in-out infinite 1.1s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🍖</text>
-    <text x="44" y="52" font-size="13" style="animation:ck-sway 3.6s ease-in-out infinite .3s;opacity:.85;">⭐</text>
-    <text x="178" y="46" font-size="11" style="animation:ck-sway 2.7s ease-in-out infinite .8s;opacity:.75;">✨</text>
-    <text x="60" y="36" font-size="10" style="animation:ck-bob 4s ease-in-out infinite 1.5s;opacity:.65;">🌶️</text>
-    <text x="158" y="34" font-size="10" style="animation:ck-sway 3.8s ease-in-out infinite .6s;opacity:.6;">🧄</text>
+    <!-- 蒸気 (ウェービー、3本) -->
+    <path d="M106,66 Q98,50 106,34 Q114,18 106,4" stroke="rgba(255,255,255,.28)" stroke-width="6" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite;"/>
+    <path d="M130,64 Q122,46 130,28 Q138,12 130,-2" stroke="rgba(255,240,200,.22)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite .65s;"/>
+    <path d="M154,66 Q146,48 154,32 Q162,18 154,4" stroke="rgba(255,255,255,.24)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite 1.3s;"/>
+
+    <!-- 浮遊食材 (大きく、動き多め) -->
+    <text x="16" y="82" font-size="22" style="animation:ck-float-in 2.4s ease-in-out infinite;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🥕</text>
+    <text x="202" y="76" font-size="20" style="animation:ck-float-in 3s ease-in-out infinite .4s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🧅</text>
+    <text x="6" y="128" font-size="18" style="animation:ck-sway 3.2s ease-in-out infinite .9s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));">🌿</text>
+    <text x="208" y="132" font-size="19" style="animation:ck-bob 2.6s ease-in-out infinite 1.1s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🍖</text>
+    <text x="32" y="54" font-size="17" style="animation:ck-float-in 3.8s ease-in-out infinite .6s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🌶️</text>
+    <text x="192" y="48" font-size="15" style="animation:ck-sway 3.5s ease-in-out infinite .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🧄</text>
+    <text x="14" y="165" font-size="14" style="animation:ck-bob 4.2s ease-in-out infinite 1.8s;opacity:.7;">🥬</text>
+    <text x="212" y="160" font-size="13" style="animation:ck-sway 4s ease-in-out infinite 1.2s;opacity:.7;">🍄</text>
+    <!-- 輝き -->
+    <text x="56" y="36" font-size="13" style="animation:ck-bob 3s ease-in-out infinite .2s;opacity:.8;">✨</text>
+    <text x="188" y="30" font-size="11" style="animation:ck-sway 2.8s ease-in-out infinite .7s;opacity:.7;">⭐</text>
+    <text x="24" y="100" font-size="10" style="animation:ck-bob 5s ease-in-out infinite 2s;opacity:.55;">🔥</text>
   </svg>
 
   <div class="ck-title">{title}</div>
-  {{'<div class="ck-badge"><span class="ck-dot"></span><span>' + detail + '</span></div>' if detail else ''}}
+  {f'<div class="ck-status"><span class="ck-status-icon">📡</span>{detail}</div>' if detail else ''}
   <div class="ck-spinner"></div>
-  {{'<div class="ck-note">' + note + '</div>' if note else ''}}
 </div>
 """
 
