@@ -248,7 +248,7 @@ def generate_clip_metadata(
 以下のJSON形式で出力してください（他の文章は不要）:
 {{
   "title": "タイトル（15〜25文字・何の話かを伝える）",
-  "catchphrase": "キャッチコピー（20〜30文字・なぜ今すぐ見るべきかを伝える）",
+  "catchphrase": "キャッチコピー（15文字以内・1行・改行なし）",
   "description": "3行以内の説明文（フック文+内容紹介+CTA）",
   "hashtags": "#Shorts #ショート動画 + 関連タグ計6個"
 }}

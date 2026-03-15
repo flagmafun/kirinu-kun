@@ -3446,6 +3446,7 @@ def _render_clip_preview(clip: dict, idx: int, video_id: str):
     border:1px solid rgba(255,255,255,0.22);
     padding:2px 10px; border-radius:20px;
     margin-bottom:7px; width:fit-content;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:92%;
   }}
   .title-text {{
     color:{theme["text"]};
