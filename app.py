@@ -2284,7 +2284,7 @@ def _get_dl_context_note(elapsed: float, speed_mbps: float = 0.0) -> str:
 
 
 def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
-    """3D 料理鍋アニメーション + 目立つステータス表示のローディングカード。"""
+    """3D 料理鍋アニメーション（蓋なし・食材が中で煮込まれている）+ ステータス表示のローディングカード。"""
     return f"""
 <style>
 @keyframes ck-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
@@ -2293,14 +2293,26 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
 @keyframes ck-bob{{0%,100%{{transform:translateY(0) rotate(-5deg) scale(1)}}50%{{transform:translateY(-10px) rotate(5deg) scale(1.1)}}}}
 @keyframes ck-sway{{0%,100%{{transform:translateX(0) rotate(-8deg)}}50%{{transform:translateX(6px) rotate(8deg)}}}}
 @keyframes ck-spin{{to{{transform:rotate(360deg)}}}}
-@keyframes ck-pulse{{0%,100%{{opacity:.45;transform:scale(.8)}}50%{{opacity:1;transform:scale(1.3)}}}}
 @keyframes ck-flicker{{0%,100%{{transform:scaleY(1) scaleX(1);opacity:.85}}33%{{transform:scaleY(1.18) scaleX(.9);opacity:1}}66%{{transform:scaleY(.92) scaleX(1.05);opacity:.9}}}}
-@keyframes ck-ladle{{0%{{transform:rotate(-30deg) translateX(0)}}25%{{transform:rotate(10deg) translateX(8px)}}50%{{transform:rotate(40deg) translateX(12px)}}75%{{transform:rotate(10deg) translateX(8px)}}100%{{transform:rotate(-30deg) translateX(0)}}}}
-@keyframes ck-drip{{0%{{transform:translateY(0) scale(1);opacity:.9}}100%{{transform:translateY(30px) scale(.3);opacity:0}}}}
+@keyframes ck-ladle{{0%{{transform:rotate(-25deg) translateX(0)}}25%{{transform:rotate(15deg) translateX(10px)}}50%{{transform:rotate(35deg) translateX(14px)}}75%{{transform:rotate(15deg) translateX(10px)}}100%{{transform:rotate(-25deg) translateX(0)}}}}
+@keyframes ck-drip{{0%{{transform:translateY(0) scale(1);opacity:.9}}100%{{transform:translateY(28px) scale(.3);opacity:0}}}}
 @keyframes ck-float-in{{0%,100%{{transform:translateY(0) rotate(-5deg) scale(1)}}50%{{transform:translateY(-12px) rotate(5deg) scale(1.08)}}}}
-@keyframes ck-particle{{0%{{transform:translate(0,0) scale(1);opacity:.8}}100%{{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}}}
 @keyframes ck-status-pulse{{0%,100%{{opacity:.75}}50%{{opacity:1}}}}
 @keyframes ck-wave{{0%{{transform:scaleX(1)}}50%{{transform:scaleX(.96)}}100%{{transform:scaleX(1)}}}}
+@keyframes ck-boil-up{{
+  0%,100%{{transform:translateY(0) rotate(0deg) scale(1);opacity:.85}}
+  25%{{transform:translateY(-16px) rotate(-12deg) scale(1.22);opacity:1}}
+  55%{{transform:translateY(-9px) rotate(7deg) scale(1.1);opacity:1}}
+  80%{{transform:translateY(-3px) rotate(-2deg) scale(1.03);opacity:.9}}
+}}
+@keyframes ck-boil-up2{{
+  0%,100%{{transform:translateY(0) rotate(3deg) scale(1);opacity:.8}}
+  30%{{transform:translateY(-20px) rotate(-9deg) scale(1.28);opacity:1}}
+  60%{{transform:translateY(-11px) rotate(11deg) scale(1.13);opacity:1}}
+  85%{{transform:translateY(-2px) rotate(2deg) scale(1.02);opacity:.9}}
+}}
+@keyframes ck-splash{{0%,100%{{transform:translateY(0) scale(1);opacity:.6}}50%{{transform:translateY(-8px) scale(1.5);opacity:0}}}}
+@keyframes ck-soup-glow{{0%,100%{{opacity:.7}}50%{{opacity:1}}}}
 .ck-card{{
   background:radial-gradient(ellipse at 50% 0%,#3a1400 0%,#0d0400 65%);
   border:1.5px solid rgba(251,146,60,.45);border-radius:20px;
@@ -2346,15 +2358,15 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
         <stop offset="45%" stop-color="#7a5228"/>
         <stop offset="100%" stop-color="#3e2408"/>
       </linearGradient>
-      <radialGradient id="pg-liq" cx="45%" cy="38%">
-        <stop offset="0%" stop-color="#ff9040"/>
-        <stop offset="35%" stop-color="#f06010"/>
-        <stop offset="70%" stop-color="#c03a00"/>
+      <radialGradient id="pg-liq" cx="40%" cy="35%">
+        <stop offset="0%" stop-color="#ff9d50"/>
+        <stop offset="30%" stop-color="#f06010"/>
+        <stop offset="65%" stop-color="#c03a00"/>
         <stop offset="100%" stop-color="#6a1500"/>
       </radialGradient>
       <radialGradient id="pg-lhl" cx="35%" cy="28%">
-        <stop offset="0%" stop-color="rgba(255,240,150,.85)"/>
-        <stop offset="60%" stop-color="rgba(255,160,60,.3)"/>
+        <stop offset="0%" stop-color="rgba(255,240,150,.9)"/>
+        <stop offset="55%" stop-color="rgba(255,160,60,.35)"/>
         <stop offset="100%" stop-color="rgba(255,80,0,.0)"/>
       </radialGradient>
       <radialGradient id="pg-flame1" cx="50%" cy="80%">
@@ -2368,18 +2380,14 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
         <stop offset="40%" stop-color="#ff8f00"/>
         <stop offset="100%" stop-color="rgba(244,67,54,0)"/>
       </radialGradient>
-      <linearGradient id="pg-lid" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#9a6030"/>
-        <stop offset="50%" stop-color="#6a4018"/>
-        <stop offset="100%" stop-color="#3e2408"/>
-      </linearGradient>
       <linearGradient id="pg-ladle" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#d0d0d0"/>
-        <stop offset="100%" stop-color="#808080"/>
+        <stop offset="0%" stop-color="#d8d8d8"/>
+        <stop offset="100%" stop-color="#787878"/>
       </linearGradient>
       <filter id="pg-sh"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,.7)"/></filter>
       <filter id="pg-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <filter id="pg-soft"><feGaussianBlur stdDeviation="1.5"/></filter>
+      <filter id="pg-food"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="rgba(160,50,0,.8)"/></filter>
     </defs>
 
     <!-- 地面の影 -->
@@ -2403,32 +2411,50 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
     </g>
 
     <!-- 鍋本体 -->
-    <!-- 底楕円 -->
     <ellipse cx="130" cy="163" rx="70" ry="14" fill="#180700" filter="url(#pg-sh)"/>
-    <!-- 側面 -->
     <path d="M60,163 Q60,98 74,90 L186,90 Q200,98 200,163 Z" fill="url(#pg-side)"/>
-    <!-- 側面ハイライト・シャドウ -->
     <path d="M74,90 L86,163" stroke="rgba(255,200,80,.08)" stroke-width="12" stroke-linecap="round"/>
     <path d="M186,90 L174,163" stroke="rgba(0,0,0,.3)" stroke-width="12" stroke-linecap="round"/>
-    <path d="M130,90 L130,163" stroke="rgba(0,0,0,.08)" stroke-width="6"/>
-    <!-- 鍋の縁（リム） -->
+
+    <!-- スープ（グツグツと輝く煮込みスープ） -->
+    <ellipse cx="130" cy="92" rx="55" ry="15" fill="url(#pg-liq)"/>
+    <ellipse cx="118" cy="87" rx="36" ry="10" fill="url(#pg-lhl)" opacity=".95"/>
+    <!-- スープ表面の輝きスポット -->
+    <ellipse cx="108" cy="88" rx="14" ry="5" fill="rgba(255,240,180,.18)" style="animation:ck-soup-glow 1.8s ease-in-out infinite;"/>
+    <!-- 液面波紋 -->
+    <ellipse cx="130" cy="92" rx="55" ry="15" fill="none" stroke="rgba(255,180,60,.3)" stroke-width="2.5">
+      <animate attributeName="rx" values="55;50;55" dur="1.2s" repeatCount="indefinite"/>
+      <animate attributeName="ry" values="15;12;15" dur="1.2s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="130" cy="92" rx="38" ry="10" fill="none" stroke="rgba(255,220,100,.18)" stroke-width="1.5">
+      <animate attributeName="rx" values="38;34;38" dur="1.6s" repeatCount="indefinite" begin="0.25s"/>
+      <animate attributeName="ry" values="10;8;10" dur="1.6s" repeatCount="indefinite" begin="0.25s"/>
+    </ellipse>
+
+    <!-- ★ 鍋の中で煮込まれている食材（蓋なし・リムより先に描いてフレーム効果）★ -->
+    <!-- 肉 🥩 -->
+    <text x="97" y="88" font-size="18" filter="url(#pg-food)" style="animation:ck-boil-up 2.1s ease-in-out infinite;">🥩</text>
+    <!-- にんじん 🥕 -->
+    <text x="127" y="85" font-size="16" filter="url(#pg-food)" style="animation:ck-boil-up2 2.8s ease-in-out infinite .55s;">🥕</text>
+    <!-- ブロッコリー 🥦 -->
+    <text x="149" y="87" font-size="16" filter="url(#pg-food)" style="animation:ck-boil-up 2.0s ease-in-out infinite 1.1s;">🥦</text>
+    <!-- たまねぎ 🧅 -->
+    <text x="112" y="90" font-size="15" filter="url(#pg-food)" style="animation:ck-boil-up2 3.2s ease-in-out infinite .3s;">🧅</text>
+    <!-- きのこ 🍄 -->
+    <text x="141" y="89" font-size="14" filter="url(#pg-food)" style="animation:ck-boil-up 2.6s ease-in-out infinite 1.8s;">🍄</text>
+    <!-- とうもろこし 🌽 -->
+    <text x="109" y="83" font-size="14" filter="url(#pg-food)" style="animation:ck-boil-up2 3.5s ease-in-out infinite .85s;">🌽</text>
+    <!-- スープの飛び跳ね粒 -->
+    <circle cx="110" cy="79" r="3.5" fill="rgba(255,140,30,.75)" style="animation:ck-splash 1.1s ease-out infinite .35s;"/>
+    <circle cx="150" cy="77" r="3" fill="rgba(255,100,20,.7)" style="animation:ck-splash 1.5s ease-out infinite .9s;"/>
+    <circle cx="130" cy="75" r="2.5" fill="rgba(255,180,60,.65)" style="animation:ck-splash .95s ease-out infinite .65s;"/>
+    <circle cx="120" cy="80" r="2" fill="rgba(255,220,100,.6)" style="animation:ck-splash 1.3s ease-out infinite 1.2s;"/>
+    <circle cx="142" cy="76" r="2" fill="rgba(255,160,50,.6)" style="animation:ck-splash 1.7s ease-out infinite .15s;"/>
+
+    <!-- 鍋の縁（リム）← 食材の上に描画してフレーム効果 -->
     <ellipse cx="130" cy="90" rx="62" ry="17" fill="url(#pg-rim)" filter="url(#pg-sh)"/>
-    <!-- リム ハイライト -->
     <ellipse cx="130" cy="86" rx="57" ry="12" fill="none" stroke="rgba(255,220,130,.35)" stroke-width="2"/>
     <ellipse cx="121" cy="84" rx="28" ry="6" fill="rgba(255,255,200,.1)"/>
-
-    <!-- 液体 -->
-    <ellipse cx="130" cy="92" rx="55" ry="15" fill="url(#pg-liq)"/>
-    <ellipse cx="120" cy="88" rx="34" ry="10" fill="url(#pg-lhl)" opacity=".9"/>
-    <!-- 液面波紋アニメーション -->
-    <ellipse cx="130" cy="92" rx="55" ry="15" fill="none" stroke="rgba(255,180,60,.25)" stroke-width="2">
-      <animate attributeName="rx" values="55;51;55" dur="1.4s" repeatCount="indefinite"/>
-      <animate attributeName="ry" values="15;13;15" dur="1.4s" repeatCount="indefinite"/>
-    </ellipse>
-    <ellipse cx="130" cy="92" rx="38" ry="10" fill="none" stroke="rgba(255,220,100,.15)" stroke-width="1.5">
-      <animate attributeName="rx" values="38;35;38" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
-      <animate attributeName="ry" values="10;8;10" dur="1.8s" repeatCount="indefinite" begin="0.3s"/>
-    </ellipse>
 
     <!-- 取っ手（左） -->
     <path d="M66,108 Q32,100 30,116 Q28,132 66,128" stroke="url(#pg-rim)" stroke-width="12" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
@@ -2437,47 +2463,46 @@ def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> s
     <path d="M194,108 Q228,100 230,116 Q232,132 194,128" stroke="url(#pg-rim)" stroke-width="12" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
     <path d="M194,108 Q228,100 230,116 Q232,132 194,128" stroke="rgba(255,210,120,.25)" stroke-width="4" fill="none" stroke-linecap="round"/>
 
-    <!-- 蓋 -->
-    <ellipse cx="130" cy="81" rx="62" ry="17" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
-    <ellipse cx="120" cy="76" rx="34" ry="10" fill="rgba(255,255,255,.1)" transform="rotate(-10 120 76)"/>
-    <ellipse cx="130" cy="71" rx="16" ry="7" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
-    <ellipse cx="125" cy="69" rx="8" ry="3.5" fill="rgba(255,255,200,.14)"/>
-
-    <!-- しゃもじ（お玉）-->
-    <g style="transform-origin:145px 75px;animation:ck-ladle 3s ease-in-out infinite;">
-      <line x1="145" y1="75" x2="162" y2="30" stroke="url(#pg-ladle)" stroke-width="4" stroke-linecap="round"/>
-      <ellipse cx="162" cy="27" rx="9" ry="6" fill="url(#pg-ladle)" filter="url(#pg-glow)"/>
-      <ellipse cx="160" cy="25" rx="4" ry="2.5" fill="rgba(255,255,255,.4)"/>
+    <!-- しゃもじ（お玉）— 蓋なしなのでスープに深くかき混ぜる -->
+    <g style="transform-origin:146px 84px;animation:ck-ladle 2.4s ease-in-out infinite;">
+      <line x1="146" y1="84" x2="168" y2="30" stroke="url(#pg-ladle)" stroke-width="4.5" stroke-linecap="round"/>
+      <ellipse cx="168" cy="27" rx="9" ry="6.5" fill="url(#pg-ladle)" filter="url(#pg-glow)"/>
+      <ellipse cx="166" cy="25" rx="4.5" ry="2.5" fill="rgba(255,255,255,.45)"/>
+      <!-- お玉に付いたスープの滴 -->
+      <circle cx="152" cy="70" r="2.5" fill="rgba(255,130,40,.8)" style="animation:ck-drip 1.3s ease-in infinite .2s;"/>
     </g>
 
-    <!-- 泡 (多め・バリエーション) -->
-    <circle cx="112" cy="89" r="5" fill="rgba(255,220,120,.8)" style="animation:ck-bubble 1.4s ease-out infinite;"/>
-    <circle cx="134" cy="87" r="3.5" fill="rgba(255,170,60,.9)" style="animation:ck-bubble 1.8s ease-out infinite .5s;"/>
-    <circle cx="120" cy="94" r="4" fill="rgba(255,240,140,.7)" style="animation:ck-bubble 1.2s ease-out infinite .2s;"/>
-    <circle cx="148" cy="90" r="4.5" fill="rgba(255,130,40,.75)" style="animation:ck-bubble 2s ease-out infinite .9s;"/>
-    <circle cx="102" cy="92" r="3" fill="rgba(255,200,80,.85)" style="animation:ck-bubble 1.6s ease-out infinite 1.2s;"/>
-    <circle cx="155" cy="86" r="2.5" fill="rgba(255,180,60,.8)" style="animation:ck-bubble 1.3s ease-out infinite .7s;"/>
-    <circle cx="126" cy="96" r="2" fill="rgba(255,230,100,.7)" style="animation:ck-bubble 1.7s ease-out infinite 1.5s;"/>
-    <circle cx="142" cy="94" r="3" fill="rgba(255,150,50,.8)" style="animation:ck-bubble 2.2s ease-out infinite .3s;"/>
+    <!-- 泡（活発・大量に） -->
+    <circle cx="110" cy="88" r="5.5" fill="rgba(255,220,120,.82)" style="animation:ck-bubble 1.1s ease-out infinite;"/>
+    <circle cx="133" cy="86" r="4.5" fill="rgba(255,170,60,.9)" style="animation:ck-bubble 1.5s ease-out infinite .35s;"/>
+    <circle cx="119" cy="93" r="5" fill="rgba(255,240,140,.72)" style="animation:ck-bubble .95s ease-out infinite .12s;"/>
+    <circle cx="148" cy="89" r="5.5" fill="rgba(255,130,40,.78)" style="animation:ck-bubble 1.7s ease-out infinite .65s;"/>
+    <circle cx="101" cy="91" r="4" fill="rgba(255,200,80,.86)" style="animation:ck-bubble 1.3s ease-out infinite .95s;"/>
+    <circle cx="157" cy="85" r="3.5" fill="rgba(255,180,60,.82)" style="animation:ck-bubble 1.0s ease-out infinite .5s;"/>
+    <circle cx="125" cy="95" r="3" fill="rgba(255,230,100,.72)" style="animation:ck-bubble 1.45s ease-out infinite 1.25s;"/>
+    <circle cx="143" cy="93" r="4" fill="rgba(255,150,50,.82)" style="animation:ck-bubble 1.9s ease-out infinite .22s;"/>
+    <circle cx="117" cy="84" r="2.5" fill="rgba(255,240,160,.78)" style="animation:ck-bubble .85s ease-out infinite .75s;"/>
+    <circle cx="138" cy="87" r="3" fill="rgba(255,200,80,.72)" style="animation:ck-bubble 1.25s ease-out infinite 1.55s;"/>
+    <circle cx="105" cy="86" r="2" fill="rgba(255,220,120,.68)" style="animation:ck-bubble 1.6s ease-out infinite 1.8s;"/>
 
-    <!-- 蒸気 (ウェービー、3本) -->
-    <path d="M106,66 Q98,50 106,34 Q114,18 106,4" stroke="rgba(255,255,255,.28)" stroke-width="6" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite;"/>
-    <path d="M130,64 Q122,46 130,28 Q138,12 130,-2" stroke="rgba(255,240,200,.22)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite .65s;"/>
-    <path d="M154,66 Q146,48 154,32 Q162,18 154,4" stroke="rgba(255,255,255,.24)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2s ease-out infinite 1.3s;"/>
+    <!-- 蒸気（4本、開口部から立ち上る） -->
+    <path d="M100,72 Q92,55 100,38 Q108,22 100,7" stroke="rgba(255,255,255,.32)" stroke-width="6.5" fill="none" stroke-linecap="round" style="animation:ck-steam 1.7s ease-out infinite;"/>
+    <path d="M116,68 Q108,50 116,31 Q124,14 116,0" stroke="rgba(255,240,200,.26)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 1.95s ease-out infinite .45s;"/>
+    <path d="M144,68 Q136,50 144,31 Q152,14 144,0" stroke="rgba(255,255,255,.30)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 1.65s ease-out infinite .95s;"/>
+    <path d="M160,72 Q152,55 160,37 Q168,21 160,6" stroke="rgba(255,200,150,.24)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.1s ease-out infinite 1.35s;"/>
 
-    <!-- 浮遊食材 (大きく、動き多め) -->
-    <text x="16" y="82" font-size="22" style="animation:ck-float-in 2.4s ease-in-out infinite;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🥕</text>
-    <text x="202" y="76" font-size="20" style="animation:ck-float-in 3s ease-in-out infinite .4s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🧅</text>
-    <text x="6" y="128" font-size="18" style="animation:ck-sway 3.2s ease-in-out infinite .9s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));">🌿</text>
-    <text x="208" y="132" font-size="19" style="animation:ck-bob 2.6s ease-in-out infinite 1.1s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🍖</text>
-    <text x="32" y="54" font-size="17" style="animation:ck-float-in 3.8s ease-in-out infinite .6s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🌶️</text>
-    <text x="192" y="48" font-size="15" style="animation:ck-sway 3.5s ease-in-out infinite .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🧄</text>
-    <text x="14" y="165" font-size="14" style="animation:ck-bob 4.2s ease-in-out infinite 1.8s;opacity:.7;">🥬</text>
-    <text x="212" y="160" font-size="13" style="animation:ck-sway 4s ease-in-out infinite 1.2s;opacity:.7;">🍄</text>
-    <!-- 輝き -->
-    <text x="56" y="36" font-size="13" style="animation:ck-bob 3s ease-in-out infinite .2s;opacity:.8;">✨</text>
-    <text x="188" y="30" font-size="11" style="animation:ck-sway 2.8s ease-in-out infinite .7s;opacity:.7;">⭐</text>
-    <text x="24" y="100" font-size="10" style="animation:ck-bob 5s ease-in-out infinite 2s;opacity:.55;">🔥</text>
+    <!-- 外側の浮遊食材デコレーション -->
+    <text x="14" y="78" font-size="22" style="animation:ck-float-in 2.4s ease-in-out infinite;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🥕</text>
+    <text x="202" y="72" font-size="20" style="animation:ck-float-in 3s ease-in-out infinite .4s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🧅</text>
+    <text x="4" y="128" font-size="18" style="animation:ck-sway 3.2s ease-in-out infinite .9s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));">🌿</text>
+    <text x="208" y="128" font-size="19" style="animation:ck-bob 2.6s ease-in-out infinite 1.1s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));">🍖</text>
+    <text x="26" y="48" font-size="17" style="animation:ck-float-in 3.8s ease-in-out infinite .6s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🌶️</text>
+    <text x="192" y="44" font-size="15" style="animation:ck-sway 3.5s ease-in-out infinite .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🧄</text>
+    <!-- 輝き・炎エフェクト -->
+    <text x="54" y="32" font-size="14" style="animation:ck-bob 3s ease-in-out infinite .2s;opacity:.85;">✨</text>
+    <text x="186" y="26" font-size="12" style="animation:ck-sway 2.8s ease-in-out infinite .7s;opacity:.75;">⭐</text>
+    <text x="18" y="98" font-size="11" style="animation:ck-bob 5s ease-in-out infinite 2s;opacity:.55;">🔥</text>
+    <text x="220" y="94" font-size="11" style="animation:ck-bob 4.5s ease-in-out infinite 1.5s;opacity:.5;">🔥</text>
   </svg>
 
   <div class="ck-title">{title}</div>
