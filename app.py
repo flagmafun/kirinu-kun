@@ -5146,21 +5146,6 @@ def step5():
         s["_pipeline_clips"] = []
         s["_pipeline_sched"] = {}
 
-        # ── 白モヤ対策: パイプライン開始前に全画面アニメを表示 ──
-        st.markdown("""<style>
-        section[data-testid="stMain"],
-        div[data-testid="stAppViewContainer"],
-        div[data-testid="stAppViewBlockContainer"],
-        div.stMainBlockContainer { background: #0d0400 !important; }
-        </style>""", unsafe_allow_html=True)
-        _ppl_total = max(len(_ppl_clips), 1)
-        _ppl_anim_ph = st.empty()
-        _show_stage_html(_ppl_anim_ph, _make_analysis_stage_html(
-            f"🎬 {_ppl_total}本のクリップを生成中...",
-            "動画のおいしいところを調理しています",
-            pct=0, remaining=None,
-        ), height=540)
-
         print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
         try:
             if _ppl_want_dl:
@@ -6366,6 +6351,7 @@ def _run_pipeline(clips: list, sched: dict):
         import time as _time
         import threading as _threading
         _clip_times_run = []  # 各クリップの実処理秒数（残り時間推定用）
+        _time_ph_r = st.empty()   # アニメ用プレースホルダ（ループ間で使い回す）
 
         for i, clip in (enumerate(clips) if _dl_ok else ()):
             pct  = i / len(clips)  # 開始時点の進捗
@@ -6432,7 +6418,6 @@ def _run_pipeline(clips: list, sched: dict):
                         done.set()
                 _cs_thread_r = _threading.Thread(target=_cs_worker_r, daemon=True)
                 _cs_thread_r.start()
-                _time_ph_r = st.empty()
                 _clip_t0_r = _time.time()
                 while not _cs_done_r.wait(timeout=1.0):
                     _el = _time.time() - _clip_t0_r
@@ -6604,6 +6589,7 @@ def _generate_pipeline(clips: list, sched: dict):
             import time as _time
             import threading as _threading
             _clip_times = []  # 各クリップの実処理秒数を記録（残り時間推定用）
+            _time_ph = st.empty()   # アニメ用プレースホルダ（ループ間で使い回す）
 
             for i, clip in enumerate(clips):
                 pct   = i / len(clips)   # 開始時点の進捗（完了したクリップ数ベース）
@@ -6680,7 +6666,6 @@ def _generate_pipeline(clips: list, sched: dict):
                     _cs_thread.start()
 
                     # 1秒ごとに残り時間を更新
-                    _time_ph  = st.empty()
                     _clip_t0  = _time.time()
                     while not _cs_done.wait(timeout=1.0):
                         _elapsed = _time.time() - _clip_t0
