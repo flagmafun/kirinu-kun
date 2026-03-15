@@ -3987,7 +3987,7 @@ def step3():
           <div class="ai-badge">🤖 AI生成</div>
         </div>
       </div>
-      <div class="ai-field" style="border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.04);">
+      <div class="ai-field">
         <div class="ai-field-icon">⚡</div>
         <div class="ai-field-body">
           <div class="ai-field-name">キャッチコピー</div>
@@ -3996,7 +3996,7 @@ def step3():
             <span class="ai-stars stars-high">★★★</span>
             <span class="ai-field-impact-label">視聴継続率に直結</span>
           </div>
-          <div class="ai-badge" style="background:rgba(251,191,36,.15);border-color:rgba(217,119,6,.4);color:#92400e;">🤖 AI生成</div>
+          <div class="ai-badge">🤖 AI生成</div>
         </div>
       </div>
       <div class="ai-field">
@@ -4029,49 +4029,9 @@ def step3():
 """, height=400)
 
     # ── ページ上部ナビゲーション ──
-    _ec_top3 = sum(1 for c in s.clips if c.get("enabled", True))
-
-    # 戻るボタン（小さめ）
     if st.button("← デザイン設定に戻る", key="back3_top"):
         s.step = 2
         st.rerun()
-
-    # 次のアクション選択（2択・同等の重み）
-    st.markdown(
-        '<p style="font-size:12px;color:#64748b;margin:10px 0 4px;font-weight:600;">'
-        '▼ クリップの使い方を選んでください</p>',
-        unsafe_allow_html=True,
-    )
-    _tnc3a, _tnc3b = st.columns(2)
-    with _tnc3a:
-        if st.button(
-            f"⬇️ ダウンロードして手動で使う（{_ec_top3}本）",
-            key="dl_only3_top",
-            type="primary", use_container_width=True,
-            disabled=_ec_top3 == 0,
-            help="動画ファイルをダウンロードして、自分で好きなタイミングに投稿できます",
-        ):
-            _now = datetime.now()
-            s.schedule = {
-                "start_date":  _now.strftime("%Y-%m-%d"),
-                "daily_times": ["09:00", "15:00", "21:00"],
-                "category_id": "22",
-            }
-            s["_download_only_mode"] = True
-            s.step = 5
-            st.rerun()
-        st.caption("動画ファイルを保存 → 好きなタイミングで投稿")
-    with _tnc3b:
-        if st.button(
-            f"📅 YouTubeに自動投稿する（{_ec_top3}本）",
-            key="next3_top",
-            type="primary", use_container_width=True,
-            disabled=_ec_top3 == 0,
-            help="投稿日時・タイトルを設定してYouTubeへ自動アップロードします",
-        ):
-            s.step = 4
-            st.rerun()
-        st.caption("投稿日時を設定 → YouTube に自動アップ")
 
     st.markdown("<hr style='margin:10px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
