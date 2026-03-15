@@ -638,6 +638,14 @@ html, body { overflow-x: hidden; }
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"] { overflow-x: hidden; max-width: 100vw; }
 
+/* Streamlitのローディング中の白モヤ（dimming）を防止 */
+[data-testid="stApp"] { opacity: 1 !important; }
+[data-testid="stMain"] { opacity: 1 !important; }
+.stApp { opacity: 1 !important; }
+/* Streamlit 実行中に body に追加される可能性のある opacity も無効化 */
+body[class*="loading"] [data-testid="stApp"],
+body[data-is-loading] [data-testid="stApp"] { opacity: 1 !important; }
+
 /* ── アプリヘッダー ── */
 .app-header {
   background:#ffffff;
@@ -5465,12 +5473,17 @@ def step5():
   }
   function attachBtn(){
     var par = window.parent.document;
-    // btn_generate ボタン（primary かつ generate キー）を探す
-    var btns = par.querySelectorAll('[data-testid="stButton"] button');
-    var btn = null;
-    for(var i=0;i<btns.length;i++){
-      if(btns[i].getAttribute('kind')==='primary' || btns[i].classList.contains('st-primary')){
-        btn = btns[i]; break;
+    // Streamlit 1.35+: data-testid="baseButton-primary"
+    // 旧バージョン fallback: kind="primary" 属性 or st-primary クラス
+    var btn = par.querySelector('[data-testid="baseButton-primary"]');
+    if(!btn){
+      var btns = par.querySelectorAll('[data-testid="stButton"] button');
+      for(var i=0;i<btns.length;i++){
+        var b = btns[i];
+        if(b.getAttribute('kind')==='primary' || b.classList.contains('st-primary')
+           || b.getAttribute('data-testid')==='baseButton-primary'){
+          btn = b; break;
+        }
       }
     }
     if(!btn){ setTimeout(attachBtn, 250); return; }
