@@ -5498,14 +5498,18 @@ def step5():
       <div class="cko-spinner"></div>`;
       d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;opacity:1;';
       par.body.appendChild(d);
-      // Streamlit の running 状態が終わったら自動除去
+      // Stop ボタンが「出現 → 消滅」した瞬間に除去（出現前に消えても誤判定しない）
+      var stopBtnSeen = false;
       var poll = setInterval(function(){
         var stopBtn = par.querySelector('button[aria-label="Stop"]');
-        if(!stopBtn){
+        if(stopBtn){
+          stopBtnSeen = true;  // Stopボタン確認 = パイプライン実行中
+        } else if(stopBtnSeen){
+          // 一度出現してから消えた = 処理完了
           removeOverlay();
           clearInterval(poll);
         }
-      }, 400);
+      }, 300);
       // 最大5分で強制除去（安全策）
       setTimeout(function(){ removeOverlay(); clearInterval(poll); }, 300000);
     }, {once: false});
@@ -5971,7 +5975,7 @@ def _run_pipeline(clips: list, sched: dict):
 
     _dl_ok   = False
     raw_path = None
-    with st.status("処理中...", expanded=True) as status:
+    with st.status("処理中...", expanded=False) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
@@ -6313,7 +6317,7 @@ def _generate_pipeline(clips: list, sched: dict):
     generated = []
     _dl_ok    = False  # ダウンロード成功フラグ（with内でreturnしないための制御変数）
 
-    with st.status("処理中...", expanded=True) as status:
+    with st.status("処理中...", expanded=False) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
