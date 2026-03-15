@@ -5098,6 +5098,21 @@ def step5():
         _ppl_sched   = s.get("_pipeline_sched", {})
         s["_pipeline_clips"] = []
         s["_pipeline_sched"] = {}
+
+        # ── 白モヤ対策: パイプライン開始前に全画面アニメを表示 ──
+        st.markdown("""<style>
+        section[data-testid="stMain"],
+        div[data-testid="stAppViewContainer"],
+        div[data-testid="stAppViewBlockContainer"],
+        div.stMainBlockContainer { background: #0d0400 !important; }
+        </style>""", unsafe_allow_html=True)
+        _clip_count_str = f"{len(_ppl_clips)}本" if _ppl_clips else ""
+        _ppl_anim_ph = st.empty()
+        _show_stage_html(_ppl_anim_ph, _make_analysis_stage_html(
+            f"🎬 {_clip_count_str}クリップを生成中...",
+            "動画のおいしいところを調理しています 🍳",
+        ), height=520)
+
         print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
         try:
             if _ppl_want_dl:
