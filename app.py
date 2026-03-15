@@ -4676,11 +4676,45 @@ def step4():
                 "STEP4の認証画面でトークンをリセットして再ログインしてください。",
             )
 
-    st.info(
-        "ℹ️ **関連動画**の手動設定はYouTube APIで廃止済みです。"
-        "動画の説明欄・エンドカード・固定コメントで関連動画へ誘導してください。",
-        icon=None,
-    )
+    # ── 関連動画リンク設定 ──────────────────────────────────────
+    st.markdown("")
+    st.markdown("### 🔗 関連動画リンク（説明欄に自動追加）")
+    st.caption("入力したURLが各クリップの説明欄末尾に「▼ 関連動画」として自動追記されます。")
+
+    # 保存済みURLを復元
+    _rv_saved = sched.get("related_video_urls") or [""]
+    _rv_count_key = "s4_related_count"
+    if _rv_count_key not in st.session_state:
+        st.session_state[_rv_count_key] = len(_rv_saved)
+
+    _rv_urls = []
+    for _ri in range(st.session_state[_rv_count_key]):
+        _rv_col_a, _rv_col_b = st.columns([10, 1])
+        with _rv_col_a:
+            _default_rv = _rv_saved[_ri] if _ri < len(_rv_saved) else ""
+            _rv_val = st.text_input(
+                f"関連動画 {_ri+1}",
+                value=_default_rv,
+                placeholder="https://youtu.be/xxxxxxxx  または  https://www.youtube.com/watch?v=xxxx",
+                key=f"s4_related_{_ri}",
+                label_visibility="collapsed" if _ri > 0 else "visible",
+            )
+            _rv_urls.append(_rv_val.strip())
+        with _rv_col_b:
+            if _ri == 0:
+                st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            if st.session_state[_rv_count_key] > 1:
+                if st.button("✕", key=f"s4_del_related_{_ri}", help="削除"):
+                    _rv_saved_new = [u for j, u in enumerate(_rv_saved) if j != _ri]
+                    sched["related_video_urls"] = _rv_saved_new
+                    st.session_state[_rv_count_key] = max(1, st.session_state[_rv_count_key] - 1)
+                    st.rerun()
+
+    if st.button("＋ 関連動画を追加", key="s4_add_related"):
+        st.session_state[_rv_count_key] += 1
+        st.rerun()
+
+    sched["related_video_urls"] = [u for u in _rv_urls if u]
 
     # プレビュー
     st.markdown("")
@@ -5924,7 +5958,9 @@ def _run_pipeline(clips: list, sched: dict):
             pct  = i / len(clips)  # 開始時点の進捗
             title = clip["title"] or f"Shorts {clip['index']}"
             hashtags = clip.get("hashtags", "#Shorts")
-            description = (clip.get("description","").strip() + "\n\n" + hashtags).strip()
+            _rv_links = sched.get("related_video_urls") or []
+            _rv_block = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links)) if _rv_links else ""
+            description = (clip.get("description","").strip() + "\n\n" + hashtags + _rv_block).strip()
             tags = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
             jst_dt = _clip_jst(i)
@@ -6133,7 +6169,9 @@ def _generate_pipeline(clips: list, sched: dict):
                 pct   = i / len(clips)   # 開始時点の進捗（完了したクリップ数ベース）
                 title = clip["title"] or f"Shorts {clip['index']}"
                 hashtags    = clip.get("hashtags", "#Shorts")
-                description = (clip.get("description", "").strip() + "\n\n" + hashtags).strip()
+                _rv_links2  = sched.get("related_video_urls") or []
+                _rv_block2  = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links2)) if _rv_links2 else ""
+                description = (clip.get("description", "").strip() + "\n\n" + hashtags + _rv_block2).strip()
                 tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
                 jst_dt = _clip_jst(i)
