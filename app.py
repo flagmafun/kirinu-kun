@@ -3606,18 +3606,11 @@ def step2():
     render_video_banner()
 
     # ── ページ上部ナビゲーション ──
-    _tnc2 = st.columns([1, 3])
-    with _tnc2[0]:
-        if st.button("🔄 新しい動画", key="back2_top"):
-            SESSION_FILE.unlink(missing_ok=True)
-            for k in ["step", "video_info", "clips", "results"]:
-                del st.session_state[k]
-            st.rerun()
-    with _tnc2[1]:
-        if st.button("クリップ確認へ →", key="next2_top",
-                     type="primary", use_container_width=True):
-            s.step = 3
-            st.rerun()
+    if st.button("🔄 新しい動画", key="back2_top"):
+        SESSION_FILE.unlink(missing_ok=True)
+        for k in ["step", "video_info", "clips", "results"]:
+            del st.session_state[k]
+        st.rerun()
     st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
 
