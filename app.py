@@ -3992,17 +3992,6 @@ def step3():
     _tnc3a, _tnc3b = st.columns(2)
     with _tnc3a:
         if st.button(
-            f"📅 YouTubeに自動投稿する（{_ec_top3}本）",
-            key="next3_top",
-            type="primary", use_container_width=True,
-            disabled=_ec_top3 == 0,
-            help="投稿日時・タイトルを設定してYouTubeへ自動アップロードします",
-        ):
-            s.step = 4
-            st.rerun()
-        st.caption("投稿日時を設定 → YouTube に自動アップ")
-    with _tnc3b:
-        if st.button(
             f"⬇️ ダウンロードして手動で使う（{_ec_top3}本）",
             key="dl_only3_top",
             type="primary", use_container_width=True,
@@ -4019,6 +4008,17 @@ def step3():
             s.step = 5
             st.rerun()
         st.caption("動画ファイルを保存 → 好きなタイミングで投稿")
+    with _tnc3b:
+        if st.button(
+            f"📅 YouTubeに自動投稿する（{_ec_top3}本）",
+            key="next3_top",
+            type="primary", use_container_width=True,
+            disabled=_ec_top3 == 0,
+            help="投稿日時・タイトルを設定してYouTubeへ自動アップロードします",
+        ):
+            s.step = 4
+            st.rerun()
+        st.caption("投稿日時を設定 → YouTube に自動アップ")
 
     st.markdown("<hr style='margin:10px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
@@ -4416,14 +4416,14 @@ def step3():
             r1, r2, r3, r4 = st.columns([1, 1, 1, 0.5])
             with r1:
                 clip["title"] = st.text_input(
-                    "📝 タイトル — YouTubeタイトル・クリック率",
+                    "📝 タイトル",
                     value=clip.get("title", ""),
                     key=f"title_{i}", placeholder="Shorts タイトル（〜40文字）",
                     help="YouTubeの動画タイトルに使われます。検索・おすすめ表示に直結するため再生数への影響が最も大きいフィールドです。",
                 )
             with r2:
                 clip["hashtags"] = st.text_input(
-                    "＃ ハッシュタグ — YouTube概要欄のタグ",
+                    "＃ ハッシュタグ",
                     value=clip.get("hashtags", "#Shorts"),
                     key=f"tags_{i}", placeholder="#AI活用 #Shorts",
                     help="YouTubeの概要欄に追加されるハッシュタグです。検索SEOの補助として機能します。",
@@ -4451,7 +4451,7 @@ def step3():
             cp_col, desc_col = st.columns([1, 2])
             with cp_col:
                 clip["catchphrase"] = st.text_input(
-                    "⚡ キャッチコピー — 動画画面に焼き込み",
+                    "⚡ キャッチコピー",
                     value=clip.get("catchphrase", ""),
                     key=f"catch_{i}",
                     placeholder="知らないと損！👀",
@@ -4460,7 +4460,7 @@ def step3():
                 )
             with desc_col:
                 clip["description"] = st.text_area(
-                    "📄 説明文 — YouTube概要欄に表示",
+                    "📄 説明文",
                     value=clip.get("description", ""),
                     key=f"desc_{i}", height=120, placeholder="説明文（省略可）",
                     help="YouTubeの概要欄に表示されるテキストです。SEO補助として機能します。",
