@@ -2657,7 +2657,7 @@ def step1():
   .yt-box-title{font-size:12px;font-weight:800;margin-bottom:8px;}
   .yt-ok .yt-box-title{color:#15803d;}
   .yt-ng .yt-box-title{color:#c2410c;}
-  .yt-item{font-size:11.5px;color:#374151;line-height:2;display:flex;align-items:center;gap:5px;}
+  .yt-item{font-size:11.5px;color:#374151;line-height:1.5;margin-bottom:4px;display:flex;align-items:center;gap:5px;}
   .yt-warn{
     margin-top:8px;background:#fffbeb;border:1.5px solid #fcd34d;
     border-radius:10px;padding:9px 14px;
@@ -2683,7 +2683,7 @@ def step1():
 <div class="yt-warn">
   💡 失敗した場合は「ファイルアップロード（推奨）」タブから動画ファイルを直接アップロードしてください。
 </div>
-""", height=185)
+""", height=250)
 
         _last_url = (s.video_info or {}).get("url", "")
         url = st.text_input(
