@@ -4308,17 +4308,36 @@ def step3():
                     unsafe_allow_html=True,
                 )
 
+            # フィールド凡例
+            st.markdown(
+                '<div style="font-size:10.5px;color:#64748b;margin:6px 0 10px;'
+                'display:flex;flex-wrap:wrap;gap:10px;line-height:1.6;">'
+                '<span>📝 タイトル <span style="color:#f97316;font-weight:700;">→ YouTube検索・クリック率 ★★★</span></span>'
+                '<span style="color:#cbd5e1;">｜</span>'
+                '<span>⚡ キャッチコピー <span style="color:#f97316;font-weight:700;">→ 動画画面に焼き込み・視聴継続率 ★★★</span></span>'
+                '<span style="color:#cbd5e1;">｜</span>'
+                '<span>📄 説明文 <span style="color:#94a3b8;">→ YouTube概要欄・SEO ★★</span></span>'
+                '<span style="color:#cbd5e1;">｜</span>'
+                '<span>＃ ハッシュタグ <span style="color:#94a3b8;">→ YouTube概要欄・SEO ★</span></span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
             # 編集フォーム
             r1, r2, r3, r4 = st.columns([1, 1, 1, 0.5])
             with r1:
                 clip["title"] = st.text_input(
-                    "📝 タイトル", value=clip.get("title", ""),
+                    "📝 タイトル — YouTubeタイトル・クリック率",
+                    value=clip.get("title", ""),
                     key=f"title_{i}", placeholder="Shorts タイトル（〜40文字）",
+                    help="YouTubeの動画タイトルに使われます。検索・おすすめ表示に直結するため再生数への影響が最も大きいフィールドです。",
                 )
             with r2:
                 clip["hashtags"] = st.text_input(
-                    "＃ ハッシュタグ", value=clip.get("hashtags", "#Shorts"),
+                    "＃ ハッシュタグ — YouTube概要欄のタグ",
+                    value=clip.get("hashtags", "#Shorts"),
                     key=f"tags_{i}", placeholder="#AI活用 #Shorts",
+                    help="YouTubeの概要欄に追加されるハッシュタグです。検索SEOの補助として機能します。",
                 )
             with r3:
                 st.markdown('<div class="sec-label">開始 / 終了（秒）</div>', unsafe_allow_html=True)
@@ -4343,17 +4362,19 @@ def step3():
             cp_col, desc_col = st.columns([1, 2])
             with cp_col:
                 clip["catchphrase"] = st.text_input(
-                    "⚡ キャッチコピー（タイトル上部）",
+                    "⚡ キャッチコピー — 動画画面に焼き込み",
                     value=clip.get("catchphrase", ""),
                     key=f"catch_{i}",
                     placeholder="知らないと損！👀",
                     max_chars=25,
-                    help="動画プレビューのタイトルエリア上部に表示される短いフレーズ（〜25文字）",
+                    help="動画の画面上部に直接焼き込まれるテキストです。視聴者が最初に目にするため、視聴継続率に大きく影響します。15文字以内推奨。",
                 )
             with desc_col:
                 clip["description"] = st.text_area(
-                    "説明文", value=clip.get("description", ""),
+                    "📄 説明文 — YouTube概要欄に表示",
+                    value=clip.get("description", ""),
                     key=f"desc_{i}", height=120, placeholder="説明文（省略可）",
+                    help="YouTubeの概要欄に表示されるテキストです。SEO補助として機能します。",
                 )
 
         with prev_col:
