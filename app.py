@@ -2631,7 +2631,7 @@ def step1():
                     # ステージ①: 動画情報取得
                     _anim1 = st.empty()
                     _show_stage_html(_anim1, _make_analysis_stage_html(
-                        "動画情報を取得中...", "YouTube から動画のメタ情報を取得しています"
+                        "動画のおいしいところ分析中", "YouTube から動画のメタ情報を取得しています"
                     ))
                     info = get_video_info(url.strip())
                     _anim1.empty()
@@ -2643,7 +2643,7 @@ def step1():
                     # ステージ②: 字幕取得
                     _anim2 = st.empty()
                     _show_stage_html(_anim2, _make_analysis_stage_html(
-                        "字幕を取得中...", "複数のクライアントで自動字幕を取得しています"
+                        "動画のおいしいところ分析中", "複数のクライアントで自動字幕を取得しています"
                     ))
                     tmp = OUTPUT_DIR / "transcript"
                     tmp.mkdir(parents=True, exist_ok=True)
@@ -3060,7 +3060,7 @@ def step1():
                         _fanim1 = st.empty()
                         if _f_input_method == "💻 ファイルをアップロード" and _f_uploaded_file is not None:
                             _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                "ファイルを保存中...", _f_uploaded_file.name
+                                "動画のおいしいところ分析中", _f_uploaded_file.name
                             ))
                             _fpath = _upload_dir / _f_uploaded_file.name
                             with open(_fpath, "wb") as _fp:
@@ -3079,7 +3079,7 @@ def step1():
                             if _gdrive_match:
                                 _file_id = _gdrive_match.group(1)
                                 _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                    "Google Drive からダウンロード中...",
+                                    "動画のおいしいところ分析中",
                                     "ファイルサイズに応じて数十秒かかります"
                                 ))
                                 import gdown as _gdown
@@ -3099,7 +3099,7 @@ def step1():
                                     )
                             else:
                                 _show_stage_html(_fanim1, _make_analysis_stage_html(
-                                    "動画をダウンロード中...", f"{_furl[:50]}..."
+                                    "動画のおいしいところ分析中", f"{_furl[:50]}..."
                                 ))
                                 import requests as _req
                                 _fname = _furl.split("?")[0].split("/")[-1] or "video.mp4"
@@ -3131,7 +3131,7 @@ def step1():
                         _est_min = max(1, int(_dur / 60))
                         _fanim2 = st.empty()
                         _show_stage_html(_fanim2, _make_analysis_stage_html(
-                            "音声を文字起こし中...",
+                            "動画のおいしいところ分析中",
                             f"動画 {int(_dur//60)}分{int(_dur%60)}秒 → 約 {_est_min}〜{_est_min*2} 分かかります"
                         ))
                         from core.transcriber import transcribe_file as _transcribe
@@ -3163,7 +3163,7 @@ def step1():
                         # ⑤ クリップ自動選定（ステージ専用 empty を作成）
                         _fanim3 = st.empty()
                         _show_stage_html(_fanim3, _make_analysis_stage_html(
-                            "AIがクリップを選定中...",
+                            "動画のおいしいところ分析中",
                             f"文字起こし {len(_ftranscript)} セグメントから {int(n_clips)} 本を抽出"
                         ))
                         from core.analyzer import auto_select_clips as _asc
