@@ -291,3 +291,26 @@ def upload_shorts(
             pass
 
     return video_id
+
+
+def post_comment(video_id: str, text: str, token_json: dict = None) -> str:
+    """動画にトップレベルコメントを投稿する。Returns comment_id."""
+    if token_json:
+        youtube, _ = get_youtube_service_from_token(token_json)
+    else:
+        youtube = get_youtube_service()
+
+    res = youtube.commentThreads().insert(
+        part="snippet",
+        body={
+            "snippet": {
+                "videoId": video_id,
+                "topLevelComment": {
+                    "snippet": {
+                        "textOriginal": text,
+                    }
+                }
+            }
+        }
+    ).execute()
+    return res.get("id", "")

@@ -4678,8 +4678,7 @@ def step4():
 
     # ── 関連動画リンク設定 ──────────────────────────────────────
     st.markdown("")
-    st.markdown("### 🔗 関連動画リンク（説明欄に自動追加）")
-    st.caption("入力したURLが各クリップの説明欄末尾に「▼ 関連動画」として自動追記されます。")
+    st.markdown("### 🔗 関連動画リンク")
 
     # 保存済みURLを復元
     _rv_saved = sched.get("related_video_urls") or [""]
@@ -4715,6 +4714,30 @@ def step4():
         st.rerun()
 
     sched["related_video_urls"] = [u for u in _rv_urls if u]
+
+    # 利用方法トグル
+    _has_urls = bool(sched["related_video_urls"])
+    _rv_opt_col1, _rv_opt_col2 = st.columns(2)
+    with _rv_opt_col1:
+        _add_to_desc = st.toggle(
+            "📄 説明欄に追記する",
+            value=bool(sched.get("related_add_desc", True)),
+            key="s4_rv_desc",
+            disabled=not _has_urls,
+            help="各クリップの説明欄末尾に「▼ 関連動画」として自動追記します",
+        )
+        sched["related_add_desc"] = _add_to_desc
+    with _rv_opt_col2:
+        _post_comment = st.toggle(
+            "💬 コメントに自動投稿する",
+            value=bool(sched.get("post_related_comment", False)),
+            key="s4_rv_comment",
+            disabled=not _has_urls,
+            help="アップロード直後に関連動画リンクをコメントとして投稿します",
+        )
+        sched["post_related_comment"] = _post_comment
+        if _post_comment:
+            st.caption("⚠️ ピン留めはYouTube Studioで手動操作が必要です（API非対応）")
 
     # プレビュー
     st.markdown("")
@@ -5959,7 +5982,7 @@ def _run_pipeline(clips: list, sched: dict):
             title = clip["title"] or f"Shorts {clip['index']}"
             hashtags = clip.get("hashtags", "#Shorts")
             _rv_links = sched.get("related_video_urls") or []
-            _rv_block = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links)) if _rv_links else ""
+            _rv_block = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links)) if (_rv_links and sched.get("related_add_desc", True)) else ""
             description = (clip.get("description","").strip() + "\n\n" + hashtags + _rv_block).strip()
             tags = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
@@ -6050,6 +6073,16 @@ def _run_pipeline(clips: list, sched: dict):
                     age_restricted=bool(sched.get("age_restricted", False)),
                     token_json=_yt_token,  # マルチユーザー: per-user token
                 )
+
+                # 関連動画コメント投稿
+                if sched.get("post_related_comment") and sched.get("related_video_urls"):
+                    try:
+                        from core.uploader import post_comment as _post_comment
+                        _rv_text = "▼ 関連動画\n" + "\n".join(sched["related_video_urls"])
+                        _post_comment(video_id, _rv_text, token_json=_yt_token)
+                        st.write("💬 関連動画リンクをコメントに投稿しました")
+                    except Exception as _ce:
+                        st.warning(f"⚠️ コメント投稿に失敗しました: {_ce}")
 
                 results.append({
                     "num": i+1, "title": title, "video_id": video_id,
@@ -6170,7 +6203,7 @@ def _generate_pipeline(clips: list, sched: dict):
                 title = clip["title"] or f"Shorts {clip['index']}"
                 hashtags    = clip.get("hashtags", "#Shorts")
                 _rv_links2  = sched.get("related_video_urls") or []
-                _rv_block2  = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links2)) if _rv_links2 else ""
+                _rv_block2  = ("\n\n▼ 関連動画\n" + "\n".join(_rv_links2)) if (_rv_links2 and sched.get("related_add_desc", True)) else ""
                 description = (clip.get("description", "").strip() + "\n\n" + hashtags + _rv_block2).strip()
                 tags        = [t.lstrip("#") for t in hashtags.split() if t.startswith("#")]
 
@@ -6377,6 +6410,17 @@ def _upload_pipeline():
                     age_restricted=bool(sched.get("age_restricted", False)),
                     token_json=_yt_token,
                 )
+
+                # 関連動画コメント投稿
+                if sched.get("post_related_comment") and sched.get("related_video_urls"):
+                    try:
+                        from core.uploader import post_comment as _post_comment2
+                        _rv_text2 = "▼ 関連動画\n" + "\n".join(sched["related_video_urls"])
+                        _post_comment2(video_id, _rv_text2, token_json=_yt_token)
+                        st.write("💬 関連動画リンクをコメントに投稿しました")
+                    except Exception as _ce2:
+                        st.warning(f"⚠️ コメント投稿に失敗しました: {_ce2}")
+
                 results.append({
                     "num":         clip["num"],
                     "title":       title,
