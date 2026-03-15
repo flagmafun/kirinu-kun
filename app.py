@@ -4312,14 +4312,15 @@ def step3():
     🤖 AI 未実行 — 精度が低い状態です
   </div>
   <div style="color:rgba(254,243,199,.85);font-size:11.5px;line-height:1.8;">
-    現在のタイトルは<strong style="color:#fbbf24;">基本ロジック</strong>で自動生成されています。<br>
+    <strong style="color:#fbbf24;">タイトル・キャッチコピー・説明文・ハッシュタグ</strong>が基本ロジックで自動生成されています。<br>
     AI で再生成すると：<br>
-    <span style="color:#fbbf24;">✦</span> バイラルになりやすいタイトルに改善<br>
-    <span style="color:#fbbf24;">✦</span> 視聴者の心に刺さるキャッチコピーに改善<br>
-    <span style="color:#fbbf24;">✦</span> 数字・フック・ターゲットを最適化
+    <span style="color:#fbbf24;">✦</span> タイトル — バイラルになりやすい表現に改善<br>
+    <span style="color:#fbbf24;">✦</span> キャッチコピー — 視聴者の心に刺さる一言に改善<br>
+    <span style="color:#fbbf24;">✦</span> 説明文 — 検索に強い構成に最適化<br>
+    <span style="color:#fbbf24;">✦</span> ハッシュタグ — 伸びるタグをAIが自動選定
   </div>
 </div>
-""", height=175)
+""", height=195)
 
         elif _ai_st.get("errors") and _ai_st.get("errors")[0].startswith("Anthropic API キー未設定"):
             st.warning("⚠️ Claude API キー未設定\nRailway の Variables に ANTHROPIC_API_KEY を設定してください")
