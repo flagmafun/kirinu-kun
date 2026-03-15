@@ -636,7 +636,16 @@ def create_shorts(
         print(f"[CREATE_SHORTS] cmd: {' '.join(str(c) for c in cmd)}", flush=True)
         import tempfile as _tf
         with _tf.TemporaryFile() as _stderr_tmp:
-            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=_stderr_tmp)
+            try:
+                result = subprocess.run(
+                    cmd, stdout=subprocess.DEVNULL, stderr=_stderr_tmp,
+                    timeout=600,  # FFmpegタイムアウト10分（正常は20〜60秒）
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(
+                    "ffmpeg が10分を超えてタイムアウトしました。\n"
+                    "動画が破損しているか、サーバーのリソースが不足している可能性があります。"
+                )
             _rc = result.returncode
             if _rc != 0:
                 _stderr_tmp.seek(0)

@@ -6463,32 +6463,51 @@ def _generate_pipeline(clips: list, sched: dict):
             print(f"[PIPELINE] ファイルアップロードモード: {raw_path}", flush=True)
             _dl_ok = True
         else:
-            print(f"[PIPELINE] ダウンロード開始: {video_info['url'][:60]}", flush=True)
-            _show_stage_html(_pipeline_anim_g, _make_analysis_stage_html(
-                "元動画をダウンロード中",
-                f"YouTube から動画を取得しています...（推定 {int(_gp_est_dl//60)+1} 分）",
-                pct=10,
-                remaining=float(_gp_est_total),
-            ), height=420)
-            try:
-                raw_path = download_video(video_info["url"], _user_out / "raw")
-                _pipeline_anim_g.empty()
-                print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
-                _dl_ok = True
-            except Exception as e:
-                print(f"[PIPELINE] ダウンロード失敗: {e}", flush=True)
-                err_msg = str(e)
+            # ダウンロードをスレッドで実行し、1秒ごとにアニメ更新（_run_pipelineと同方式）
+            import threading as _gp_th
+            import time as _gp_time
+            _gp_dl_res = [None, None]  # [path, error]
+            _gp_dl_ev  = _gp_th.Event()
+
+            def _gp_dl_worker(_url=video_info["url"], _out=_user_out / "raw"):
+                try:
+                    _gp_dl_res[0] = download_video(_url, _out)
+                except Exception as _de:
+                    _gp_dl_res[1] = _de
+                finally:
+                    _gp_dl_ev.set()
+
+            _gp_th.Thread(target=_gp_dl_worker, daemon=True).start()
+            _gp_t0 = _gp_time.time()
+            print(f"[PIPELINE] ダウンロード開始(thread): {video_info['url'][:60]}", flush=True)
+
+            while not _gp_dl_ev.wait(timeout=1.0):
+                _gp_el = _gp_time.time() - _gp_t0
+                _gp_pct  = min(29, int(_gp_el / max(1, _gp_est_dl) * 30))
+                _gp_rem  = max(0.0, _gp_est_dl - _gp_el) + len(clips) * _gp_est_enc
+                _show_stage_html(_pipeline_anim_g, _make_analysis_stage_html(
+                    "元動画をダウンロード中",
+                    f"YouTube から取得中... {int(_gp_el)}秒経過",
+                    pct=_gp_pct, remaining=_gp_rem,
+                ), height=420)
+
+            _pipeline_anim_g.empty()
+            if _gp_dl_res[1]:
+                err_msg = str(_gp_dl_res[1])
                 hint = ""
                 if "403" in err_msg or "IP制限" in err_msg:
                     _ck = CREDS_DIR / "cookies.txt"
                     if _ck.exists() and _ck.stat().st_size > 0:
-                        hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。cookies が期限切れの可能性があります。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
+                        hint = "\n\n⚠️ cookies は設定済みですが 403 エラーが発生しています。管理パネルの「🍪 YouTube Cookies 管理」から更新してください。"
                     else:
-                        hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から cookies を設定してください。"
-                _pipeline_anim_g.empty()
+                        hint = "\n\n💡 cookies が設定されていません。管理パネルの「🍪 YouTube Cookies 管理」から設定してください。"
+                print(f"[PIPELINE] ダウンロード失敗: {err_msg}", flush=True)
                 s["pipeline_error"] = f"ダウンロード失敗: {err_msg}{hint}"
                 status.update(label="ダウンロード失敗", state="error")
-                # ← return しない：with ブロックを自然に終了させる
+            else:
+                raw_path = _gp_dl_res[0]
+                print(f"[PIPELINE] ダウンロード完了: {raw_path}", flush=True)
+                _dl_ok = True
 
         if _dl_ok:
             s["raw_path"] = str(raw_path)

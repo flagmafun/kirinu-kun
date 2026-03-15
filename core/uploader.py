@@ -266,9 +266,28 @@ def upload_shorts(
         media_body=media,
     )
 
+    # チャンクアップロード（各チャンクに120秒タイムアウト）
+    import socket as _sock
+    _CHUNK_TIMEOUT = 120  # 1チャンク(5MB)のタイムアウト秒数
+    _MAX_RETRIES   = 10   # 最大リトライ回数
+    _retries = 0
     response = None
     while response is None:
-        _, response = request.next_chunk()
+        _old_timeout = _sock.getdefaulttimeout()
+        try:
+            _sock.setdefaulttimeout(_CHUNK_TIMEOUT)
+            _, response = request.next_chunk()
+        except (_sock.timeout, Exception) as _chunk_err:
+            _retries += 1
+            if _retries >= _MAX_RETRIES:
+                raise RuntimeError(
+                    f"アップロードが{_MAX_RETRIES}回リトライ後も失敗しました: {_chunk_err}\n"
+                    "通信環境を確認してください。"
+                )
+            print(f"[UPLOAD] チャンクエラー(retry {_retries}/{_MAX_RETRIES}): {_chunk_err}", flush=True)
+            import time as _utime; _utime.sleep(3)
+        finally:
+            _sock.setdefaulttimeout(_old_timeout)
 
     video_id = response["id"]
 
