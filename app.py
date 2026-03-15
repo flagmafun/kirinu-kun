@@ -3887,7 +3887,8 @@ def step2():
     if st.button("🔄 新しい動画", key="back2_top"):
         SESSION_FILE.unlink(missing_ok=True)
         for k in ["step", "video_info", "clips", "results"]:
-            del st.session_state[k]
+            if k in st.session_state:
+                del st.session_state[k]
         st.rerun()
     st.markdown("<hr style='margin:6px 0 14px;border:none;border-top:1px solid #f1f5f9;'>",
                 unsafe_allow_html=True)
@@ -4192,7 +4193,8 @@ def step2():
         if st.button("🔄 新しい動画", key="back2"):
             SESSION_FILE.unlink(missing_ok=True)
             for k in ["step", "video_info", "clips", "results"]:
-                del st.session_state[k]
+                if k in st.session_state:
+                    del st.session_state[k]
             st.rerun()
     with col_next:
         if st.button(
@@ -5930,7 +5932,8 @@ def step5():
                       "pipeline_error","_pipeline_pending","_pipeline_ran",
                       "_pipeline_clips","_pipeline_sched","_pipeline_want_dl",
                       "_download_only_mode","_file_upload_mode"]:
-                del st.session_state[k]
+                if k in st.session_state:
+                    del st.session_state[k]
             st.rerun()
 
 
