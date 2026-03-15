@@ -3098,19 +3098,8 @@ def step1():
                 help="mp4, mov, avi, mkv, webm に対応しています",
             )
 
-        _f_video_title = st.text_input(
-            "動画タイトル（任意）",
-            placeholder="例：【完全解説】Pythonの使い方",
-            key="s1_file_title",
-            help="クリップのタイトル・説明文生成に使われます",
-        )
-        _f_description = st.text_area(
-            "動画の説明・内容メモ（任意）",
-            placeholder="例：この動画ではPythonの基本文法からWeb開発まで解説しています。特にfor文・関数・ライブラリの使い方が中心です。",
-            key="s1_file_desc",
-            height=80,
-            help="AIがクリップタイトル・説明文・採点を生成する際の参考にします。多いほど精度が上がります。",
-        )
+        _f_video_title = ""
+        _f_description = ""
 
         st.markdown("")
 
