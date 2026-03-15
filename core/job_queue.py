@@ -2,7 +2,7 @@
 同時実行スロット制御
 - Supabase の processing_jobs テーブルをセマフォとして使う
 - MAX_CONCURRENT 件まで同時実行を許可し、超えたらスロット確保に失敗
-- 30分以上 running のレコードは stale として自動解放
+- 10分以上 running のレコードは stale として自動解放（OOM即死を考慮して短めに設定）
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 
 MAX_CONCURRENT = 3    # 同時実行最大数
-STALE_MINUTES  = 30  # これより古い running は stale と見なす
+STALE_MINUTES  = 10  # これより古い running は stale と見なす（OOM即死を考慮して短めに）
 
 
 def _sb():
@@ -19,12 +19,22 @@ def _sb():
 
 
 def _cleanup_stale():
-    """30分以上 running のジョブを failed に更新する"""
+    """STALE_MINUTES 以上 running のジョブを failed に更新する"""
     cutoff = (datetime.utcnow() - timedelta(minutes=STALE_MINUTES)).isoformat()
     _sb().table("processing_jobs").update({
         "status":     "failed",
         "updated_at": datetime.utcnow().isoformat(),
     }).eq("status", "running").lt("started_at", cutoff).execute()
+
+
+def _cleanup_user_stale(user_id: str):
+    """同一ユーザーの running ジョブをすべて failed にする（新規実行開始前のクリーンアップ）。
+    Railway OOM 等でプロセスが強制終了した場合に release_slot が呼ばれず
+    ジョブが永続的に stuck するケースへの対処。"""
+    _sb().table("processing_jobs").update({
+        "status":     "failed",
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("status", "running").eq("user_id", str(user_id)).execute()
 
 
 def get_running_count() -> int:
@@ -42,7 +52,15 @@ def acquire_slot(user_id: str) -> str | None:
     実行スロットを確保する。
     成功 → job_id (str) を返す
     満杯 → None を返す
+
+    同一ユーザーの stuck ジョブは事前に解放する（OOM強制終了対策）。
     """
+    # 同一ユーザーのスタックジョブを先にクリーンアップ
+    try:
+        _cleanup_user_stale(user_id)
+    except Exception:
+        pass  # クリーンアップ失敗しても続行
+
     if get_running_count() >= MAX_CONCURRENT:
         return None
     job_id = str(uuid.uuid4())
