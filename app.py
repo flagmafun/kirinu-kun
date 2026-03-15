@@ -5106,12 +5106,13 @@ def step5():
         div[data-testid="stAppViewBlockContainer"],
         div.stMainBlockContainer { background: #0d0400 !important; }
         </style>""", unsafe_allow_html=True)
-        _clip_count_str = f"{len(_ppl_clips)}本" if _ppl_clips else ""
+        _ppl_total = max(len(_ppl_clips), 1)
         _ppl_anim_ph = st.empty()
-        _show_stage_html(_ppl_anim_ph, _make_analysis_stage_html(
-            f"🎬 {_clip_count_str}クリップを生成中...",
-            "動画のおいしいところを調理しています 🍳",
-        ), height=520)
+        _show_stage_html(_ppl_anim_ph, _make_loading_html(
+            clip_num=1, total_clips=_ppl_total,
+            elapsed=0, remaining=None,
+            clip_title="準備中...",
+        ), height=600)
 
         print(f"[STEP5] want_dl={_ppl_want_dl}, clips数={len(_ppl_clips)}", flush=True)
         try:
