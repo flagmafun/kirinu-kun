@@ -2951,6 +2951,8 @@ def step1():
                         "動画のおいしいところ分析中", "YouTube から動画のメタ情報を取得しています",
                         pct=10, remaining=None,
                     ), height=520)
+                    import time as _t_ana
+                    _ana_t0 = _t_ana.time()
                     info = get_video_info(url.strip())
                     _anim1.empty()
                     s.video_info = info
@@ -2958,11 +2960,19 @@ def step1():
                     st.write(f"✅ 動画タイトル: **{info['title'][:60]}**")
                     st.write(f"⏱ 尺: {int(info['duration']//60)}分{int(info['duration']%60)}秒")
 
+                    # 動画尺から解析全体の残り時間を推定
+                    _ana_dur  = info.get("duration", 0) or 0
+                    # 字幕取得: 動画尺の1%（最短15秒、最長120秒）
+                    _est_tr   = max(15.0, min(120.0, _ana_dur * 0.01))
+                    # AI選定: セグメント数未知なので固定40秒推定
+                    _est_ai   = 40.0
+                    _elapsed_so_far = _t_ana.time() - _ana_t0
+
                     # ステージ②: 字幕取得
                     _anim2 = st.empty()
                     _show_stage_html(_anim2, _make_analysis_stage_html(
                         "動画のおいしいところ分析中", "複数のクライアントで自動字幕を取得しています",
-                        pct=35, remaining=None,
+                        pct=35, remaining=float(_est_tr + _est_ai),
                     ), height=520)
                     tmp = OUTPUT_DIR / "transcript"
                     tmp.mkdir(parents=True, exist_ok=True)
@@ -2987,11 +2997,13 @@ def step1():
                     # ── AI選定ローディングアニメーション ──
                     _seg_count = len(transcript) if transcript else 0
                     _nc = int(n_clips)
+                    # AI処理時間: セグメント数から推定（1セグ≒0.3秒、最短20秒）
+                    _est_ai2 = max(20.0, _seg_count * 0.3)
                     _anim3 = st.empty()
                     _show_stage_html(_anim3, _make_analysis_stage_html(
                         "AIがおいしいところを選んでいます",
                         f"字幕 {_seg_count} セグメントから {_nc} 本を抽出中...",
-                        pct=65, remaining=None,
+                        pct=65, remaining=float(_est_ai2),
                     ), height=520)
     
                     clips = auto_select_clips(
@@ -5541,25 +5553,35 @@ def step5():
       par.body.appendChild(d);
       // リングゲージと残り時間を経過時間ベースで更新
       var _cko_start   = Date.now();
-      var _cko_max_pct = 85;         // 最大85%（完了まで自動で100%にしない）
       var _cko_full_ms = __EST_MS__; // Python側で計算した推定時間(ms)
+      var _cko_extra_pct = 85;       // 推定時間内での最大%（超過後はゆっくり増加）
       function _cko_update(){
-        var elapsed  = Date.now() - _cko_start;
-        var pct      = Math.min(_cko_max_pct, Math.round(elapsed / _cko_full_ms * _cko_max_pct));
-        var rem_sec  = Math.max(0, (_cko_full_ms - elapsed) / 1000);
-        var pctEl    = par.getElementById('cko-ring-pct');
-        var remEl    = par.getElementById('cko-ring-rem');
-        var arcEl    = par.getElementById('cko-ring-arc');
+        var elapsed = Date.now() - _cko_start;
+        var pct, rem_sec;
+        if(elapsed <= _cko_full_ms){
+          // 推定時間内: 0→85%
+          pct     = Math.round(elapsed / _cko_full_ms * _cko_extra_pct);
+          rem_sec = Math.max(0, (_cko_full_ms - elapsed) / 1000);
+        } else {
+          // 推定時間超過: 85→99%にゆっくり増加（10秒で+0.5%）
+          var over = (elapsed - _cko_full_ms) / 1000;
+          pct     = Math.min(99, Math.round(_cko_extra_pct + over / 10 * 0.5));
+          rem_sec = 0;
+        }
+        var pctEl = par.getElementById('cko-ring-pct');
+        var remEl = par.getElementById('cko-ring-rem');
+        var arcEl = par.getElementById('cko-ring-arc');
         if(pctEl) pctEl.textContent = pct + '%';
         if(arcEl) arcEl.style.strokeDashoffset = String(289 * (1 - pct / 100));
         if(remEl){
           if(elapsed < 3000){
-            // 最初の3秒は計算中
-            var rm0 = Math.floor(rem_sec / 60), rs0 = Math.floor(rem_sec % 60);
-            remEl.textContent = rm0 > 0 ? '残り約' + rm0 + '分' + String(rs0).padStart(2,'0') + '秒（推定）' : '残り約' + Math.floor(rem_sec) + '秒（推定）';
+            var rm0 = Math.floor(rem_sec/60), rs0 = Math.floor(rem_sec%60);
+            remEl.textContent = rm0 > 0 ? '残り約'+rm0+'分'+String(rs0).padStart(2,'0')+'秒（推定）' : '残り約'+Math.floor(rem_sec)+'秒（推定）';
+          } else if(rem_sec > 0){
+            var rm = Math.floor(rem_sec/60), rs = Math.floor(rem_sec%60);
+            remEl.textContent = rm > 0 ? '残り約'+rm+'分'+String(rs).padStart(2,'0')+'秒' : '残り約'+Math.floor(rem_sec)+'秒';
           } else {
-            var rm = Math.floor(rem_sec / 60), rs = Math.floor(rem_sec % 60);
-            remEl.textContent = rm > 0 ? '残り約' + rm + '分' + String(rs).padStart(2,'0') + '秒' : '残り約' + Math.floor(rem_sec) + '秒';
+            remEl.textContent = 'もう少しかかっています... しばらくお待ちください';
           }
         }
       }
@@ -6268,8 +6290,16 @@ def _run_pipeline(clips: list, sched: dict):
                 _cs_thread_r = _threading.Thread(target=_cs_worker_r, daemon=True)
                 _cs_thread_r.start()
                 _clip_t0_r = _time.time()
+                _MAX_CLIP_SEC = 600  # クリップ変換タイムアウト（10分）
                 while not _cs_done_r.wait(timeout=1.0):
                     _el = _time.time() - _clip_t0_r
+                    if _el > _MAX_CLIP_SEC:
+                        _cs_result_r[0] = TimeoutError(
+                            f"クリップ変換が{_MAX_CLIP_SEC//60}分を超えてタイムアウトしました。"
+                            "動画が長すぎるか、サーバーのメモリが不足している可能性があります。"
+                        )
+                        _cs_done_r.set()
+                        break
                     if _avg_sec_r is not None:
                         _tr_r = max(0.0, _avg_sec_r - _el) + _avg_sec_r * (len(clips) - i - 1)
                         _rem_r = _tr_r
@@ -6538,8 +6568,16 @@ def _generate_pipeline(clips: list, sched: dict):
 
                     # 1秒ごとに残り時間を更新
                     _clip_t0  = _time.time()
+                    _MAX_CLIP_SEC2 = 600  # クリップ変換タイムアウト（10分、正常なら20〜60秒で完了）
                     while not _cs_done.wait(timeout=1.0):
                         _elapsed = _time.time() - _clip_t0
+                        if _elapsed > _MAX_CLIP_SEC2:
+                            _cs_result[0] = TimeoutError(
+                                f"クリップ変換が{_MAX_CLIP_SEC2//60}分を超えてタイムアウトしました。"
+                                "動画が長すぎるか、サーバーのメモリが不足している可能性があります。"
+                            )
+                            _cs_done.set()
+                            break
                         if _avg_sec is not None:
                             _this_rem = max(0.0, _avg_sec - _elapsed)
                             _rest_rem = _avg_sec * (len(clips) - i - 1)
