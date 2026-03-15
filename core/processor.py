@@ -641,14 +641,16 @@ def create_shorts(
             if _rc != 0:
                 _stderr_tmp.seek(0)
                 err = _stderr_tmp.read().decode("utf-8", errors="replace")
-            print(f"[CREATE_SHORTS] ffmpeg FAILED rc={_rc}", flush=True)
-            print(f"[CREATE_SHORTS] ffmpeg stderr:\n{err[:3000]}", flush=True)
-            # 先頭と末尾の両方を表示（中間が切れても原因が見える）
-            if len(err) > 800:
-                err_display = err[:400] + "\n...\n" + err[-400:]
+                print(f"[CREATE_SHORTS] ffmpeg FAILED rc={_rc}", flush=True)
+                print(f"[CREATE_SHORTS] ffmpeg stderr:\n{err[:3000]}", flush=True)
+                # 先頭と末尾の両方を表示（中間が切れても原因が見える）
+                if len(err) > 800:
+                    err_display = err[:400] + "\n...\n" + err[-400:]
+                else:
+                    err_display = err
+                raise RuntimeError(f"ffmpeg失敗 (rc={_rc}): {err_display}")
             else:
-                err_display = err
-            raise RuntimeError(f"ffmpeg失敗 (rc={_rc}): {err_display}")
+                print(f"[CREATE_SHORTS] ffmpeg 成功 rc=0 → {output_path}", flush=True)
 
     finally:
         if frame_jpg and Path(frame_jpg).exists():
