@@ -3879,10 +3879,10 @@ def step3():
   body{margin:0;padding:0;font-family:-apple-system,'Hiragino Sans',sans-serif;}
   .s3-wrap{padding:4px 0 0;}
   .s3-heading{font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px;}
-  .s3-sub{font-size:13px;color:#64748b;margin-bottom:18px;}
+  .s3-sub{font-size:14px;color:#475569;margin-bottom:18px;}
   .ai-banner{
-    background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);
-    border:1px solid rgba(139,92,246,.35);
+    background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 55%,#faf5ff 100%);
+    border:2px solid rgba(139,92,246,.3);
     border-radius:16px;padding:18px 20px 16px;position:relative;overflow:hidden;
     margin-bottom:4px;
   }
@@ -3890,29 +3890,29 @@ def step3():
     position:absolute;border-radius:50%;filter:blur(50px);pointer-events:none;
   }
   .ai-banner-title{
-    font-size:11px;font-weight:800;letter-spacing:.12em;
-    color:#a78bfa;margin-bottom:10px;display:flex;align-items:center;gap:6px;
+    font-size:13px;font-weight:800;letter-spacing:.08em;
+    color:#6d28d9;margin-bottom:12px;display:flex;align-items:center;gap:6px;
   }
-  .ai-dot{width:6px;height:6px;border-radius:50%;background:#a78bfa;
-    box-shadow:0 0 6px #a78bfa;display:inline-block;}
+  .ai-dot{width:8px;height:8px;border-radius:50%;background:#7c3aed;
+    box-shadow:0 0 6px #7c3aed;display:inline-block;}
   .ai-fields{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
   .ai-field{
-    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    background:#fff;border:1.5px solid rgba(139,92,246,.2);
     border-radius:12px;padding:12px 14px;
   }
-  .ai-field-icon{font-size:18px;margin-bottom:6px;}
-  .ai-field-name{font-size:12px;font-weight:800;color:#f1f5f9;margin-bottom:3px;}
-  .ai-field-dest{font-size:10px;color:#94a3b8;margin-bottom:6px;line-height:1.4;}
-  .ai-field-impact{display:flex;align-items:center;gap:4px;}
-  .ai-stars{font-size:11px;}
+  .ai-field-icon{font-size:20px;margin-bottom:6px;}
+  .ai-field-name{font-size:15px;font-weight:800;color:#1e1b4b;margin-bottom:4px;}
+  .ai-field-dest{font-size:12px;color:#4b5563;margin-bottom:8px;line-height:1.5;}
+  .ai-field-impact{display:flex;align-items:center;gap:4px;margin-bottom:6px;}
+  .ai-stars{font-size:13px;}
   .stars-high{color:#f97316;}
-  .stars-mid{color:#64748b;}
-  .ai-field-impact-label{font-size:9.5px;color:#64748b;}
+  .stars-mid{color:#d1d5db;}
+  .ai-field-impact-label{font-size:11px;color:#374151;font-weight:600;}
   .ai-badge{
     display:inline-flex;align-items:center;gap:4px;
-    background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);
-    border-radius:100px;padding:2px 8px;font-size:9px;
-    color:#c4b5fd;font-weight:700;letter-spacing:.05em;margin-top:8px;
+    background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);
+    border-radius:100px;padding:3px 10px;font-size:11px;
+    color:#6d28d9;font-weight:700;letter-spacing:.04em;margin-top:4px;
   }
 </style>
 <div class="s3-wrap">
@@ -3920,8 +3920,8 @@ def step3():
   <div class="s3-sub">AIが自動生成した内容を確認・編集できます。タイトルとキャッチコピーが再生数に最も影響します。</div>
 
   <div class="ai-banner">
-    <div class="ai-banner-glow" style="width:300px;height:300px;background:rgba(139,92,246,.12);top:-100px;right:-60px;"></div>
-    <div class="ai-banner-glow" style="width:200px;height:200px;background:rgba(249,115,22,.08);bottom:-80px;left:-40px;"></div>
+    <div class="ai-banner-glow" style="width:300px;height:300px;background:rgba(139,92,246,.08);top:-100px;right:-60px;"></div>
+    <div class="ai-banner-glow" style="width:200px;height:200px;background:rgba(249,115,22,.05);bottom:-80px;left:-40px;"></div>
 
     <div class="ai-banner-title">
       <span class="ai-dot"></span> AI が自動生成したフィールドと効果
@@ -3946,7 +3946,7 @@ def step3():
           <span class="ai-stars stars-high">★★★</span>
           <span class="ai-field-impact-label">視聴継続率に直結</span>
         </div>
-        <div class="ai-badge" style="background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.3);color:#fde68a;">🤖 AI生成</div>
+        <div class="ai-badge" style="background:rgba(251,191,36,.15);border-color:rgba(217,119,6,.4);color:#92400e;">🤖 AI生成</div>
       </div>
       <div class="ai-field">
         <div class="ai-field-icon">📄</div>
