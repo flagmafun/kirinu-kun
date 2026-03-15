@@ -907,6 +907,38 @@ div[data-testid="stPopover"] {
   min-width: 0 !important;
 }
 
+/* 採点根拠バッジボタン */
+div[data-testid="stButton"] > button[key^="score_"],
+div[data-testid="column"] div[data-testid="stButton"]:has(button[kind="secondary"]) > button {
+  /* fallback: 最初の小カラムの secondary ボタン全般には適用しない */
+}
+.score-badge-wrap div[data-testid="stButton"] > button {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%) !important;
+  color: #c7d2fe !important;
+  border: 1.5px solid rgba(139,92,246,0.5) !important;
+  border-radius: 100px !important;
+  padding: 3px 14px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  height: auto !important;
+  min-height: 0 !important;
+  line-height: 1.6 !important;
+  box-shadow: 0 2px 8px rgba(67,56,202,0.35) !important;
+  transition: box-shadow 0.15s, transform 0.1s !important;
+  width: auto !important;
+}
+.score-badge-wrap div[data-testid="stButton"] > button:hover {
+  background: linear-gradient(135deg, #312e81 0%, #6d28d9 100%) !important;
+  color: #ede9fe !important;
+  box-shadow: 0 4px 14px rgba(109,40,217,0.5) !important;
+  transform: translateY(-1px) !important;
+}
+.score-badge-wrap {
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
 /* 入力フィールドをライトに */
 div[data-testid="stTextInput"] input,
 div[data-testid="stTextArea"] textarea {
@@ -4405,11 +4437,11 @@ def step3():
         edit_col, prev_col = st.columns([3, 2])
 
         with edit_col:
-            # ℹ️ 採点根拠ダイアログ
-            _pc, _ = st.columns([2.2, 3.8])
-            with _pc:
-                if st.button("ℹ️ 採点根拠", key=f"score_{i}", use_container_width=True):
-                    _score_dialog(score, s_density, s_engage, s_complete)
+            # ℹ️ 採点根拠バッジボタン
+            st.markdown('<div class="score-badge-wrap">', unsafe_allow_html=True)
+            if st.button(f"ℹ️ 採点根拠を見る　★{score}点の理由", key=f"score_{i}"):
+                _score_dialog(score, s_density, s_engage, s_complete)
+            st.markdown('</div>', unsafe_allow_html=True)
 
             # この区間の内容
             if clip.get("transcript"):
