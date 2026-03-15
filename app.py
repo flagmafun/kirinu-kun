@@ -2647,10 +2647,12 @@ def step1():
 
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
-        clip_sec = st.slider("クリップの長さ（秒）", 20, 60, 58, key="clip_sec_s1")
+        clip_sec = st.slider("クリップの長さ（秒）", 30, 120, 60, key="clip_sec_s1")
         st.markdown(
             '<p style="font-size:11px;color:#94a3b8;margin:-6px 0 0;line-height:1.5;">'
-            '💡 30秒以上・1〜2分の動画が視聴を集める傾向にあります'
+            '💡 <strong style="color:#6366f1;">30〜120秒</strong>が最も効果的。'
+            '30秒台→最後まで見てもらいやすく再生完了率↑、'
+            '60〜120秒→内容が深く視聴維持率・保存率↑'
             '</p>',
             unsafe_allow_html=True,
         )
