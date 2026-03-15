@@ -389,6 +389,7 @@ def create_frame_image(
 
     # ── RGBA キャンバス（黒ベース） ────────────────────────────
     img  = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 255))
+    _pil_images_to_close = [img]  # GC補助用リスト
 
     # ── タイトルバー: 135度グラデーション（UIと同じ方向）──────
     grad_img = _render_gradient_135deg(CANVAS_W, title_h, bg_stops)
@@ -607,10 +608,11 @@ def create_shorts(
                 "-filter_complex", fc,
                 "-map", "[out]",
                 "-map", "1:a?",   # 音声なし動画でも失敗しない
-                "-c:v", "libx264", "-preset", "fast", "-crf", "22",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-x264-params", "no-mbtree=1:rc-lookahead=0:ref=1",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
-                "-threads", "2",
+                "-threads", "1",
                 str(output_path),
             ]
         else:
@@ -623,18 +625,22 @@ def create_shorts(
                 "-ss", str(start_sec), "-i", str(input_path),
                 "-t", str(actual_dur),
                 "-vf", crop_filter,
-                "-c:v", "libx264", "-preset", "fast", "-crf", "22",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-x264-params", "no-mbtree=1:rc-lookahead=0:ref=1",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-r", "30",
-                "-threads", "2",
+                "-threads", "1",
                 str(output_path),
             ]
 
         print(f"[CREATE_SHORTS] cmd: {' '.join(str(c) for c in cmd)}", flush=True)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        _rc = result.returncode
-        if _rc != 0:
-            err = result.stderr.decode("utf-8", errors="replace")
+        import tempfile as _tf
+        with _tf.TemporaryFile() as _stderr_tmp:
+            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=_stderr_tmp)
+            _rc = result.returncode
+            if _rc != 0:
+                _stderr_tmp.seek(0)
+                err = _stderr_tmp.read().decode("utf-8", errors="replace")
             print(f"[CREATE_SHORTS] ffmpeg FAILED rc={_rc}", flush=True)
             print(f"[CREATE_SHORTS] ffmpeg stderr:\n{err[:3000]}", flush=True)
             # 先頭と末尾の両方を表示（中間が切れても原因が見える）

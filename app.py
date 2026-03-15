@@ -3186,7 +3186,10 @@ def step1():
                             ), height=520)
                             _fpath = _upload_dir / _f_uploaded_file.name
                             with open(_fpath, "wb") as _fp:
-                                _fp.write(_f_uploaded_file.getbuffer())
+                                # getbuffer()はメモリ二重使用になるためチャンク書き込み
+                                _f_uploaded_file.seek(0)
+                                for _chunk in iter(lambda: _f_uploaded_file.read(8 * 1024 * 1024), b""):
+                                    _fp.write(_chunk)
                             if not _fpath.exists() or _fpath.stat().st_size == 0:
                                 raise RuntimeError("ファイルの保存に失敗しました")
                             _fanim1.empty()
@@ -6202,6 +6205,7 @@ def _run_pipeline(clips: list, sched: dict):
                 if _cs_result_r[0] is not None:
                     raise _cs_result_r[0]
                 _clip_times_run.append(_elapsed_r)
+                import gc as _gc; _gc.collect()  # クリップ間メモリ解放
 
                 # アップロード
                 st.write(f"☁️ **{i+1}本目: アップロード中** "
@@ -6454,6 +6458,7 @@ def _generate_pipeline(clips: list, sched: dict):
                         raise _cs_result[0]
 
                     _clip_times.append(_elapsed_final)
+                    import gc as _gc2; _gc2.collect()  # クリップ間メモリ解放
 
                     generated.append({
                         "num":         i + 1,
