@@ -5581,7 +5581,10 @@ def step5():
             var rm = Math.floor(rem_sec/60), rs = Math.floor(rem_sec%60);
             remEl.textContent = rm > 0 ? '残り約'+rm+'分'+String(rs).padStart(2,'0')+'秒' : '残り約'+Math.floor(rem_sec)+'秒';
           } else {
-            remEl.textContent = 'もう少しかかっています... しばらくお待ちください';
+            var over_sec = Math.floor((elapsed - _cko_full_ms) / 1000);
+            var ov_m = Math.floor(over_sec / 60), ov_s = over_sec % 60;
+            var over_str = ov_m > 0 ? ov_m+'分'+String(ov_s).padStart(2,'0')+'秒' : ov_s+'秒';
+            remEl.textContent = 'もう少しかかっています（推定より '+over_str+' 超過中）';
           }
         }
       }
