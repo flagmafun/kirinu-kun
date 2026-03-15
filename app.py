@@ -3217,7 +3217,7 @@ def step1():
                     _save_session(info, clips)
                     status.update(label="解析完了！", state="complete")
                     _show_stage_html(_done_ph, _make_complete_html(), height=330)
-                    import time as _tc; _tc.sleep(2.2)
+                    import time as _tc; _tc.sleep(4.5)
                     _done_ph.empty()
                     s.step = 2
                     st.rerun()
@@ -3576,7 +3576,7 @@ def step1():
                         _save_session(_finfo, _fclips)
                         _fstatus.update(label="解析完了！", state="complete")
                         _show_stage_html(_fdone_ph, _make_complete_html(), height=330)
-                        import time as _ftc; _ftc.sleep(2.2)
+                        import time as _ftc; _ftc.sleep(4.5)
                         _fdone_ph.empty()
                         s.step = 2
                         st.rerun()
