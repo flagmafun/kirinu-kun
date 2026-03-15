@@ -6044,24 +6044,28 @@ def _run_pipeline(clips: list, sched: dict):
     _user_out = OUTPUT_DIR / _uid_slug
     _user_out.mkdir(parents=True, exist_ok=True)
 
+    # ── 早期バリデーション（status を開く前にチェックして即 return）──
+    _is_file_mode = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
+    if _is_file_mode:
+        _rp_str = s.get("raw_path")
+        if not _rp_str:
+            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
+            return
+        _rp_check = Path(_rp_str)
+        if not _rp_check.exists():
+            s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
+            return
+
     _dl_ok   = False
     raw_path = None
     with st.status("処理中...", expanded=True) as status:
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
-        _is_file_mode = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
-        if _is_file_mode and s.get("raw_path"):
+        if _is_file_mode:
             raw_path = Path(s["raw_path"])
-            if raw_path.exists():
-                st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
-                _dl_ok = True
-            else:
-                s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
-                status.update(label="ファイルエラー", state="error")
-        elif _is_file_mode and not s.get("raw_path"):
-            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
-            status.update(label="ファイルエラー", state="error")
+            st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
+            _dl_ok = True
         else:
             st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
             import threading as _dl_th
@@ -6371,6 +6375,18 @@ def _generate_pipeline(clips: list, sched: dict):
     _user_out = OUTPUT_DIR / _uid_slug
     _user_out.mkdir(parents=True, exist_ok=True)
 
+    # ── 早期バリデーション（status を開く前にチェックして即 return）──
+    _is_file_mode2 = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
+    if _is_file_mode2:
+        _rp_str2 = s.get("raw_path")
+        if not _rp_str2:
+            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
+            return
+        _rp_check2 = Path(_rp_str2)
+        if not _rp_check2.exists():
+            s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
+            return
+
     generated = []
     _dl_ok    = False  # ダウンロード成功フラグ（with内でreturnしないための制御変数）
 
@@ -6378,19 +6394,11 @@ def _generate_pipeline(clips: list, sched: dict):
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
-        _is_file_mode2 = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
-        if _is_file_mode2 and s.get("raw_path"):
+        if _is_file_mode2:
             raw_path = Path(s["raw_path"])
-            if raw_path.exists():
-                st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
-                print(f"[PIPELINE] ファイルアップロードモード: {raw_path}", flush=True)
-                _dl_ok = True
-            else:
-                s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
-                status.update(label="ファイルエラー", state="error")
-        elif _is_file_mode2 and not s.get("raw_path"):
-            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
-            status.update(label="ファイルエラー", state="error")
+            st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
+            print(f"[PIPELINE] ファイルアップロードモード: {raw_path}", flush=True)
+            _dl_ok = True
         else:
             st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
             try:
