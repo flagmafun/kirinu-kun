@@ -6050,7 +6050,8 @@ def _run_pipeline(clips: list, sched: dict):
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
-        if s.get("_file_upload_mode") and s.get("raw_path"):
+        _is_file_mode = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
+        if _is_file_mode and s.get("raw_path"):
             raw_path = Path(s["raw_path"])
             if raw_path.exists():
                 st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
@@ -6058,6 +6059,9 @@ def _run_pipeline(clips: list, sched: dict):
             else:
                 s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
                 status.update(label="ファイルエラー", state="error")
+        elif _is_file_mode and not s.get("raw_path"):
+            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
+            status.update(label="ファイルエラー", state="error")
         else:
             st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
             import threading as _dl_th
@@ -6374,7 +6378,8 @@ def _generate_pipeline(clips: list, sched: dict):
         prog = st.progress(0, text="準備中...")
 
         # ① 元動画を取得（ファイルアップロード済みならダウンロードをスキップ）
-        if s.get("_file_upload_mode") and s.get("raw_path"):
+        _is_file_mode2 = s.get("_file_upload_mode") or not (video_info.get("url") or "").strip()
+        if _is_file_mode2 and s.get("raw_path"):
             raw_path = Path(s["raw_path"])
             if raw_path.exists():
                 st.write(f"✅ アップロード済みファイルを使用: `{raw_path.name}`")
@@ -6383,6 +6388,9 @@ def _generate_pipeline(clips: list, sched: dict):
             else:
                 s["pipeline_error"] = "アップロードファイルが見つかりません。もう一度ファイルを選択してください。"
                 status.update(label="ファイルエラー", state="error")
+        elif _is_file_mode2 and not s.get("raw_path"):
+            s["pipeline_error"] = "アップロードファイルのパスが失われました。もう一度ファイルをアップロードしてください。"
+            status.update(label="ファイルエラー", state="error")
         else:
             st.write(f"⬇️ 元動画をダウンロード中: `{video_info['url'][:60]}`")
             try:
