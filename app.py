@@ -2284,150 +2284,145 @@ def _get_dl_context_note(elapsed: float, speed_mbps: float = 0.0) -> str:
 
 
 def _make_analysis_stage_html(title: str, detail: str = "", note: str = "") -> str:
-    """切り抜きくんキャラクター（3D風・可愛い）によるローディングカード。
-    企画→デザイン→編集の3活動をサイクルアニメーションで表示。
-    """
+    """3D 料理鍋アニメーションによるローディングカード。"""
     return f"""
 <style>
-@keyframes as-bounce{{0%,100%{{transform:translateY(0) rotate(-1.5deg)}}50%{{transform:translateY(-12px) rotate(1.5deg)}}}}
-@keyframes as-float {{0%,100%{{transform:translateY(0);opacity:.5}}50%{{transform:translateY(-9px);opacity:1}}}}
-@keyframes as-spin  {{to{{transform:rotate(360deg)}}}}
-@keyframes as-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
-@keyframes as-snip  {{0%,100%{{transform:rotate(0deg) translate(0,0)}}40%{{transform:rotate(22deg) translate(1px,-1px)}}70%{{transform:rotate(-8deg)}}}}
-@keyframes as-phone {{0%,100%{{transform:rotate(-6deg) translateY(0)}}50%{{transform:rotate(6deg) translateY(-3px)}}}}
-@keyframes as-blink {{0%,88%,100%{{transform:scaleY(1)}}93%{{transform:scaleY(0.08)}}}}
-@keyframes as-star  {{0%,100%{{opacity:.4;transform:scale(.8) rotate(0deg)}}50%{{opacity:1;transform:scale(1.2) rotate(180deg)}}}}
-.as-card{{
-  background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
-  border:1px solid rgba(139,92,246,.4);border-radius:16px;
-  padding:18px 16px 16px;display:flex;flex-direction:column;
-  align-items:center;position:relative;overflow:hidden;
+@keyframes ck-shimmer{{0%{{background-position:-200% center}}100%{{background-position:200% center}}}}
+@keyframes ck-bubble{{0%{{transform:translateY(0) scale(.8);opacity:.9}}80%{{opacity:.4}}100%{{transform:translateY(-50px) scale(1.8);opacity:0}}}}
+@keyframes ck-steam{{0%{{transform:translateY(0) scaleX(1) rotate(0deg);opacity:.55}}100%{{transform:translateY(-70px) scaleX(.5) rotate(8deg);opacity:0}}}}
+@keyframes ck-bob{{0%,100%{{transform:translateY(0) rotate(-4deg)}}50%{{transform:translateY(-8px) rotate(4deg)}}}}
+@keyframes ck-sway{{0%,100%{{transform:translateX(0) rotate(-6deg)}}50%{{transform:translateX(5px) rotate(6deg)}}}}
+@keyframes ck-spin{{to{{transform:rotate(360deg)}}}}
+@keyframes ck-pulse{{0%,100%{{opacity:.5;transform:scale(.85)}}50%{{opacity:1;transform:scale(1.25)}}}}
+@keyframes ck-flicker{{0%,100%{{transform:scaleY(1) scaleX(1)}}50%{{transform:scaleY(1.12) scaleX(.92)}}}}
+.ck-card{{
+  background:radial-gradient(ellipse at 50% 10%,#2a1000 0%,#0a0400 75%);
+  border:1.5px solid rgba(251,146,60,.4);border-radius:18px;
+  padding:16px 14px 14px;
   font-family:-apple-system,'Hiragino Sans',sans-serif;
+  position:relative;overflow:hidden;text-align:center;
 }}
-.as-glow{{position:absolute;border-radius:50%;filter:blur(40px);pointer-events:none;}}
-.as-chara{{animation:as-bounce 2.2s ease-in-out infinite;
-  filter:drop-shadow(0 8px 20px rgba(220,80,60,.5)) drop-shadow(0 2px 8px rgba(167,139,250,.4));
-  margin-bottom:8px;}}
-.as-title{{font-size:15px;font-weight:800;margin-bottom:10px;
-  background:linear-gradient(90deg,#fbbf24,#f87171,#c084fc,#fbbf24);background-size:300%;
+.ck-glow{{position:absolute;border-radius:50%;pointer-events:none;filter:blur(45px);}}
+.ck-title{{font-size:15px;font-weight:800;margin-bottom:9px;
+  background:linear-gradient(90deg,#fbbf24,#f97316,#ef4444,#fbbf24);background-size:300%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  animation:as-shimmer 2.5s linear infinite;}}
-.as-badge{{
+  animation:ck-shimmer 2.5s linear infinite;}}
+.ck-badge{{
   display:inline-flex;align-items:center;gap:7px;
-  background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:100px;padding:6px 16px;margin-bottom:14px;
-  font-size:11.5px;color:#cbd5e1;font-weight:500;max-width:280px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.28);
+  border-radius:100px;padding:5px 15px;margin-bottom:11px;
+  font-size:11.5px;color:#fed7aa;font-weight:500;
+  max-width:290px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }}
-.as-dot{{width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;
-  animation:as-pulse 1.2s ease-in-out infinite;}}
-@keyframes as-pulse{{0%,100%{{opacity:.5;transform:scale(.8)}}50%{{opacity:1;transform:scale(1.3)}}}}
-.as-spinner{{width:22px;height:22px;border-radius:50%;
-  border:3px solid rgba(139,92,246,.2);border-top-color:#f87171;
-  animation:as-spin .7s linear infinite;}}
-.as-note{{font-size:11px;color:rgba(251,191,36,.85);text-align:center;
-  margin-top:10px;padding:5px 14px;max-width:260px;line-height:1.5;
-  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.15);
-  border-radius:10px;}}
+.ck-dot{{width:6px;height:6px;border-radius:50%;background:#f97316;flex-shrink:0;
+  animation:ck-pulse 1.2s ease-in-out infinite;}}
+.ck-spinner{{width:20px;height:20px;border-radius:50%;
+  border:2.5px solid rgba(251,146,60,.2);border-top-color:#f97316;
+  animation:ck-spin .8s linear infinite;margin:0 auto;}}
+.ck-note{{font-size:11px;color:rgba(253,186,116,.85);margin-top:10px;
+  padding:5px 14px;background:rgba(251,146,60,.07);
+  border:1px solid rgba(251,146,60,.15);border-radius:10px;line-height:1.5;}}
 </style>
-<div class="as-card">
-  <div class="as-glow" style="width:200px;height:200px;background:rgba(194,65,12,.15);top:-80px;left:-60px;"></div>
-  <div class="as-glow" style="width:150px;height:150px;background:rgba(124,58,237,.15);bottom:-60px;right:-40px;"></div>
-  <span style="position:absolute;top:8px;left:12px;font-size:12px;color:#fbbf24;animation:as-star 2.8s ease-in-out infinite;">✦</span>
-  <span style="position:absolute;top:10px;right:14px;font-size:9px;color:#f472b6;animation:as-star 3.5s ease-in-out infinite .6s;">✦</span>
-  <span style="position:absolute;bottom:40px;left:10px;font-size:8px;color:#818cf8;animation:as-star 3s ease-in-out infinite 1.2s;">✦</span>
-  <span style="position:absolute;bottom:42px;right:12px;font-size:10px;color:#fbbf24;animation:as-star 4s ease-in-out infinite .3s;">★</span>
+<div class="ck-card">
+  <div class="ck-glow" style="width:240px;height:140px;background:rgba(234,88,12,.18);top:-50px;left:50%;transform:translateX(-50%);"></div>
+  <div class="ck-glow" style="width:120px;height:120px;background:rgba(251,146,60,.12);bottom:-40px;right:-20px;"></div>
+  <div class="ck-glow" style="width:100px;height:100px;background:rgba(239,68,68,.1);bottom:-30px;left:-10px;"></div>
 
-  <div class="as-chara">
-    <svg viewBox="0 0 190 210" width="95" height="105" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="ksk" cx="40%" cy="35%"><stop offset="0%" stop-color="#FFE0B2"/><stop offset="100%" stop-color="#FFAB40"/></radialGradient>
-        <radialGradient id="ksh" cx="35%" cy="25%"><stop offset="0%" stop-color="#455A64"/><stop offset="100%" stop-color="#1A237E"/></radialGradient>
-        <radialGradient id="ksr" cx="35%" cy="20%"><stop offset="0%" stop-color="#EF5350"/><stop offset="100%" stop-color="#B71C1C"/></radialGradient>
-        <radialGradient id="ksrl" cx="35%" cy="20%"><stop offset="0%" stop-color="#FF8A80"/><stop offset="100%" stop-color="#EF5350"/></radialGradient>
-        <radialGradient id="ksey" cx="35%" cy="30%"><stop offset="0%" stop-color="#283593"/><stop offset="100%" stop-color="#0D47A1"/></radialGradient>
-        <filter id="kssh"><feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.4)"/></filter>
-        <filter id="ksglow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
+  <svg viewBox="0 0 240 170" width="210" height="149" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block;margin:0 auto 4px;">
+    <defs>
+      <linearGradient id="pg-side" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#1c0800"/>
+        <stop offset="28%" stop-color="#4a1e06"/>
+        <stop offset="58%" stop-color="#6b2e0c"/>
+        <stop offset="100%" stop-color="#2a1000"/>
+      </linearGradient>
+      <linearGradient id="pg-rim" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#a07040"/>
+        <stop offset="50%" stop-color="#6b4820"/>
+        <stop offset="100%" stop-color="#3d2408"/>
+      </linearGradient>
+      <radialGradient id="pg-liq" cx="48%" cy="42%">
+        <stop offset="0%" stop-color="#ff7c2a"/>
+        <stop offset="45%" stop-color="#e85504"/>
+        <stop offset="100%" stop-color="#7c1e00"/>
+      </radialGradient>
+      <radialGradient id="pg-lhl" cx="38%" cy="32%">
+        <stop offset="0%" stop-color="rgba(255,220,120,.75)"/>
+        <stop offset="100%" stop-color="rgba(255,100,20,.0)"/>
+      </radialGradient>
+      <radialGradient id="pg-flame" cx="50%" cy="75%">
+        <stop offset="0%" stop-color="#fff59d"/>
+        <stop offset="35%" stop-color="#ff8f00"/>
+        <stop offset="100%" stop-color="rgba(244,67,54,0)"/>
+      </radialGradient>
+      <linearGradient id="pg-lid" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#8a5828"/>
+        <stop offset="55%" stop-color="#5a3810"/>
+        <stop offset="100%" stop-color="#3a2408"/>
+      </linearGradient>
+      <filter id="pg-sh"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="rgba(0,0,0,.65)"/></filter>
+      <filter id="pg-gf"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
 
-      <ellipse cx="95" cy="200" rx="45" ry="8" fill="rgba(0,0,0,0.25)"/>
-      <path d="M40 130 Q40 200 95 200 Q150 200 150 130 Q140 118 95 116 Q50 118 40 130Z" fill="url(#ksr)"/>
-      <path d="M55 125 Q65 115 95 114 Q125 115 135 125 Q120 118 95 117 Q70 118 55 125Z" fill="rgba(255,255,255,0.18)"/>
-      <path d="M72 120 Q95 132 118 120 Q110 138 95 140 Q80 138 72 120Z" fill="#FAFAFA"/>
-      <path d="M80 122 Q95 130 110 122 Q103 134 95 136 Q87 134 80 122Z" fill="#F0F0F0"/>
-      <line x1="95" y1="138" x2="95" y2="195" stroke="#FF8A80" stroke-width="2" stroke-dasharray="3,3"/>
-      <path d="M40 130 Q40 200 60 200 Q50 170 48 140Z" fill="rgba(0,0,0,0.12)"/>
-      <path d="M150 130 Q150 200 130 200 Q140 170 142 140Z" fill="rgba(0,0,0,0.12)"/>
-      <path d="M55 128 Q28 140 16 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
-      <path d="M55 128 Q28 140 16 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
-      <circle cx="13" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
-      <g transform="translate(-4,158)" style="transform-origin:8px 8px;animation:as-snip 1.8s ease-in-out infinite;">
-        <path d="M8,8 L38,-8" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
-        <path d="M8,8 L38,-8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-        <path d="M8,8 L40,18" stroke="#B0BEC5" stroke-width="4.5" stroke-linecap="round"/>
-        <path d="M8,8 L40,18" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
-        <circle cx="3" cy="2" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
-        <circle cx="3" cy="16" r="8" fill="none" stroke="#F44336" stroke-width="3.5"/>
-        <circle cx="3" cy="2" r="4" fill="rgba(255,255,255,0.3)"/>
-        <circle cx="3" cy="16" r="4" fill="rgba(255,255,255,0.3)"/>
-      </g>
-      <path d="M135 128 Q162 140 174 162" stroke="url(#ksr)" stroke-width="18" stroke-linecap="round" fill="none"/>
-      <path d="M135 128 Q162 140 174 162" stroke="url(#ksrl)" stroke-width="12" stroke-linecap="round" fill="none"/>
-      <circle cx="177" cy="166" r="11" fill="url(#ksk)" filter="url(#kssh)"/>
-      <g transform="translate(164,144)" style="transform-origin:14px 22px;animation:as-phone 2.4s ease-in-out infinite;">
-        <rect x="0" y="0" width="28" height="44" rx="5" fill="#212121" stroke="#424242" stroke-width="1.5"/>
-        <rect x="2" y="3" width="24" height="36" rx="3" fill="#FAFAFA"/>
-        <rect x="4" y="8" width="20" height="16" rx="3" fill="#FF0000"/>
-        <polygon points="11,12 11,20 21,16" fill="white"/>
-        <text x="14" y="32" text-anchor="middle" font-size="5" fill="#333" font-weight="800" font-family="Arial,sans-serif">YouTube</text>
-        <rect x="8" y="39" width="12" height="2" rx="1" fill="#9E9E9E"/>
-        <path d="M4,5 L8,5 L6,15" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      </g>
-      <circle cx="95" cy="78" r="44" fill="url(#ksk)" filter="url(#kssh)"/>
-      <ellipse cx="78" cy="60" rx="20" ry="25" fill="rgba(255,255,255,0.18)" transform="rotate(-15 78 60)"/>
-      <path d="M48 62 Q95 54 142 62 Q138 74 95 75 Q52 74 48 62Z" fill="#263238" filter="url(#kssh)"/>
-      <path d="M50 63 Q95 56 140 63 Q136 70 95 71 Q54 70 50 63Z" fill="#37474F"/>
-      <path d="M60 62 Q95 57 130 62 Q125 66 95 67 Q65 66 60 62Z" fill="rgba(255,255,255,0.08)"/>
-      <path d="M60 62 Q62 18 95 14 Q128 18 130 62 Q112 56 95 55 Q78 56 60 62Z" fill="url(#ksh)" filter="url(#kssh)"/>
-      <ellipse cx="80" cy="30" rx="14" ry="8" fill="rgba(255,255,255,0.13)" transform="rotate(-20 80 30)"/>
-      <circle cx="95" cy="40" r="15" fill="#FDD835" stroke="#F9A825" stroke-width="2" filter="url(#ksglow)"/>
-      <circle cx="95" cy="40" r="12" fill="#FFEE58"/>
-      <circle cx="89" cy="35" r="3" fill="rgba(255,255,255,0.4)"/>
-      <text x="95" y="46" text-anchor="middle" font-size="11" font-weight="900" fill="#1A237E" font-family="'Arial Black',sans-serif">AI</text>
-      <text x="70" y="34" font-size="9" fill="#FFD700" opacity="0.9" style="animation:as-star 2s infinite;">★</text>
-      <text x="112" y="28" font-size="7" fill="#FFD700" opacity="0.7">★</text>
-      <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
-      <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
-      <g style="transform-origin:74px 80px;animation:as-blink 4s ease-in-out infinite;">
-        <ellipse cx="74" cy="80" rx="16" ry="18" fill="white"/>
-        <circle cx="76" cy="82" r="12" fill="url(#ksey)"/>
-        <circle cx="77" cy="83" r="7" fill="#0D0D2B"/>
-        <circle cx="80" cy="77" r="4" fill="white"/>
-        <circle cx="72" cy="85" r="2" fill="white" opacity="0.7"/>
-      </g>
-      <g style="transform-origin:116px 80px;animation:as-blink 4s ease-in-out infinite;">
-        <ellipse cx="116" cy="80" rx="16" ry="18" fill="white"/>
-        <circle cx="118" cy="82" r="12" fill="url(#ksey)"/>
-        <circle cx="119" cy="83" r="7" fill="#0D0D2B"/>
-        <circle cx="122" cy="77" r="4" fill="white"/>
-        <circle cx="114" cy="85" r="2" fill="white" opacity="0.7"/>
-      </g>
-      <text x="64" y="72" font-size="10" fill="#FFD700" style="animation:as-star 1.5s infinite;">✦</text>
-      <text x="122" y="70" font-size="8" fill="#FFD700" style="animation:as-star 1.5s infinite .3s;">✦</text>
-      <ellipse cx="60" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
-      <ellipse cx="130" cy="94" rx="14" ry="9" fill="#FF8A80" opacity="0.55"/>
-      <path d="M78 100 Q95 116 112 100" stroke="#C0392B" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <path d="M81 100 Q95 112 109 100" fill="white"/>
-      <path d="M81 100 Q95 112 109 100" stroke="#E57373" stroke-width="1" fill="none"/>
-      <ellipse cx="95" cy="94" rx="4" ry="3" fill="#FFAB40" opacity="0.7"/>
-    </svg>
-  </div>
+    <ellipse cx="120" cy="162" rx="78" ry="9" fill="rgba(0,0,0,.4)"/>
 
-  <div class="as-title">{title}</div>
-  {'<div class="as-badge"><span class="as-dot"></span><span>' + detail + '</span></div>' if detail else ''}
-  <div class="as-spinner"></div>
-  {'<div class="as-note">' + note + '</div>' if note else ''}
+    <g style="animation:ck-flicker .35s ease-in-out infinite alternate;">
+      <ellipse cx="120" cy="150" rx="42" ry="7" fill="rgba(255,140,0,.14)"/>
+      <path d="M88,148 Q100,124 120,140 Q140,124 152,148" fill="url(#pg-flame)" opacity=".85"/>
+      <path d="M94,148 Q106,130 120,141 Q134,130 146,148" fill="rgba(255,240,80,.35)"/>
+    </g>
+    <g style="animation:ck-flicker .28s ease-in-out infinite alternate .12s;">
+      <path d="M96,149 Q108,134 120,143 Q132,134 144,149" fill="url(#pg-flame)" opacity=".55"/>
+    </g>
+
+    <ellipse cx="120" cy="148" rx="64" ry="13" fill="#1c0800" filter="url(#pg-sh)"/>
+    <path d="M56,148 Q56,92 68,86 L172,86 Q184,92 184,148 Z" fill="url(#pg-side)"/>
+    <path d="M68,86 L78,148" stroke="rgba(255,255,255,.05)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M172,86 L162,148" stroke="rgba(0,0,0,.25)" stroke-width="10" stroke-linecap="round"/>
+    <ellipse cx="120" cy="86" rx="56" ry="15" fill="url(#pg-rim)" filter="url(#pg-sh)"/>
+    <ellipse cx="120" cy="83" rx="52" ry="11" fill="none" stroke="rgba(255,210,120,.3)" stroke-width="1.5"/>
+
+    <ellipse cx="120" cy="88" rx="50" ry="13" fill="url(#pg-liq)"/>
+    <ellipse cx="112" cy="85" rx="30" ry="8" fill="url(#pg-lhl)" opacity=".95"/>
+    <ellipse cx="120" cy="88" rx="50" ry="13" fill="none" stroke="rgba(255,200,80,.18)" stroke-width="1.5">
+      <animate attributeName="rx" values="50;47;50" dur="1.6s" repeatCount="indefinite"/>
+      <animate attributeName="ry" values="13;11.5;13" dur="1.6s" repeatCount="indefinite"/>
+    </ellipse>
+
+    <path d="M62,100 Q32,94 30,108 Q28,122 62,118" stroke="url(#pg-rim)" stroke-width="11" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
+    <path d="M62,100 Q32,94 30,108 Q28,122 62,118" stroke="rgba(255,200,100,.2)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M178,100 Q208,94 210,108 Q212,122 178,118" stroke="url(#pg-rim)" stroke-width="11" fill="none" stroke-linecap="round" filter="url(#pg-sh)"/>
+    <path d="M178,100 Q208,94 210,108 Q212,122 178,118" stroke="rgba(255,200,100,.2)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+    <ellipse cx="120" cy="78" rx="56" ry="15" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
+    <ellipse cx="111" cy="74" rx="30" ry="8" fill="rgba(255,255,255,.09)" transform="rotate(-8 111 74)"/>
+    <ellipse cx="120" cy="70" rx="14" ry="6" fill="url(#pg-lid)" filter="url(#pg-sh)"/>
+    <ellipse cx="116" cy="68" rx="7" ry="3" fill="rgba(255,255,255,.12)"/>
+
+    <circle cx="104" cy="86" r="4.5" fill="rgba(255,210,110,.75)" style="animation:ck-bubble 1.5s ease-out infinite;"/>
+    <circle cx="128" cy="84" r="3" fill="rgba(255,160,60,.85)" style="animation:ck-bubble 1.9s ease-out infinite .55s;"/>
+    <circle cx="114" cy="90" r="3.5" fill="rgba(255,230,130,.65)" style="animation:ck-bubble 1.3s ease-out infinite .2s;"/>
+    <circle cx="138" cy="87" r="4" fill="rgba(255,130,40,.7)" style="animation:ck-bubble 2.1s ease-out infinite 1s;"/>
+    <circle cx="96" cy="89" r="2.5" fill="rgba(255,200,80,.8)" style="animation:ck-bubble 1.7s ease-out infinite 1.3s;"/>
+
+    <path d="M100,62 Q93,46 100,30 Q107,14 100,0" stroke="rgba(255,255,255,.22)" stroke-width="5.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite;"/>
+    <path d="M120,60 Q113,42 120,26 Q127,10 120,-2" stroke="rgba(255,255,255,.18)" stroke-width="4.5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite .7s;"/>
+    <path d="M140,62 Q133,46 140,30 Q147,16 140,2" stroke="rgba(255,255,255,.2)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:ck-steam 2.2s ease-out infinite 1.4s;"/>
+
+    <text x="22" y="78" font-size="20" style="animation:ck-bob 2.3s ease-in-out infinite;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🥕</text>
+    <text x="186" y="72" font-size="18" style="animation:ck-bob 2.9s ease-in-out infinite .4s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🧅</text>
+    <text x="14" y="118" font-size="16" style="animation:ck-sway 3.1s ease-in-out infinite .9s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🌿</text>
+    <text x="192" y="122" font-size="17" style="animation:ck-bob 2.5s ease-in-out infinite 1.1s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">🍖</text>
+    <text x="44" y="52" font-size="13" style="animation:ck-sway 3.6s ease-in-out infinite .3s;opacity:.85;">⭐</text>
+    <text x="178" y="46" font-size="11" style="animation:ck-sway 2.7s ease-in-out infinite .8s;opacity:.75;">✨</text>
+    <text x="60" y="36" font-size="10" style="animation:ck-bob 4s ease-in-out infinite 1.5s;opacity:.65;">🌶️</text>
+    <text x="158" y="34" font-size="10" style="animation:ck-sway 3.8s ease-in-out infinite .6s;opacity:.6;">🧄</text>
+  </svg>
+
+  <div class="ck-title">{title}</div>
+  {{'<div class="ck-badge"><span class="ck-dot"></span><span>' + detail + '</span></div>' if detail else ''}}
+  <div class="ck-spinner"></div>
+  {{'<div class="ck-note">' + note + '</div>' if note else ''}}
 </div>
 """
 
