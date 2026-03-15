@@ -3566,8 +3566,10 @@ def step2():
         🎨 Shorts のデザインを設定しよう
       </div>
       <div style="font-size:13px;color:#64748b;margin-bottom:8px;">
-        各動画に表示されるタイトルカードと底部画像のデザインをまとめて設定します。
-        後からクリップ確認画面でも調整できます。
+        全クリップを<strong style="color:#1e293b;">同じデザインで統一</strong>するか、
+        <strong style="color:#1e293b;">クリップごとにバラバラ</strong>にするかを選べます。<br>
+        統一→チャンネルのブランドが視聴者に伝わりやすくなる。
+        バラバラ→どのデザインが伸びるか自動でA/Bテストできる。
       </div>
     </div>
     """, unsafe_allow_html=True)
