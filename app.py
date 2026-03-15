@@ -5664,6 +5664,111 @@ def step5():
             else f"▶️  {len(enabled_clips)} 本のショートを作成・予約投稿"
         )
 
+        # ── JS フルスクリーンオーバーレイ（ボタンクリック瞬間に貼る）──
+        import streamlit.components.v1 as _cv1_overlay
+        _cv1_overlay.html("""
+<script>
+(function(){
+  var OVERLAY_ID = 'ck-pot-overlay-v2';
+  function removeOverlay(){
+    var el = window.parent.document.getElementById(OVERLAY_ID);
+    if(el){ el.style.transition='opacity .5s'; el.style.opacity='0'; setTimeout(function(){el.remove();},520); }
+  }
+  function attachBtn(){
+    var par = window.parent.document;
+    // btn_generate ボタン（primary かつ generate キー）を探す
+    var btns = par.querySelectorAll('[data-testid="stButton"] button');
+    var btn = null;
+    for(var i=0;i<btns.length;i++){
+      if(btns[i].getAttribute('kind')==='primary' || btns[i].classList.contains('st-primary')){
+        btn = btns[i]; break;
+      }
+    }
+    if(!btn){ setTimeout(attachBtn, 250); return; }
+    btn.addEventListener('click', function showOverlay(){
+      if(par.getElementById(OVERLAY_ID)) return;
+      var d = par.createElement('div');
+      d.id = OVERLAY_ID;
+      d.innerHTML = `<style>
+        @keyframes cko-flicker{0%,100%{transform:scaleY(1);opacity:.9}40%{transform:scaleY(1.2);opacity:1}70%{transform:scaleY(.9);opacity:.85}}
+        @keyframes cko-bubble{0%{transform:translateY(0) scale(.7);opacity:.9}100%{transform:translateY(-50px) scale(2);opacity:0}}
+        @keyframes cko-steam{0%{opacity:.6;transform:translateY(0)}100%{opacity:0;transform:translateY(-70px)}}
+        @keyframes cko-ladle{0%{transform:rotate(-25deg)}50%{transform:rotate(35deg) translateX(12px)}100%{transform:rotate(-25deg)}}
+        @keyframes cko-bob{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+        @keyframes cko-spin{to{transform:rotate(360deg)}}
+        @keyframes cko-shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+        @keyframes cko-boil{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(-14px) scale(1.2)}80%{transform:translateY(-6px) scale(1.08)}}
+        #${OVERLAY_ID}{position:fixed;inset:0;z-index:2147483647;background:radial-gradient(ellipse at 50% 0%,#3a1400 0%,#0d0400 65%);
+          display:flex;flex-direction:column;align-items:center;justify-content:center;
+          font-family:-apple-system,'Hiragino Sans',sans-serif;}
+        .cko-title{font-size:18px;font-weight:800;margin:10px 0 6px;
+          background:linear-gradient(90deg,#fbbf24,#f97316,#ef4444,#fbbf24);background-size:300%;
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+          animation:cko-shimmer 2s linear infinite;}
+        .cko-sub{font-size:13px;color:rgba(253,186,116,.8);margin-bottom:16px;}
+        .cko-spinner{width:26px;height:26px;border-radius:50%;border:3px solid rgba(251,146,60,.2);border-top-color:#f97316;animation:cko-spin .75s linear infinite;margin:0 auto;}
+      </style>
+      <svg viewBox="0 0 260 185" width="220" height="158" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+        <defs>
+          <linearGradient id="ko-side" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1a0700"/><stop offset="55%" stop-color="#7a3410"/><stop offset="100%" stop-color="#200900"/></linearGradient>
+          <linearGradient id="ko-rim" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c09050"/><stop offset="100%" stop-color="#3e2408"/></linearGradient>
+          <radialGradient id="ko-liq" cx="40%" cy="35%"><stop offset="0%" stop-color="#ff9d50"/><stop offset="60%" stop-color="#c03a00"/><stop offset="100%" stop-color="#6a1500"/></radialGradient>
+          <radialGradient id="ko-fl1" cx="50%" cy="80%"><stop offset="0%" stop-color="#fff9c4"/><stop offset="40%" stop-color="#ffb300"/><stop offset="100%" stop-color="rgba(183,28,28,0)"/></radialGradient>
+          <linearGradient id="ko-ladle" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#d8d8d8"/><stop offset="100%" stop-color="#787878"/></linearGradient>
+          <mask id="ko-rim-mask"><rect x="0" y="0" width="260" height="185" fill="white"/><ellipse cx="130" cy="88" rx="52" ry="12" fill="black"/></mask>
+        </defs>
+        <ellipse cx="130" cy="178" rx="85" ry="10" fill="rgba(0,0,0,.45)"/>
+        <g style="animation:cko-flicker .5s ease-in-out infinite alternate">
+          <path d="M82,164 Q100,130 130,150 Q160,130 178,164" fill="url(#ko-fl1)" opacity=".9"/>
+        </g>
+        <ellipse cx="130" cy="163" rx="70" ry="14" fill="#180700"/>
+        <path d="M60,163 Q60,98 74,90 L186,90 Q200,98 200,163 Z" fill="url(#ko-side)"/>
+        <ellipse cx="130" cy="92" rx="55" ry="15" fill="url(#ko-liq)"/>
+        <text x="97" y="88" font-size="18" style="animation:cko-boil 2.1s ease-in-out infinite">🥩</text>
+        <text x="127" y="85" font-size="16" style="animation:cko-boil 2.8s ease-in-out infinite .5s">🥕</text>
+        <text x="148" y="87" font-size="16" style="animation:cko-boil 2.0s ease-in-out infinite 1s">🥦</text>
+        <text x="112" y="90" font-size="15" style="animation:cko-boil 3.2s ease-in-out infinite .3s">🧅</text>
+        <text x="141" y="89" font-size="14" style="animation:cko-boil 2.6s ease-in-out infinite 1.8s">🍄</text>
+        <ellipse cx="130" cy="90" rx="62" ry="17" fill="url(#ko-rim)" mask="url(#ko-rim-mask)"/>
+        <path d="M66,108 Q32,100 30,116 Q28,132 66,128" stroke="url(#ko-rim)" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <path d="M194,108 Q228,100 230,116 Q232,132 194,128" stroke="url(#ko-rim)" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <g style="transform-origin:146px 84px;animation:cko-ladle 2.4s ease-in-out infinite">
+          <line x1="146" y1="84" x2="168" y2="30" stroke="url(#ko-ladle)" stroke-width="4.5" stroke-linecap="round"/>
+          <ellipse cx="168" cy="27" rx="9" ry="6.5" fill="url(#ko-ladle)"/>
+        </g>
+        <circle cx="110" cy="88" r="5" fill="rgba(255,220,120,.82)" style="animation:cko-bubble 1.1s ease-out infinite"/>
+        <circle cx="133" cy="86" r="4" fill="rgba(255,170,60,.9)" style="animation:cko-bubble 1.5s ease-out infinite .35s"/>
+        <circle cx="148" cy="89" r="5" fill="rgba(255,130,40,.78)" style="animation:cko-bubble 1.7s ease-out infinite .65s"/>
+        <path d="M104,72 Q96,52 104,34" stroke="rgba(255,255,255,.3)" stroke-width="6" fill="none" stroke-linecap="round" style="animation:cko-steam 1.7s ease-out infinite"/>
+        <path d="M130,68 Q122,48 130,28" stroke="rgba(255,240,200,.25)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:cko-steam 2s ease-out infinite .5s"/>
+        <path d="M156,72 Q148,52 156,34" stroke="rgba(255,255,255,.28)" stroke-width="5" fill="none" stroke-linecap="round" style="animation:cko-steam 1.6s ease-out infinite 1s"/>
+        <text x="10" y="80" font-size="20" style="animation:cko-bob 2.4s ease-in-out infinite">🥕</text>
+        <text x="202" y="74" font-size="18" style="animation:cko-bob 3s ease-in-out infinite .4s">🧅</text>
+        <text x="206" y="128" font-size="18" style="animation:cko-bob 2.6s ease-in-out infinite 1s">🍖</text>
+        <text x="6" y="128" font-size="16" style="animation:cko-bob 3.2s ease-in-out infinite .8s">🌿</text>
+      </svg>
+      <div class="cko-title">🎬 クリップを調理中...</div>
+      <div class="cko-sub">動画のおいしいところを抽出しています</div>
+      <div class="cko-spinner"></div>`;
+      d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;opacity:1;';
+      par.body.appendChild(d);
+      // Streamlit の running 状態が終わったら自動除去
+      var poll = setInterval(function(){
+        var stopBtn = par.querySelector('button[aria-label="Stop"]');
+        if(!stopBtn){
+          removeOverlay();
+          clearInterval(poll);
+        }
+      }, 400);
+      // 最大5分で強制除去（安全策）
+      setTimeout(function(){ removeOverlay(); clearInterval(poll); }, 300000);
+    }, {once: false});
+  }
+  attachBtn();
+})();
+</script>
+""".replace('${OVERLAY_ID}', OVERLAY_ID if False else 'ck-pot-overlay-v2'), height=0)
+
         col_back, col_run = st.columns([1, 3])
         with col_back:
             if st.button("← 戻る", key="back5", disabled=s.running):
