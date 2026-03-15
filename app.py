@@ -5581,10 +5581,10 @@ def step5():
             var rm = Math.floor(rem_sec/60), rs = Math.floor(rem_sec%60);
             remEl.textContent = rm > 0 ? '残り約'+rm+'分'+String(rs).padStart(2,'0')+'秒' : '残り約'+Math.floor(rem_sec)+'秒';
           } else {
-            var over_sec = Math.floor((elapsed - _cko_full_ms) / 1000);
-            var ov_m = Math.floor(over_sec / 60), ov_s = over_sec % 60;
-            var over_str = ov_m > 0 ? ov_m+'分'+String(ov_s).padStart(2,'0')+'秒' : ov_s+'秒';
-            remEl.textContent = 'もう少しかかっています（推定より '+over_str+' 超過中）';
+            var tot_sec = Math.floor(elapsed / 1000);
+            var tot_m = Math.floor(tot_sec / 60), tot_s = tot_sec % 60;
+            var tot_str = tot_m > 0 ? tot_m+'分'+String(tot_s).padStart(2,'0')+'秒' : tot_s+'秒';
+            remEl.textContent = 'じっくり調理中... 経過 '+tot_str;
           }
         }
       }
