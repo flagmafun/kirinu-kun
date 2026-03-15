@@ -4951,6 +4951,15 @@ def step5():
     render_stepbar(5)
     render_video_banner()
 
+    # ── パイプライン完了シグナル（オーバーレイ除去用） ────────────────────
+    # _pipeline_ran=="done" の時だけ1回だけ親ウィンドウに完了フラグを立てる
+    if s.get("_pipeline_ran") == "done":
+        import streamlit.components.v1 as _cv1_done_sig
+        _cv1_done_sig.html(
+            "<script>try{window.parent._ck_pipeline_done_v2=Date.now();}catch(e){}</script>",
+            height=0,
+        )
+
     # ── 使用量メーター ─────────────────────────────────────────────────
     if _is_multi_user_mode():
         _uid_s5 = s.get("user_id", "")
@@ -5600,9 +5609,15 @@ def step5():
         }
       }, 1000);
 
-      // Stop ボタン「出現→消滅」で除去（親ウィンドウで実行）
+      // 完了検知: 優先①パイプライン完了シグナル / 優先②Stopボタン出現→消滅
       WIN._cko_poll_v2 = WIN.setInterval(function(){
-        var stopBtn = par.querySelector('button[aria-label="Stop"]');
+        // ① Python側が st.rerun() 後に window.parent._ck_pipeline_done_v2 を設定
+        if(WIN._ck_pipeline_done_v2 && WIN._ck_pipeline_done_v2 > (WIN._cko_start_v2||0)){
+          _cko_remove(); return;
+        }
+        // ② Stopボタン（Streamlit バージョンごとにaria-labelが異なるため広いセレクタ）
+        var stopBtn = par.querySelector('button[aria-label*="Stop"]')
+                   || par.querySelector('[data-testid="stStatusWidget"] button');
         if(stopBtn){ WIN._cko_seen_stop_v2 = true; }
         else if(WIN._cko_seen_stop_v2){ _cko_remove(); }
       }, 300);
