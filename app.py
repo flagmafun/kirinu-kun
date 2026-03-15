@@ -5412,6 +5412,26 @@ def step5():
             else f"▶️  {len(enabled_clips)} 本のショートを作成・予約投稿"
         )
 
+        # ── オーバーレイ推定時間をPythonで計算（クリップ数・動画尺・モードから） ──
+        _ov_n    = len(enabled_clips)
+        _ov_vi   = s.get("video_info") or {}
+        _ov_dur  = _ov_vi.get("duration", 0) or 0
+        _ov_file = s.get("_file_upload_mode") or not _ov_vi.get("url", "").strip()
+        # ダウンロード推定（動画尺の10%、60〜360秒に収める）
+        _ov_dl   = 0 if _ov_file else max(60, min(360, _ov_dur * 0.10))
+        # クリップ平均尺
+        _ov_cdurs = [c.get("end", 60) - (c.get("start") or 0) for c in enabled_clips if c.get("end")]
+        _ov_cavg  = sum(_ov_cdurs) / len(_ov_cdurs) if _ov_cdurs else 60.0
+        # エンコード推定（ultrafast: 実時間の0.4倍, 最短15秒）
+        _ov_enc  = max(15, _ov_cavg * 0.4)
+        # アップロード推定（DLのみモードなら0、通常35秒/本）
+        _ov_up   = 0 if _want_dl else 35
+        _ov_est_sec  = _ov_dl + _ov_n * (_ov_enc + _ov_up)
+        _ov_est_ms   = max(30000, int(_ov_est_sec * 1000))
+        _ov_est_min  = max(1, round(_ov_est_sec / 60))
+        _ov_title_txt = f"🎬 {_ov_n}本のクリップを調理中..."
+        _ov_sub_txt   = (f"{_ov_n}本を生成中　推定約{_ov_est_min}分" if _want_dl
+                         else f"{_ov_n}本を生成・投稿中　推定約{_ov_est_min}分")
         # ── JS フルスクリーンオーバーレイ（ボタンクリック瞬間に貼る）──
         import streamlit.components.v1 as _cv1_overlay
         _cv1_overlay.html("""
@@ -5495,8 +5515,8 @@ def step5():
         <text x="206" y="128" font-size="18" style="animation:cko-bob 2.6s ease-in-out infinite 1s">🍖</text>
         <text x="6" y="128" font-size="16" style="animation:cko-bob 3.2s ease-in-out infinite .8s">🌿</text>
       </svg>
-      <div class="cko-title">🎬 クリップを調理中...</div>
-      <div class="cko-sub">動画のおいしいところを抽出しています</div>
+      <div class="cko-title">__OV_TITLE__</div>
+      <div class="cko-sub">__OV_SUB__</div>
       <div class="ck-ring-wrap" style="margin-top:14px;display:flex;flex-direction:column;align-items:center;gap:6px;">
         <svg width="110" height="110" viewBox="0 0 110 110">
           <defs>
@@ -5520,21 +5540,23 @@ def step5():
       d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;opacity:1;';
       par.body.appendChild(d);
       // リングゲージと残り時間を経過時間ベースで更新
-      var _cko_start = Date.now();
-      var _cko_max_pct = 85;   // 最大85%（完了まで自動で100%にしない）
-      var _cko_full_ms = 600000; // 10分で85%想定
+      var _cko_start   = Date.now();
+      var _cko_max_pct = 85;         // 最大85%（完了まで自動で100%にしない）
+      var _cko_full_ms = __EST_MS__; // Python側で計算した推定時間(ms)
       function _cko_update(){
-        var elapsed = Date.now() - _cko_start;
-        var pct = Math.min(_cko_max_pct, Math.round(elapsed / _cko_full_ms * 100));
-        var rem_sec = Math.max(0, (_cko_full_ms - elapsed) / 1000);
-        var pctEl  = par.getElementById('cko-ring-pct');
-        var remEl  = par.getElementById('cko-ring-rem');
-        var arcEl  = par.getElementById('cko-ring-arc');
+        var elapsed  = Date.now() - _cko_start;
+        var pct      = Math.min(_cko_max_pct, Math.round(elapsed / _cko_full_ms * _cko_max_pct));
+        var rem_sec  = Math.max(0, (_cko_full_ms - elapsed) / 1000);
+        var pctEl    = par.getElementById('cko-ring-pct');
+        var remEl    = par.getElementById('cko-ring-rem');
+        var arcEl    = par.getElementById('cko-ring-arc');
         if(pctEl) pctEl.textContent = pct + '%';
         if(arcEl) arcEl.style.strokeDashoffset = String(289 * (1 - pct / 100));
         if(remEl){
-          if(elapsed < 8000){
-            remEl.textContent = '残り時間推定中...';
+          if(elapsed < 3000){
+            // 最初の3秒は計算中
+            var rm0 = Math.floor(rem_sec / 60), rs0 = Math.floor(rem_sec % 60);
+            remEl.textContent = rm0 > 0 ? '残り約' + rm0 + '分' + String(rs0).padStart(2,'0') + '秒（推定）' : '残り約' + Math.floor(rem_sec) + '秒（推定）';
           } else {
             var rm = Math.floor(rem_sec / 60), rs = Math.floor(rem_sec % 60);
             remEl.textContent = rm > 0 ? '残り約' + rm + '分' + String(rs).padStart(2,'0') + '秒' : '残り約' + Math.floor(rem_sec) + '秒';
@@ -5563,7 +5585,10 @@ def step5():
   attachBtn();
 })();
 </script>
-""".replace('${OVERLAY_ID}', OVERLAY_ID if False else 'ck-pot-overlay-v2'), height=0)
+""".replace('${OVERLAY_ID}', 'ck-pot-overlay-v2'
+   ).replace('__EST_MS__',   str(_ov_est_ms)
+   ).replace('__OV_TITLE__', _ov_title_txt
+   ).replace('__OV_SUB__',   _ov_sub_txt), height=0)
 
         col_back, col_run = st.columns([1, 3])
         with col_back:
@@ -6021,6 +6046,14 @@ def _run_pipeline(clips: list, sched: dict):
 
     _dl_ok   = False
     raw_path = None
+    # ── ダウンロード＆クリップ処理の推定時間を計算 ──
+    _rp_dur    = (video_info or {}).get("duration", 0) or 0
+    _rp_cdurs  = [c.get("end", 60) - (c.get("start") or 0) for c in clips if c.get("end")]
+    _rp_cavg   = sum(_rp_cdurs) / len(_rp_cdurs) if _rp_cdurs else 60.0
+    _rp_est_dl = 0 if _is_file_mode else max(60, min(360, _rp_dur * 0.10))  # ダウンロード推定
+    _rp_est_enc = max(15, _rp_cavg * 0.4)   # エンコード推定（ultrafast: 0.4倍速）
+    _rp_est_up  = 35                          # アップロード推定
+    _rp_est_total = _rp_est_dl + len(clips) * (_rp_est_enc + _rp_est_up)
     # 鍋アニメ用プレースホルダ（st.statusの外に作成 → 白ボックスに覆われない）
     _pipeline_anim_r = st.empty()
     with st.status("処理中...", expanded=False) as status:
@@ -6121,14 +6154,15 @@ def _run_pipeline(clips: list, sched: dict):
                     _detail = f"YouTube に接続中... {int(_el)}秒"
                     _note   = _get_wait_note(_el)
 
-                # 経過時間ベースでpct推定（ダウンロード = 全体の0→30%）
-                _dl_pct = min(29, int(_el / 120 * 30))
+                # 推定ダウンロード時間ベースでpct・残り時間を計算
+                _dl_pct = min(29, int(_el / max(1, _rp_est_dl) * 30))
+                _dl_remain = max(0.0, _rp_est_dl - _el) + len(clips) * (_rp_est_enc + _rp_est_up)
                 _show_stage_html(_dl_ph, _make_analysis_stage_html(
                     "元動画をダウンロード中",
                     _detail,
                     note=_note,
                     pct=_dl_pct,
-                    remaining=None,
+                    remaining=_dl_remain,
                 ), height=420)
 
             _dl_ph.empty()
@@ -6264,11 +6298,12 @@ def _run_pipeline(clips: list, sched: dict):
                 import gc as _gc; _gc.collect()  # クリップ間メモリ解放
 
                 # アップロード（アニメ表示してから同期実行）
-                _up_pct_r = int((i + 0.75) / len(clips) * 100)
+                _up_pct_r    = int((i + 0.75) / len(clips) * 100)
+                _up_remain_r = _rp_est_up * (len(clips) - i - 1 + 0.25)
                 _show_stage_html(_time_ph_r, _make_analysis_stage_html(
                     f"☁️ クリップ {i+1}/{len(clips)} をYouTubeに投稿中",
                     f"予約投稿: {jst_dt.strftime('%Y/%m/%d %H:%M')} JST",
-                    pct=_up_pct_r, remaining=None,
+                    pct=_up_pct_r, remaining=_up_remain_r,
                 ), height=520)
                 video_id = upload_shorts(
                     shorts_path, title, description, tags, utc_dt, category,
@@ -6374,6 +6409,13 @@ def _generate_pipeline(clips: list, sched: dict):
     generated = []
     _dl_ok    = False  # ダウンロード成功フラグ（with内でreturnしないための制御変数）
 
+    # ── 推定時間を計算 ──
+    _gp_dur    = (video_info or {}).get("duration", 0) or 0
+    _gp_cdurs  = [c.get("end", 60) - (c.get("start") or 0) for c in clips if c.get("end")]
+    _gp_cavg   = sum(_gp_cdurs) / len(_gp_cdurs) if _gp_cdurs else 60.0
+    _gp_est_dl  = 0 if _is_file_mode2 else max(60, min(360, _gp_dur * 0.10))
+    _gp_est_enc = max(15, _gp_cavg * 0.4)
+    _gp_est_total = _gp_est_dl + len(clips) * _gp_est_enc
     # 鍋アニメ用プレースホルダ（st.statusの外に作成 → 白ボックスに覆われない）
     _pipeline_anim_g = st.empty()
     with st.status("処理中...", expanded=False) as status:
@@ -6388,8 +6430,9 @@ def _generate_pipeline(clips: list, sched: dict):
             print(f"[PIPELINE] ダウンロード開始: {video_info['url'][:60]}", flush=True)
             _show_stage_html(_pipeline_anim_g, _make_analysis_stage_html(
                 "元動画をダウンロード中",
-                "YouTube から動画を取得しています...",
-                pct=15, remaining=None,
+                f"YouTube から動画を取得しています...（推定 {int(_gp_est_dl//60)+1} 分）",
+                pct=10,
+                remaining=float(_gp_est_total),
             ), height=420)
             try:
                 raw_path = download_video(video_info["url"], _user_out / "raw")
@@ -6612,6 +6655,7 @@ def _upload_pipeline():
             return
 
     results = []
+    _up_est_per = 35  # アップロード推定秒数/本
 
     # 鍋アニメ用プレースホルダ（st.statusの外に作成）
     _pipeline_anim_u = st.empty()
@@ -6632,12 +6676,13 @@ def _upload_pipeline():
                 utc_dt = None
 
             prog.progress(pct, text=f"[{i+1}/{len(generated)}] {title[:40]}")
-            # 鍋アニメ表示
-            _up_pct_u = int(i / len(generated) * 100)
+            # 鍋アニメ表示（残り時間 = 残クリップ数 × 推定秒数）
+            _up_pct_u    = int(i / len(generated) * 100)
+            _up_remain_u = float(_up_est_per * (len(generated) - i))
             _show_stage_html(_pipeline_anim_u, _make_analysis_stage_html(
                 f"☁️ クリップ {i+1}/{len(generated)} をYouTubeに投稿中",
                 f"予約投稿: {publish_jst} JST",
-                pct=_up_pct_u, remaining=None,
+                pct=_up_pct_u, remaining=_up_remain_u,
             ), height=520)
 
             try:
