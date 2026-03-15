@@ -3947,11 +3947,11 @@ def step3():
             border:1px solid rgba(251,191,36,.4);border-radius:12px;
             padding:14px 16px;font-family:-apple-system,'Hiragino Sans',sans-serif;">
   <div style="color:#fef3c7;font-weight:800;font-size:13px;margin-bottom:8px;">
-    🤖 Claude AI 未実行 — 精度が低い状態です
+    🤖 AI 未実行 — 精度が低い状態です
   </div>
   <div style="color:rgba(254,243,199,.85);font-size:11.5px;line-height:1.8;">
     現在のタイトルは<strong style="color:#fbbf24;">基本ロジック</strong>で自動生成されています。<br>
-    Claude AI で再生成すると：<br>
+    AI で再生成すると：<br>
     <span style="color:#fbbf24;">✦</span> バイラルになりやすいタイトルに改善<br>
     <span style="color:#fbbf24;">✦</span> 視聴者の心に刺さるキャッチコピーに改善<br>
     <span style="color:#fbbf24;">✦</span> 数字・フック・ターゲットを最適化
@@ -3997,9 +3997,9 @@ def step3():
                 label_visibility="collapsed",
             )
             _btn_label = (
-                "✨ Claude AIでタイトルを高精度に生成する（推奨）"
+                "✨ AIでタイトルを高精度に生成する（推奨）"
                 if _is_not_run else
-                "🔄 Claude AIで再生成"
+                "🔄 AIで再生成"
             )
             if st.button(
                 _btn_label,
@@ -4007,7 +4007,7 @@ def step3():
                 type="primary" if _is_not_run else "secondary",
                 use_container_width=True,
             ):
-                with st.spinner("Claude AI を呼び出し中…"):
+                with st.spinner("AI を呼び出し中…"):
                     _run_claude_api_on_clips(user_prompt=_user_prompt)
 
     clips = s.clips
