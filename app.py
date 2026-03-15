@@ -2639,12 +2639,52 @@ def step1():
     st.markdown("")
 
     # ── 入力方法タブ ────────────────────────────────────────
-    _tab_yt, _tab_file = st.tabs(["🔗 YouTube URL", "📁 ファイルアップロード"])
+    _tab_file, _tab_yt = st.tabs(["📁 ファイルアップロード（推奨）", "🔗 YouTube URL（不安定）"])
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # タブ①: YouTube URL
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     with _tab_yt:
+        # ── 成功/失敗条件の案内 ──
+        import streamlit.components.v1 as _cv1_yt_info
+        _cv1_yt_info.html("""
+<style>
+  body{margin:0;padding:0;font-family:-apple-system,'Hiragino Sans',sans-serif;}
+  .yt-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+  .yt-box{border-radius:12px;padding:12px 14px;}
+  .yt-ok{background:#f0fdf4;border:1.5px solid #86efac;}
+  .yt-ng{background:#fff7ed;border:1.5px solid #fdba74;}
+  .yt-box-title{font-size:12px;font-weight:800;margin-bottom:8px;}
+  .yt-ok .yt-box-title{color:#15803d;}
+  .yt-ng .yt-box-title{color:#c2410c;}
+  .yt-item{font-size:11.5px;color:#374151;line-height:2;display:flex;align-items:center;gap:5px;}
+  .yt-warn{
+    margin-top:8px;background:#fffbeb;border:1.5px solid #fcd34d;
+    border-radius:10px;padding:9px 14px;
+    font-size:11.5px;color:#92400e;line-height:1.6;
+  }
+</style>
+<div class="yt-info">
+  <div class="yt-box yt-ok">
+    <div class="yt-box-title">✅ 成功しやすい条件</div>
+    <div class="yt-item">▸ 一般公開されている動画</div>
+    <div class="yt-item">▸ 30分以内の短い動画</div>
+    <div class="yt-item">▸ 通信環境が安定している</div>
+    <div class="yt-item">▸ 日本語・英語の字幕あり</div>
+  </div>
+  <div class="yt-box yt-ng">
+    <div class="yt-box-title">⚠️ 失敗しやすい条件</div>
+    <div class="yt-item">▸ 年齢制限・メンバー限定動画</div>
+    <div class="yt-item">▸ 非公開・プレミアム限定動画</div>
+    <div class="yt-item">▸ 1時間を超える長い動画</div>
+    <div class="yt-item">▸ 地域制限のある動画</div>
+  </div>
+</div>
+<div class="yt-warn">
+  💡 失敗した場合は「ファイルアップロード（推奨）」タブから動画ファイルを直接アップロードしてください。
+</div>
+""", height=185)
+
         _last_url = (s.video_info or {}).get("url", "")
         url = st.text_input(
             "YouTube URL",
@@ -2986,7 +3026,28 @@ def step1():
 
         # st.status が折りたたまれてもエラーが見えるよう外に出す
         if _analyze_error is not None:
-            st.error(f"❌ エラー: {_analyze_error}")
+            _emsg = str(_analyze_error)
+            if "n-challenge" in _emsg or "EJS" in _emsg or "javascript runtime" in _emsg.lower():
+                _friendly = "🤖 YouTubeの認証チェック（n-challenge）に対応できませんでした。\nサーバー環境に Node.js が必要なため、このサービスでは対応が難しい動画です。"
+            elif "sign in" in _emsg.lower() or "cookies" in _emsg.lower() and "期限切れ" in _emsg:
+                _friendly = "🍪 YouTubeへのログイン認証が必要な動画、または認証の有効期限が切れています。"
+            elif "SABR" in _emsg:
+                _friendly = "📡 YouTubeの新しい配信方式（SABR）に対応できませんでした。認証なしでは取得が難しい動画です。"
+            elif "403" in _emsg:
+                _friendly = "🚫 YouTubeにアクセスを拒否されました（403エラー）。しばらく時間をおいてお試しください。"
+            elif "タイムアウト" in _emsg or "timeout" in _emsg.lower() or "2時間" in _emsg:
+                _friendly = "⏱ ダウンロードに時間がかかりすぎて自動的に中断しました。通信環境が不安定か、動画が非常に長い可能性があります。"
+            elif "private" in _emsg.lower():
+                _friendly = "🔒 非公開動画はダウンロードできません。"
+            elif "age" in _emsg.lower() or "年齢" in _emsg:
+                _friendly = "🔞 年齢制限のある動画はダウンロードできません。"
+            elif "not a playlist" in _emsg.lower() or "playlist" in _emsg.lower():
+                _friendly = "📋 プレイリストURLは対応していません。個別の動画URLを入力してください。"
+            elif "urlが" in _emsg.lower() or "invalid url" in _emsg.lower() or "unsupported url" in _emsg.lower():
+                _friendly = "🔗 URLの形式が正しくありません。YouTubeの動画URLを確認してください。"
+            else:
+                _friendly = f"❌ ダウンロードに失敗しました。\n\n（詳細: {_emsg[:300]}）"
+            st.error(f"{_friendly}\n\n💡 **「ファイルアップロード（推奨）」タブ**から動画ファイルを直接アップロードしてください。")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # タブ②: ファイルアップロード
