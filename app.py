@@ -3935,12 +3935,32 @@ def step3():
     # Claude API ステータス
     with _status_cols[1]:
         _ai_st = st.session_state.get("ai_status")
-        _show_regen_btn = False  # 「再生成」ボタンを表示するか
+        _show_regen_btn = False
+        _is_not_run = False  # 未実行フラグ（ボタンを目立たせる）
+
         if _ai_st is None:
-            st.info("🤖 Claude API: 未実行")
+            _is_not_run = True
             _show_regen_btn = True
+            import streamlit.components.v1 as _cv1_ai
+            _cv1_ai.html("""
+<div style="background:linear-gradient(135deg,#7c2d12 0%,#92400e 100%);
+            border:1px solid rgba(251,191,36,.4);border-radius:12px;
+            padding:14px 16px;font-family:-apple-system,'Hiragino Sans',sans-serif;">
+  <div style="color:#fef3c7;font-weight:800;font-size:13px;margin-bottom:8px;">
+    🤖 Claude AI 未実行 — 精度が低い状態です
+  </div>
+  <div style="color:rgba(254,243,199,.85);font-size:11.5px;line-height:1.8;">
+    現在のタイトルは<strong style="color:#fbbf24;">基本ロジック</strong>で自動生成されています。<br>
+    Claude AI で再生成すると：<br>
+    <span style="color:#fbbf24;">✦</span> バイラルになりやすいタイトルに改善<br>
+    <span style="color:#fbbf24;">✦</span> 視聴者の心に刺さるキャッチコピーに改善<br>
+    <span style="color:#fbbf24;">✦</span> 数字・フック・ターゲットを最適化
+  </div>
+</div>
+""", height=175)
+
         elif _ai_st.get("errors") and _ai_st.get("errors")[0].startswith("Anthropic API キー未設定"):
-            st.warning("⚠️ Claude API: キー未設定（ルールベースで生成）")
+            st.warning("⚠️ Claude API キー未設定\nRailway の Variables に ANTHROPIC_API_KEY を設定してください")
         elif _ai_st.get("total", 0) == 0:
             st.info("🤖 Claude API: 字幕なし（スキップ）")
             _show_regen_btn = True
@@ -3955,20 +3975,39 @@ def step3():
             _ok  = _ai_st["success"]
             _tot = _ai_st["total"]
             st.success(f"✅ Claude API: {_ok}/{_tot} クリップ成功")
-            _show_regen_btn = True  # 成功済みでも再生成できるようにする
+            _show_regen_btn = True
 
         if _show_regen_btn:
-            _user_prompt = st.text_area(
-                "✏️ 追加要望（任意）",
-                placeholder="例: ターゲットは30代男性 / 「驚き」系ワードを多用 / 英語タイトルにして",
-                key="claude_user_prompt",
-                height=80,
-                help="Claude への追加指示。空欄の場合はデフォルトのプロンプトで生成します。",
+            st.markdown(
+                "**💡 AIへの追加指示**（任意）"
+                if _is_not_run else
+                "**✏️ 追加指示を変えて再生成**（任意）"
             )
-            if st.button("🔄 Claude APIで再生成", key="btn_regen_claude",
-                         help="Claude API を直接呼び出してタイトル・説明文を再生成します",
-                         use_container_width=True):
-                with st.spinner("Claude API を呼び出し中…"):
+            _user_prompt = st.text_area(
+                "AIへの追加指示",
+                placeholder=(
+                    "指示を書くと精度がさらに上がります。例：\n"
+                    "・ターゲット: 副業を始めたい20〜30代会社員\n"
+                    "・「実は〜」「知らないと損」などのフックを多用して\n"
+                    "・驚き・緊迫感のある強いコピーにして\n"
+                    "・競合と差別化できるタイトルにして"
+                ),
+                key="claude_user_prompt",
+                height=110,
+                label_visibility="collapsed",
+            )
+            _btn_label = (
+                "✨ Claude AIでタイトルを高精度に生成する（推奨）"
+                if _is_not_run else
+                "🔄 Claude AIで再生成"
+            )
+            if st.button(
+                _btn_label,
+                key="btn_regen_claude",
+                type="primary" if _is_not_run else "secondary",
+                use_container_width=True,
+            ):
+                with st.spinner("Claude AI を呼び出し中…"):
                     _run_claude_api_on_clips(user_prompt=_user_prompt)
 
     clips = s.clips
