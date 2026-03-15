@@ -2235,9 +2235,6 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
 @keyframes as-phone {{0%,100%{{transform:rotate(-6deg) translateY(0)}}50%{{transform:rotate(6deg) translateY(-3px)}}}}
 @keyframes as-blink {{0%,88%,100%{{transform:scaleY(1)}}93%{{transform:scaleY(0.08)}}}}
 @keyframes as-star  {{0%,100%{{opacity:.4;transform:scale(.8) rotate(0deg)}}50%{{opacity:1;transform:scale(1.2) rotate(180deg)}}}}
-@keyframes as-act   {{0%,30%{{opacity:1;transform:translateY(0)}}35%,100%{{opacity:0;transform:translateY(-6px)}}}}
-@keyframes as-act2  {{0%,32%{{opacity:0}}33%,63%{{opacity:1;transform:translateY(0)}}68%,100%{{opacity:0;transform:translateY(-6px)}}}}
-@keyframes as-act3  {{0%,65%{{opacity:0}}66%,96%{{opacity:1;transform:translateY(0)}}100%{{opacity:0}}}}
 .as-card{{
   background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
   border:1px solid rgba(139,92,246,.4);border-radius:16px;
@@ -2249,17 +2246,24 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
 .as-chara{{animation:as-bounce 2.2s ease-in-out infinite;
   filter:drop-shadow(0 8px 20px rgba(220,80,60,.5)) drop-shadow(0 2px 8px rgba(167,139,250,.4));
   margin-bottom:8px;}}
-.as-title{{font-size:14px;font-weight:700;margin-bottom:3px;
+.as-title{{font-size:15px;font-weight:800;margin-bottom:10px;
   background:linear-gradient(90deg,#fbbf24,#f87171,#c084fc,#fbbf24);background-size:300%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   animation:as-shimmer 2.5s linear infinite;}}
-.as-detail{{font-size:11px;color:rgba(148,163,184,.8);margin-bottom:10px;text-align:center;}}
-.as-spinner{{width:24px;height:24px;border-radius:50%;
+.as-badge{{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:100px;padding:6px 16px;margin-bottom:14px;
+  font-size:11.5px;color:#cbd5e1;font-weight:500;max-width:280px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}}
+.as-dot{{width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;
+  animation:as-pulse 1.2s ease-in-out infinite;}}
+@keyframes as-pulse{{0%,100%{{opacity:.5;transform:scale(.8)}}50%{{opacity:1;transform:scale(1.3)}}}}
+.as-spinner{{width:22px;height:22px;border-radius:50%;
   border:3px solid rgba(139,92,246,.2);border-top-color:#f87171;
   animation:as-spin .7s linear infinite;}}
-.as-act-wrap{{position:relative;height:20px;width:100%;text-align:center;margin-bottom:10px;}}
-.as-act-lbl{{position:absolute;left:0;right:0;font-size:11px;font-weight:700;
-  border-radius:10px;padding:2px 10px;display:inline-block;}}
 </style>
 <div class="as-card">
   <div class="as-glow" style="width:200px;height:200px;background:rgba(194,65,12,.15);top:-80px;left:-60px;"></div>
@@ -2354,14 +2358,8 @@ def _make_analysis_stage_html(title: str, detail: str = "") -> str:
     </svg>
   </div>
 
-  <div class="as-act-wrap">
-    <span class="as-act-lbl" style="color:#FDD835;background:rgba(253,216,53,.15);animation:as-act 6s ease-in-out infinite;">✏️ 企画中...</span>
-    <span class="as-act-lbl" style="color:#40C4FF;background:rgba(64,196,255,.15);animation:as-act2 6s ease-in-out infinite;">🎨 デザイン中...</span>
-    <span class="as-act-lbl" style="color:#FF8A80;background:rgba(255,138,128,.15);animation:as-act3 6s ease-in-out infinite;">✂️ 編集中...</span>
-  </div>
-
   <div class="as-title">{title}</div>
-  {'<div class="as-detail">' + detail + '</div>' if detail else '<div style="height:10px;"></div>'}
+  {'<div class="as-badge"><span class="as-dot"></span><span>' + detail + '</span></div>' if detail else ''}
   <div class="as-spinner"></div>
 </div>
 """
