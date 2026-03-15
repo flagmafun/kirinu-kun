@@ -4474,25 +4474,22 @@ def step3():
 
     # ナビゲーション
     enabled_count = sum(1 for c in clips if c.get("enabled", True))
-    col_back, col_next, col_dl = st.columns([1, 2, 1])
-    with col_back:
-        if st.button("← デザイン設定", key="back3"):
-            s.step = 2
-            st.rerun()
-    with col_next:
+    if st.button("← デザイン設定に戻る", key="back3"):
+        s.step = 2
+        st.rerun()
+    st.markdown(
+        '<p style="font-size:12px;color:#64748b;margin:10px 0 4px;font-weight:600;">'
+        '▼ クリップの使い方を選んでください</p>',
+        unsafe_allow_html=True,
+    )
+    col_dl_b, col_yt_b = st.columns(2)
+    with col_dl_b:
         if st.button(
-            f"スケジュール設定へ →（{enabled_count}本）",
+            f"⬇️ ダウンロードして手動で使う（{enabled_count}本）",
+            key="dl_only3",
             type="primary", use_container_width=True,
             disabled=enabled_count == 0,
-        ):
-            s.step = 4
-            st.rerun()
-    with col_dl:
-        if st.button(
-            "⬇️ DLのみ",
-            key="dl_only3",
-            use_container_width=True,
-            disabled=enabled_count == 0,
+            help="動画ファイルをダウンロードして、自分で好きなタイミングに投稿できます",
         ):
             _now = datetime.now()
             s.schedule = {
@@ -4503,6 +4500,18 @@ def step3():
             s["_download_only_mode"] = True
             s.step = 5
             st.rerun()
+        st.caption("動画ファイルを保存 → 好きなタイミングで投稿")
+    with col_yt_b:
+        if st.button(
+            f"📅 YouTubeに自動投稿する（{enabled_count}本）",
+            key="next3_bottom",
+            type="primary", use_container_width=True,
+            disabled=enabled_count == 0,
+            help="投稿日時・タイトルを設定してYouTubeへ自動アップロードします",
+        ):
+            s.step = 4
+            st.rerun()
+        st.caption("投稿日時を設定 → YouTube に自動アップ")
 
 
 # ══════════════════════════════════════════════════════════
